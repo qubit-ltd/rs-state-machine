@@ -67,13 +67,18 @@ fn test_builder_build_creates_immutable_state_machine() {
 }
 
 #[test]
-fn test_state_machine_new_accepts_builder() {
-    let machine = StateMachine::new(create_valid_builder())
-        .expect("valid builder should create state machine");
+fn test_builder_build_accepts_exact_duplicate_transition() {
+    let mut builder = create_valid_builder();
+    builder.add_transition(JobState::New, JobEvent::Start, JobState::Running);
+
+    let machine = builder
+        .build()
+        .expect("exact duplicate transition should build");
 
     assert!(machine.contains_state(JobState::New));
     assert!(machine.is_initial_state(JobState::New));
     assert!(machine.is_final_state(JobState::Done));
+    assert_eq!(machine.transitions().len(), 3);
     assert_eq!(
         machine.transition_target(JobState::Running, JobEvent::Finish),
         Some(JobState::Done)

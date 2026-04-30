@@ -15,9 +15,7 @@ use std::hash::Hash;
 use qubit_atomic::AtomicRef;
 use qubit_cas::{CasDecision, CasError, CasExecutor, CasSuccess};
 
-use crate::{
-    StateMachineBuildError, StateMachineBuilder, StateMachineError, StateMachineResult, Transition,
-};
+use crate::{StateMachineBuilder, StateMachineError, StateMachineResult, Transition};
 
 /// Immutable finite state machine rules.
 ///
@@ -52,38 +50,31 @@ where
         StateMachineBuilder::new()
     }
 
-    /// Creates a state machine from a builder after validating the rule set.
+    /// Creates a state machine from validated builder parts.
     ///
     /// # Parameters
-    /// - `builder`: Builder containing states, terminal markers, and
-    ///   transitions.
+    /// - `builder`: Builder containing validated states and terminal markers.
+    /// - `transitions`: Validated transition set.
+    /// - `transition_map`: Lookup table keyed by `(source, event)`.
     ///
     /// # Returns
-    /// A validated immutable state machine.
+    /// An immutable state machine.
     ///
-    /// # Errors
-    /// Returns a [`StateMachineBuildError`] when an initial state, final state,
-    /// transition source, or transition target is not registered, or when two
-    /// transitions map the same `(source, event)` pair to different targets.
-    pub fn new(builder: StateMachineBuilder<S, E>) -> Result<Self, StateMachineBuildError<S, E>> {
-        Self::validate_registered_states(&builder)?;
-
-        let mut transitions = HashSet::new();
-        let mut transition_map = HashMap::new();
-        for transition in &builder.transitions {
-            let transition = *transition;
-            Self::validate_transition(&builder, transition)?;
-            Self::insert_transition(transition, &mut transitions, &mut transition_map)?;
-        }
-
-        Ok(Self {
+    /// This constructor does not validate input. Rule validation belongs to
+    /// [`StateMachineBuilder::build`].
+    pub(crate) fn new(
+        builder: StateMachineBuilder<S, E>,
+        transitions: HashSet<Transition<S, E>>,
+        transition_map: HashMap<(S, E), S>,
+    ) -> Self {
+        Self {
             states: builder.states,
             initial_states: builder.initial_states,
             final_states: builder.final_states,
             transitions,
             transition_map,
             cas_executor: CasExecutor::latency_first(),
-        })
+        }
     }
 
     /// Returns all registered states.
@@ -331,99 +322,5 @@ where
                 attempts: error.attempts(),
             },
         }
-    }
-
-    /// Validates that initial and final states are registered.
-    ///
-    /// # Parameters
-    /// - `builder`: Builder to validate.
-    ///
-    /// # Returns
-    /// `Ok(())` when all configured state sets refer to registered states.
-    ///
-    /// # Errors
-    /// Returns the first unregistered initial or final state encountered.
-    fn validate_registered_states(
-        builder: &StateMachineBuilder<S, E>,
-    ) -> Result<(), StateMachineBuildError<S, E>> {
-        for state in &builder.initial_states {
-            if !builder.states.contains(state) {
-                return Err(StateMachineBuildError::InitialStateNotRegistered { state: *state });
-            }
-        }
-        for state in &builder.final_states {
-            if !builder.states.contains(state) {
-                return Err(StateMachineBuildError::FinalStateNotRegistered { state: *state });
-            }
-        }
-        Ok(())
-    }
-
-    /// Validates that a transition only references registered states.
-    ///
-    /// # Parameters
-    /// - `builder`: Builder that owns the registered state set.
-    /// - `transition`: Transition to validate.
-    ///
-    /// # Returns
-    /// `Ok(())` when the transition source and target are registered.
-    ///
-    /// # Errors
-    /// Returns the missing source or target as a build error.
-    fn validate_transition(
-        builder: &StateMachineBuilder<S, E>,
-        transition: Transition<S, E>,
-    ) -> Result<(), StateMachineBuildError<S, E>> {
-        if !builder.states.contains(&transition.source()) {
-            return Err(StateMachineBuildError::TransitionSourceNotRegistered {
-                source: transition.source(),
-                event: transition.event(),
-                target: transition.target(),
-            });
-        }
-        if !builder.states.contains(&transition.target()) {
-            return Err(StateMachineBuildError::TransitionTargetNotRegistered {
-                source: transition.source(),
-                event: transition.event(),
-                target: transition.target(),
-            });
-        }
-        Ok(())
-    }
-
-    /// Inserts a transition into the set and lookup table.
-    ///
-    /// # Parameters
-    /// - `transition`: Transition to insert.
-    /// - `transitions`: Set used for public transition inspection.
-    /// - `transition_map`: Lookup table used for event triggering.
-    ///
-    /// # Returns
-    /// `Ok(())` when the transition is inserted or is an exact duplicate.
-    ///
-    /// # Errors
-    /// Returns a duplicate-transition error if the same source and event already
-    /// point to a different target.
-    fn insert_transition(
-        transition: Transition<S, E>,
-        transitions: &mut HashSet<Transition<S, E>>,
-        transition_map: &mut HashMap<(S, E), S>,
-    ) -> Result<(), StateMachineBuildError<S, E>> {
-        let source = transition.source();
-        let event = transition.event();
-        let target = transition.target();
-        if let Some(existing_target) = transition_map.get(&(source, event))
-            && *existing_target != target
-        {
-            return Err(StateMachineBuildError::DuplicateTransition {
-                source,
-                event,
-                existing_target: *existing_target,
-                new_target: target,
-            });
-        }
-        transitions.insert(transition);
-        transition_map.insert((source, event), target);
-        Ok(())
     }
 }
