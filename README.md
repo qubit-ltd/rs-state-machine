@@ -34,54 +34,141 @@ Use `qubit-state-machine` when you need:
 qubit-state-machine = "0.1.0"
 ```
 
-## Quick Start
+## Quick Start: Job Processing
 
 ```rust
 use qubit_state_machine::{AtomicRef, StateMachine};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum JobState {
-    New,
+    Queued,
     Running,
-    Done,
+    Succeeded,
     Failed,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum JobEvent {
     Start,
-    Finish,
+    Complete,
     Fail,
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn create_job_machine() -> Result<StateMachine<JobState, JobEvent>, Box<dyn std::error::Error>> {
     let mut builder = StateMachine::builder();
     builder.add_states(&[
-        JobState::New,
+        JobState::Queued,
         JobState::Running,
-        JobState::Done,
+        JobState::Succeeded,
         JobState::Failed,
     ]);
-    builder.set_initial_state(JobState::New);
-    builder.set_final_states(&[JobState::Done, JobState::Failed]);
-    builder.add_transition(JobState::New, JobEvent::Start, JobState::Running);
-    builder.add_transition(JobState::Running, JobEvent::Finish, JobState::Done);
+    builder.set_initial_state(JobState::Queued);
+    builder.set_final_states(&[JobState::Succeeded, JobState::Failed]);
+    builder.add_transition(JobState::Queued, JobEvent::Start, JobState::Running);
+    builder.add_transition(JobState::Running, JobEvent::Complete, JobState::Succeeded);
     builder.add_transition(JobState::Running, JobEvent::Fail, JobState::Failed);
 
-    let machine = builder.build()?;
-    let state = AtomicRef::from_value(JobState::New);
+    Ok(builder.build()?)
+}
 
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let machine = create_job_machine()?;
+
+    assert!(machine.contains_state(JobState::Running));
+    assert!(machine.is_initial_state(JobState::Queued));
+    assert!(machine.is_final_state(JobState::Succeeded));
+    assert_eq!(
+        machine.transition_target(JobState::Queued, JobEvent::Start),
+        Some(JobState::Running),
+    );
+
+    let state = AtomicRef::from_value(JobState::Queued);
     let running = machine.trigger(&state, JobEvent::Start)?;
     assert_eq!(running, JobState::Running);
     assert_eq!(*state.load(), JobState::Running);
 
-    let finished = machine.trigger_with(&state, JobEvent::Finish, |old_state, new_state| {
-        println!("state changed: {old_state:?} -> {new_state:?}");
+    let mut audit_log = Vec::new();
+    let finished = machine.trigger_with(&state, JobEvent::Complete, |old_state, new_state| {
+        audit_log.push((old_state, new_state));
     })?;
-    assert_eq!(finished, JobState::Done);
+    assert_eq!(finished, JobState::Succeeded);
+    assert_eq!(audit_log, vec![(JobState::Running, JobState::Succeeded)]);
+
+    assert!(!machine.try_trigger(&state, JobEvent::Fail));
+    assert_eq!(*state.load(), JobState::Succeeded);
 
     Ok(())
 }
+```
+
+## Build-Time Validation
+
+Invalid rules are rejected before a `StateMachine` is created.
+
+```rust
+use qubit_state_machine::{StateMachine, StateMachineBuildError};
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+enum JobState {
+    Queued,
+    Running,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+enum JobEvent {
+    Start,
+}
+
+let mut builder = StateMachine::builder();
+builder.add_state(JobState::Queued);
+builder.add_transition(JobState::Queued, JobEvent::Start, JobState::Running);
+
+let error = builder
+    .build()
+    .expect_err("transition target must be registered");
+
+assert_eq!(
+    error,
+    StateMachineBuildError::TransitionTargetNotRegistered {
+        source: JobState::Queued,
+        event: JobEvent::Start,
+        target: JobState::Running,
+    },
+);
+```
+
+## Applying Events Without Error Handling
+
+Use `try_trigger` or `try_trigger_with` when an invalid transition should be a
+simple `false` result.
+
+```rust
+use qubit_state_machine::{AtomicRef, StateMachine};
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+enum DoorState {
+    Open,
+    Closed,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+enum DoorEvent {
+    Close,
+    Reopen,
+}
+
+let mut builder = StateMachine::builder();
+builder.add_states(&[DoorState::Open, DoorState::Closed]);
+builder.add_transition(DoorState::Open, DoorEvent::Close, DoorState::Closed);
+let machine = builder.build().expect("rules should build");
+let state = AtomicRef::from_value(DoorState::Open);
+
+assert!(machine.try_trigger(&state, DoorEvent::Close));
+assert!(!machine.try_trigger_with(&state, DoorEvent::Reopen, |_, _| {
+    unreachable!("callback is skipped when transition fails");
+}));
+
+assert_eq!(*state.load(), DoorState::Closed);
 ```
 
 ## Common Next Steps

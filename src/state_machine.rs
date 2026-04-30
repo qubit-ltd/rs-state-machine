@@ -23,6 +23,55 @@ use crate::{StateMachineBuilder, StateMachineError, StateMachineResult, Transiti
 /// small enum-like types. The state machine itself is immutable and can be
 /// shared across threads; mutable current state is kept in [`AtomicRef`] and
 /// updated through [`qubit_cas::CasExecutor`].
+///
+/// # Common usage
+///
+/// Define the valid states and events, build an immutable transition table, and
+/// keep each object's current state in an [`AtomicRef`].
+///
+/// ```
+/// use qubit_state_machine::{AtomicRef, StateMachine};
+///
+/// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+/// enum JobState {
+///     Queued,
+///     Running,
+///     Succeeded,
+///     Failed,
+/// }
+///
+/// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+/// enum JobEvent {
+///     Start,
+///     Complete,
+///     Fail,
+/// }
+///
+/// fn create_job_machine() -> StateMachine<JobState, JobEvent> {
+///     let mut builder = StateMachine::builder();
+///     builder.add_states(&[
+///         JobState::Queued,
+///         JobState::Running,
+///         JobState::Succeeded,
+///         JobState::Failed,
+///     ]);
+///     builder.set_initial_state(JobState::Queued);
+///     builder.set_final_states(&[JobState::Succeeded, JobState::Failed]);
+///     builder.add_transition(JobState::Queued, JobEvent::Start, JobState::Running);
+///     builder.add_transition(JobState::Running, JobEvent::Complete, JobState::Succeeded);
+///     builder.add_transition(JobState::Running, JobEvent::Fail, JobState::Failed);
+///     builder.build().expect("job state machine should be valid")
+/// }
+///
+/// let machine = create_job_machine();
+/// let state = AtomicRef::from_value(JobState::Queued);
+///
+/// assert_eq!(machine.trigger(&state, JobEvent::Start).unwrap(), JobState::Running);
+/// assert_eq!(*state.load(), JobState::Running);
+///
+/// assert!(machine.try_trigger(&state, JobEvent::Complete));
+/// assert_eq!(*state.load(), JobState::Succeeded);
+/// ```
 #[derive(Debug, Clone)]
 pub struct StateMachine<S, E>
 where
@@ -46,6 +95,29 @@ where
     ///
     /// # Returns
     /// A new empty [`StateMachineBuilder`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use qubit_state_machine::StateMachine;
+    ///
+    /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// enum State {
+    ///     New,
+    /// }
+    ///
+    /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// enum Event {
+    ///     Start,
+    /// }
+    ///
+    /// let mut builder = StateMachine::<State, Event>::builder();
+    /// builder.add_state(State::New);
+    /// builder.set_initial_state(State::New);
+    ///
+    /// let machine = builder.build().expect("single-state machine should build");
+    /// assert!(machine.contains_state(State::New));
+    /// ```
     pub fn builder() -> StateMachineBuilder<S, E> {
         StateMachineBuilder::new()
     }
@@ -81,6 +153,22 @@ where
     ///
     /// # Returns
     /// An immutable view of the registered state set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use qubit_state_machine::StateMachine;
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum State { New, Running }
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum Event { Start }
+    /// # let mut builder = StateMachine::builder();
+    /// # builder.add_states(&[State::New, State::Running]);
+    /// # builder.add_transition(State::New, Event::Start, State::Running);
+    /// # let machine = builder.build().expect("rules should build");
+    /// assert!(machine.states().contains(&State::New));
+    /// assert_eq!(machine.states().len(), 2);
+    /// ```
     pub const fn states(&self) -> &HashSet<S> {
         &self.states
     }
@@ -89,6 +177,22 @@ where
     ///
     /// # Returns
     /// An immutable view of the initial state set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use qubit_state_machine::StateMachine;
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum State { New, Running }
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum Event { Start }
+    /// # let mut builder = StateMachine::builder();
+    /// # builder.add_states(&[State::New, State::Running]);
+    /// # builder.set_initial_state(State::New);
+    /// # builder.add_transition(State::New, Event::Start, State::Running);
+    /// # let machine = builder.build().expect("rules should build");
+    /// assert!(machine.initial_states().contains(&State::New));
+    /// ```
     pub const fn initial_states(&self) -> &HashSet<S> {
         &self.initial_states
     }
@@ -97,6 +201,22 @@ where
     ///
     /// # Returns
     /// An immutable view of the final state set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use qubit_state_machine::StateMachine;
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum State { New, Done }
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum Event { Finish }
+    /// # let mut builder = StateMachine::builder();
+    /// # builder.add_states(&[State::New, State::Done]);
+    /// # builder.set_final_state(State::Done);
+    /// # builder.add_transition(State::New, Event::Finish, State::Done);
+    /// # let machine = builder.build().expect("rules should build");
+    /// assert!(machine.final_states().contains(&State::Done));
+    /// ```
     pub const fn final_states(&self) -> &HashSet<S> {
         &self.final_states
     }
@@ -105,6 +225,32 @@ where
     ///
     /// # Returns
     /// An immutable view of the transition set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use qubit_state_machine::{StateMachine, Transition};
+    ///
+    /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// enum State {
+    ///     New,
+    ///     Running,
+    /// }
+    ///
+    /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// enum Event {
+    ///     Start,
+    /// }
+    ///
+    /// let mut builder = StateMachine::builder();
+    /// builder.add_states(&[State::New, State::Running]);
+    /// builder.add_transition(State::New, Event::Start, State::Running);
+    /// let machine = builder.build().expect("rules should build");
+    ///
+    /// assert!(machine
+    ///     .transitions()
+    ///     .contains(&Transition::new(State::New, Event::Start, State::Running)));
+    /// ```
     pub const fn transitions(&self) -> &HashSet<Transition<S, E>> {
         &self.transitions
     }
@@ -116,6 +262,22 @@ where
     ///
     /// # Returns
     /// `true` if the state is registered.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use qubit_state_machine::StateMachine;
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum State { New, Running, Detached }
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum Event { Start }
+    /// # let mut builder = StateMachine::builder();
+    /// # builder.add_states(&[State::New, State::Running]);
+    /// # builder.add_transition(State::New, Event::Start, State::Running);
+    /// # let machine = builder.build().expect("rules should build");
+    /// assert!(machine.contains_state(State::Running));
+    /// assert!(!machine.contains_state(State::Detached));
+    /// ```
     pub fn contains_state(&self, state: S) -> bool {
         self.states.contains(&state)
     }
@@ -127,6 +289,23 @@ where
     ///
     /// # Returns
     /// `true` if the state is an initial state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use qubit_state_machine::StateMachine;
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum State { New, Running }
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum Event { Start }
+    /// # let mut builder = StateMachine::builder();
+    /// # builder.add_states(&[State::New, State::Running]);
+    /// # builder.set_initial_state(State::New);
+    /// # builder.add_transition(State::New, Event::Start, State::Running);
+    /// # let machine = builder.build().expect("rules should build");
+    /// assert!(machine.is_initial_state(State::New));
+    /// assert!(!machine.is_initial_state(State::Running));
+    /// ```
     pub fn is_initial_state(&self, state: S) -> bool {
         self.initial_states.contains(&state)
     }
@@ -138,6 +317,23 @@ where
     ///
     /// # Returns
     /// `true` if the state is a final state.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use qubit_state_machine::StateMachine;
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum State { Running, Done }
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum Event { Finish }
+    /// # let mut builder = StateMachine::builder();
+    /// # builder.add_states(&[State::Running, State::Done]);
+    /// # builder.set_final_state(State::Done);
+    /// # builder.add_transition(State::Running, Event::Finish, State::Done);
+    /// # let machine = builder.build().expect("rules should build");
+    /// assert!(machine.is_final_state(State::Done));
+    /// assert!(!machine.is_final_state(State::Running));
+    /// ```
     pub fn is_final_state(&self, state: S) -> bool {
         self.final_states.contains(&state)
     }
@@ -153,6 +349,25 @@ where
     ///
     /// # Returns
     /// `Some(target)` if a transition exists, or `None` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use qubit_state_machine::StateMachine;
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum State { New, Running }
+    /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// # enum Event { Start, Finish }
+    /// # let mut builder = StateMachine::builder();
+    /// # builder.add_states(&[State::New, State::Running]);
+    /// # builder.add_transition(State::New, Event::Start, State::Running);
+    /// # let machine = builder.build().expect("rules should build");
+    /// assert_eq!(
+    ///     machine.transition_target(State::New, Event::Start),
+    ///     Some(State::Running),
+    /// );
+    /// assert_eq!(machine.transition_target(State::New, Event::Finish), None);
+    /// ```
     pub fn transition_target(&self, source: S, event: E) -> Option<S> {
         self.transition_map.get(&(source, event)).copied()
     }
@@ -170,6 +385,32 @@ where
     /// Returns [`StateMachineError::UnknownState`] when the current state is not
     /// registered. Returns [`StateMachineError::UnknownTransition`] when the
     /// current state is registered but has no transition for `event`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use qubit_state_machine::{AtomicRef, StateMachine};
+    ///
+    /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// enum State {
+    ///     New,
+    ///     Running,
+    /// }
+    ///
+    /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// enum Event {
+    ///     Start,
+    /// }
+    ///
+    /// let mut builder = StateMachine::builder();
+    /// builder.add_states(&[State::New, State::Running]);
+    /// builder.add_transition(State::New, Event::Start, State::Running);
+    /// let machine = builder.build().expect("rules should build");
+    /// let state = AtomicRef::from_value(State::New);
+    ///
+    /// assert_eq!(machine.trigger(&state, Event::Start).unwrap(), State::Running);
+    /// assert_eq!(*state.load(), State::Running);
+    /// ```
     pub fn trigger(&self, state: &AtomicRef<S>, event: E) -> StateMachineResult<S, E> {
         let (_, new_state) = self.change_state(state, event)?;
         Ok(new_state)
@@ -190,6 +431,39 @@ where
     /// # Errors
     /// Returns the same errors as [`StateMachine::trigger`]. The callback is not
     /// invoked when the transition fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use qubit_state_machine::{AtomicRef, StateMachine};
+    ///
+    /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// enum State {
+    ///     New,
+    ///     Running,
+    /// }
+    ///
+    /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// enum Event {
+    ///     Start,
+    /// }
+    ///
+    /// let mut builder = StateMachine::builder();
+    /// builder.add_states(&[State::New, State::Running]);
+    /// builder.add_transition(State::New, Event::Start, State::Running);
+    /// let machine = builder.build().expect("rules should build");
+    /// let state = AtomicRef::from_value(State::New);
+    /// let mut observed = None;
+    ///
+    /// let next = machine
+    ///     .trigger_with(&state, Event::Start, |old_state, new_state| {
+    ///         observed = Some((old_state, new_state));
+    ///     })
+    ///     .expect("start should be valid");
+    ///
+    /// assert_eq!(next, State::Running);
+    /// assert_eq!(observed, Some((State::New, State::Running)));
+    /// ```
     pub fn trigger_with<F>(
         &self,
         state: &AtomicRef<S>,
@@ -213,6 +487,34 @@ where
     /// # Returns
     /// `true` if the state changed successfully; `false` if the transition was
     /// invalid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use qubit_state_machine::{AtomicRef, StateMachine};
+    ///
+    /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// enum State {
+    ///     New,
+    ///     Running,
+    /// }
+    ///
+    /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// enum Event {
+    ///     Start,
+    ///     Finish,
+    /// }
+    ///
+    /// let mut builder = StateMachine::builder();
+    /// builder.add_states(&[State::New, State::Running]);
+    /// builder.add_transition(State::New, Event::Start, State::Running);
+    /// let machine = builder.build().expect("rules should build");
+    /// let state = AtomicRef::from_value(State::New);
+    ///
+    /// assert!(!machine.try_trigger(&state, Event::Finish));
+    /// assert_eq!(*state.load(), State::New);
+    /// assert!(machine.try_trigger(&state, Event::Start));
+    /// ```
     pub fn try_trigger(&self, state: &AtomicRef<S>, event: E) -> bool {
         self.trigger(state, event).is_ok()
     }
@@ -227,6 +529,41 @@ where
     /// # Returns
     /// `true` if the state changed successfully; `false` if the transition was
     /// invalid. The callback is skipped when this method returns `false`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use qubit_state_machine::{AtomicRef, StateMachine};
+    ///
+    /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// enum State {
+    ///     New,
+    ///     Running,
+    /// }
+    ///
+    /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+    /// enum Event {
+    ///     Start,
+    ///     Finish,
+    /// }
+    ///
+    /// let mut builder = StateMachine::builder();
+    /// builder.add_states(&[State::New, State::Running]);
+    /// builder.add_transition(State::New, Event::Start, State::Running);
+    /// let machine = builder.build().expect("rules should build");
+    /// let state = AtomicRef::from_value(State::New);
+    /// let mut callback_count = 0;
+    ///
+    /// assert!(!machine.try_trigger_with(&state, Event::Finish, |_, _| {
+    ///     callback_count += 1;
+    /// }));
+    /// assert_eq!(callback_count, 0);
+    ///
+    /// assert!(machine.try_trigger_with(&state, Event::Start, |_, _| {
+    ///     callback_count += 1;
+    /// }));
+    /// assert_eq!(callback_count, 1);
+    /// ```
     pub fn try_trigger_with<F>(&self, state: &AtomicRef<S>, event: E, on_success: F) -> bool
     where
         F: FnOnce(S, S),
