@@ -95,7 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | Query transition targets without changing state | `transition_target` |
 | Apply events and get detailed errors | `trigger`, `trigger_with`, `StateMachineError` |
 | Apply events without handling errors | `try_trigger`, `try_trigger_with` |
-| Store shared mutable state | `AtomicRef`, `StateCell` |
+| Store shared mutable state | `AtomicRef` |
 
 ## Core API At A Glance
 
@@ -105,7 +105,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `StateMachineBuilder` | Mutable builder for states, initial states, final states, and transitions. |
 | `StateMachine` | Immutable, validated transition table used to query and trigger events. |
 | `AtomicRef` | Re-exported atomic reference used for CAS-backed current state. |
-| `StateCell` | Type alias for `AtomicRef<S>` kept for state-machine terminology. |
 | `StateMachineBuildError` | Validation error returned while building invalid rule sets. |
 | `StateMachineError` | Runtime error returned when an event cannot be applied. |
 
@@ -116,8 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 - State and event types should be small enum-like values implementing
   `Copy + Eq + Hash + Debug`.
 - Rule definitions become immutable after `StateMachineBuilder::build`.
-- `trigger` accepts `AtomicRef<S>` directly; `StateCell<S>` is only a public
-  type alias for the same atomic reference type.
+- `trigger` accepts `AtomicRef<S>` directly.
 - Event-driven transitions are installed through `qubit-cas`.
 - Callbacks run after the CAS update has succeeded.
 

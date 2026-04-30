@@ -50,7 +50,6 @@
 
 #![deny(missing_docs)]
 
-mod state_cell;
 mod state_machine;
 mod state_machine_build_error;
 mod state_machine_builder;
@@ -58,7 +57,6 @@ mod state_machine_error;
 mod transition;
 
 pub use qubit_atomic::AtomicRef;
-pub use state_cell::StateCell;
 pub use state_machine::StateMachine;
 pub use state_machine_build_error::StateMachineBuildError;
 pub use state_machine_builder::StateMachineBuilder;

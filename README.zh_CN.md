@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | 只查询转换目标，不修改当前状态 | `transition_target` |
 | 应用事件并获取详细错误 | `trigger`、`trigger_with`、`StateMachineError` |
 | 应用事件但不处理错误详情 | `try_trigger`、`try_trigger_with` |
-| 存储共享可变状态 | `AtomicRef`、`StateCell` |
+| 存储共享可变状态 | `AtomicRef` |
 
 ## 核心 API 概览
 
@@ -103,7 +103,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `StateMachineBuilder` | 用于定义状态、初始状态、最终状态和转换规则的可变构建器。 |
 | `StateMachine` | 已校验的不可变转换表，用于查询和触发事件。 |
 | `AtomicRef` | 重新导出的原子引用，用作 CAS 支持的当前状态存储。 |
-| `StateCell` | `AtomicRef<S>` 的类型别名，保留状态机语义命名。 |
 | `StateMachineBuildError` | 构建无效规则集时返回的校验错误。 |
 | `StateMachineError` | 事件无法应用到当前状态时返回的运行时错误。 |
 
@@ -112,7 +111,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 - `qubit-state-machine` 面向简单有限状态机，不是完整工作流引擎。
 - 状态和事件类型应是小型枚举风格值，并实现 `Copy + Eq + Hash + Debug`。
 - 规则定义在 `StateMachineBuilder::build` 之后变为不可变。
-- `trigger` 直接接受 `AtomicRef<S>`；`StateCell<S>` 只是同一个原子引用类型的公开别名。
+- `trigger` 直接接受 `AtomicRef<S>`。
 - 事件驱动的转换通过 `qubit-cas` 安装。
 - 回调会在 CAS 更新成功后执行。
 

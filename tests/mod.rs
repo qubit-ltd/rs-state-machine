@@ -8,9 +8,6 @@
  ******************************************************************************/
 //! Integration tests for `qubit-state-machine`.
 
-#[path = "state_cell/state_cell_tests.rs"]
-mod state_cell_tests;
-
 #[path = "state_machine_builder/state_machine_builder_tests.rs"]
 mod state_machine_builder_tests;
 
