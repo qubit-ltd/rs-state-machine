@@ -14,7 +14,7 @@ Documentation: [API Reference](https://docs.rs/qubit-state-machine)
 workflow, and task-state tracking code.
 
 It provides immutable transition rules, validation at build time, and a
-thread-safe `StateCell` for applying events to shared state.
+CAS-backed `AtomicRef` for applying events to shared state.
 
 ## Why Use It
 
@@ -25,7 +25,7 @@ Use `qubit-state-machine` when you need:
 - build-time validation for unknown states and conflicting transitions
 - event-driven state updates through `trigger` and `try_trigger`
 - success callbacks that observe the old and new state after an update
-- simple, dependency-free state tracking for services, jobs, devices, or UI logic
+- simple state tracking for services, jobs, devices, or UI logic
 
 ## Installation
 
@@ -37,7 +37,7 @@ qubit-state-machine = "0.1.0"
 ## Quick Start
 
 ```rust
-use qubit_state_machine::{StateCell, StateMachine};
+use qubit_state_machine::{AtomicRef, StateMachine};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum JobState {
@@ -69,11 +69,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     builder.add_transition(JobState::Running, JobEvent::Fail, JobState::Failed);
 
     let machine = builder.build()?;
-    let state = StateCell::new(JobState::New);
+    let state = AtomicRef::from_value(JobState::New);
 
     let running = machine.trigger(&state, JobEvent::Start)?;
     assert_eq!(running, JobState::Running);
-    assert_eq!(state.get(), JobState::Running);
+    assert_eq!(*state.load(), JobState::Running);
 
     let finished = machine.trigger_with(&state, JobEvent::Finish, |old_state, new_state| {
         println!("state changed: {old_state:?} -> {new_state:?}");
@@ -95,7 +95,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | Query transition targets without changing state | `transition_target` |
 | Apply events and get detailed errors | `trigger`, `trigger_with`, `StateMachineError` |
 | Apply events without handling errors | `try_trigger`, `try_trigger_with` |
-| Store shared mutable state | `StateCell` |
+| Store shared mutable state | `AtomicRef`, `StateCell` |
 
 ## Core API At A Glance
 
@@ -104,7 +104,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `Transition` | Immutable value describing `source --event--> target`. |
 | `StateMachineBuilder` | Mutable builder for states, initial states, final states, and transitions. |
 | `StateMachine` | Immutable, validated transition table used to query and trigger events. |
-| `StateCell` | Thread-safe storage for the current state. |
+| `AtomicRef` | Re-exported atomic reference used for CAS-backed current state. |
+| `StateCell` | Type alias for `AtomicRef<S>` kept for state-machine terminology. |
 | `StateMachineBuildError` | Validation error returned while building invalid rule sets. |
 | `StateMachineError` | Runtime error returned when an event cannot be applied. |
 
@@ -115,10 +116,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 - State and event types should be small enum-like values implementing
   `Copy + Eq + Hash + Debug`.
 - Rule definitions become immutable after `StateMachineBuilder::build`.
-- `StateCell` uses a mutex so generic state values can be updated safely across
-  threads without requiring platform-specific atomic representations.
-- Callbacks run after the state has been updated and after the state lock has
-  been released.
+- `trigger` accepts `AtomicRef<S>` directly; `StateCell<S>` is only a public
+  type alias for the same atomic reference type.
+- Event-driven transitions are installed through `qubit-cas`.
+- Callbacks run after the CAS update has succeeded.
 
 ## Contributing
 

@@ -12,7 +12,7 @@
 
 `qubit-state-machine` 是一个小型 Rust 有限状态机库，适用于生命周期、工作流和任务状态跟踪代码。
 
-它提供不可变的状态转换规则、构建阶段校验，以及用于对共享状态应用事件的线程安全 `StateCell`。
+它提供不可变的状态转换规则、构建阶段校验，以及用于对共享状态应用事件的 CAS 支持 `AtomicRef`。
 
 ## 为什么使用
 
@@ -35,7 +35,7 @@ qubit-state-machine = "0.1.0"
 ## 快速开始
 
 ```rust
-use qubit_state_machine::{StateCell, StateMachine};
+use qubit_state_machine::{AtomicRef, StateMachine};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum JobState {
@@ -67,11 +67,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     builder.add_transition(JobState::Running, JobEvent::Fail, JobState::Failed);
 
     let machine = builder.build()?;
-    let state = StateCell::new(JobState::New);
+    let state = AtomicRef::from_value(JobState::New);
 
     let running = machine.trigger(&state, JobEvent::Start)?;
     assert_eq!(running, JobState::Running);
-    assert_eq!(state.get(), JobState::Running);
+    assert_eq!(*state.load(), JobState::Running);
 
     let finished = machine.trigger_with(&state, JobEvent::Finish, |old_state, new_state| {
         println!("state changed: {old_state:?} -> {new_state:?}");
@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | 只查询转换目标，不修改当前状态 | `transition_target` |
 | 应用事件并获取详细错误 | `trigger`、`trigger_with`、`StateMachineError` |
 | 应用事件但不处理错误详情 | `try_trigger`、`try_trigger_with` |
-| 存储共享可变状态 | `StateCell` |
+| 存储共享可变状态 | `AtomicRef`、`StateCell` |
 
 ## 核心 API 概览
 
@@ -102,7 +102,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 | `Transition` | 描述 `source --event--> target` 的不可变值。 |
 | `StateMachineBuilder` | 用于定义状态、初始状态、最终状态和转换规则的可变构建器。 |
 | `StateMachine` | 已校验的不可变转换表，用于查询和触发事件。 |
-| `StateCell` | 当前状态的线程安全存储。 |
+| `AtomicRef` | 重新导出的原子引用，用作 CAS 支持的当前状态存储。 |
+| `StateCell` | `AtomicRef<S>` 的类型别名，保留状态机语义命名。 |
 | `StateMachineBuildError` | 构建无效规则集时返回的校验错误。 |
 | `StateMachineError` | 事件无法应用到当前状态时返回的运行时错误。 |
 
@@ -111,8 +112,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 - `qubit-state-machine` 面向简单有限状态机，不是完整工作流引擎。
 - 状态和事件类型应是小型枚举风格值，并实现 `Copy + Eq + Hash + Debug`。
 - 规则定义在 `StateMachineBuilder::build` 之后变为不可变。
-- `StateCell` 使用互斥锁，因此可以安全更新泛型状态值，而不要求状态具备平台相关的原子表示。
-- 回调会在状态更新完成并释放状态锁之后执行。
+- `trigger` 直接接受 `AtomicRef<S>`；`StateCell<S>` 只是同一个原子引用类型的公开别名。
+- 事件驱动的转换通过 `qubit-cas` 安装。
+- 回调会在 CAS 更新成功后执行。
 
 ## 贡献
 
