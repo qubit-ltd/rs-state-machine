@@ -16,8 +16,9 @@ use crate::{StateMachine, StateMachineBuildError, Transition};
 
 /// Builder used to define and validate finite state machine rules.
 ///
-/// `S` is the state type and `E` is the event type. The builder is mutable; the
-/// built [`StateMachine`] is immutable.
+/// `S` is the state type and `E` is the event type. Configuration methods
+/// consume and return the builder so rule definitions can be chained. The built
+/// [`StateMachine`] is immutable.
 #[derive(Debug, Clone)]
 pub struct StateMachineBuilder<S, E>
 where
@@ -52,16 +53,24 @@ where
     ///
     /// # Parameters
     /// - `state`: State to register.
-    pub fn add_state(&mut self, state: S) {
+    ///
+    /// # Returns
+    /// The updated builder.
+    pub fn add_state(mut self, state: S) -> Self {
         self.states.insert(state);
+        self
     }
 
     /// Adds multiple states to the state machine definition.
     ///
     /// # Parameters
     /// - `states`: States to register.
-    pub fn add_states(&mut self, states: &[S]) {
+    ///
+    /// # Returns
+    /// The updated builder.
+    pub fn add_states(mut self, states: &[S]) -> Self {
         self.states.extend(states.iter().copied());
+        self
     }
 
     /// Marks a state as an initial state.
@@ -72,16 +81,24 @@ where
     ///
     /// # Parameters
     /// - `state`: Initial state to add.
-    pub fn set_initial_state(&mut self, state: S) {
+    ///
+    /// # Returns
+    /// The updated builder.
+    pub fn set_initial_state(mut self, state: S) -> Self {
         self.initial_states.insert(state);
+        self
     }
 
     /// Marks multiple states as initial states.
     ///
     /// # Parameters
     /// - `states`: Initial states to add.
-    pub fn set_initial_states(&mut self, states: &[S]) {
+    ///
+    /// # Returns
+    /// The updated builder.
+    pub fn set_initial_states(mut self, states: &[S]) -> Self {
         self.initial_states.extend(states.iter().copied());
+        self
     }
 
     /// Marks a state as a final state.
@@ -92,16 +109,24 @@ where
     ///
     /// # Parameters
     /// - `state`: Final state to add.
-    pub fn set_final_state(&mut self, state: S) {
+    ///
+    /// # Returns
+    /// The updated builder.
+    pub fn set_final_state(mut self, state: S) -> Self {
         self.final_states.insert(state);
+        self
     }
 
     /// Marks multiple states as final states.
     ///
     /// # Parameters
     /// - `states`: Final states to add.
-    pub fn set_final_states(&mut self, states: &[S]) {
+    ///
+    /// # Returns
+    /// The updated builder.
+    pub fn set_final_states(mut self, states: &[S]) -> Self {
         self.final_states.extend(states.iter().copied());
+        self
     }
 
     /// Adds a transition by source state, event, and target state.
@@ -115,16 +140,23 @@ where
     /// - `source`: State before the event is applied.
     /// - `event`: Event that triggers the transition.
     /// - `target`: State after the transition succeeds.
-    pub fn add_transition(&mut self, source: S, event: E, target: S) {
-        self.add_transition_value(Transition::new(source, event, target));
+    ///
+    /// # Returns
+    /// The updated builder.
+    pub fn add_transition(self, source: S, event: E, target: S) -> Self {
+        self.add_transition_value(Transition::new(source, event, target))
     }
 
     /// Adds a transition value.
     ///
     /// # Parameters
     /// - `transition`: Transition to add to the state machine definition.
-    pub fn add_transition_value(&mut self, transition: Transition<S, E>) {
+    ///
+    /// # Returns
+    /// The updated builder.
+    pub fn add_transition_value(mut self, transition: Transition<S, E>) -> Self {
         self.transitions.push(transition);
+        self
     }
 
     /// Builds an immutable state machine after validating the rule set.

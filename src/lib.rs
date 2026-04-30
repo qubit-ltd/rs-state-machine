@@ -31,13 +31,14 @@
 //!     Finish,
 //! }
 //!
-//! let mut builder = StateMachine::builder();
-//! builder.add_states(&[State::New, State::Running, State::Done]);
-//! builder.set_initial_state(State::New);
-//! builder.set_final_state(State::Done);
-//! builder.add_transition(State::New, Event::Start, State::Running);
-//! builder.add_transition(State::Running, Event::Finish, State::Done);
-//! let machine = builder.build().expect("state machine should be valid");
+//! let machine = StateMachine::builder()
+//!     .add_states(&[State::New, State::Running, State::Done])
+//!     .set_initial_state(State::New)
+//!     .set_final_state(State::Done)
+//!     .add_transition(State::New, Event::Start, State::Running)
+//!     .add_transition(State::Running, Event::Finish, State::Done)
+//!     .build()
+//!     .expect("state machine should be valid");
 //!
 //! let state = AtomicRef::from_value(State::New);
 //! assert_eq!(machine.trigger(&state, Event::Start).unwrap(), State::Running);

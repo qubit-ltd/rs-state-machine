@@ -48,19 +48,20 @@ use crate::{StateMachineBuilder, StateMachineError, StateMachineResult, Transiti
 /// }
 ///
 /// fn create_job_machine() -> StateMachine<JobState, JobEvent> {
-///     let mut builder = StateMachine::builder();
-///     builder.add_states(&[
-///         JobState::Queued,
-///         JobState::Running,
-///         JobState::Succeeded,
-///         JobState::Failed,
-///     ]);
-///     builder.set_initial_state(JobState::Queued);
-///     builder.set_final_states(&[JobState::Succeeded, JobState::Failed]);
-///     builder.add_transition(JobState::Queued, JobEvent::Start, JobState::Running);
-///     builder.add_transition(JobState::Running, JobEvent::Complete, JobState::Succeeded);
-///     builder.add_transition(JobState::Running, JobEvent::Fail, JobState::Failed);
-///     builder.build().expect("job state machine should be valid")
+///     StateMachine::builder()
+///         .add_states(&[
+///             JobState::Queued,
+///             JobState::Running,
+///             JobState::Succeeded,
+///             JobState::Failed,
+///         ])
+///         .set_initial_state(JobState::Queued)
+///         .set_final_states(&[JobState::Succeeded, JobState::Failed])
+///         .add_transition(JobState::Queued, JobEvent::Start, JobState::Running)
+///         .add_transition(JobState::Running, JobEvent::Complete, JobState::Succeeded)
+///         .add_transition(JobState::Running, JobEvent::Fail, JobState::Failed)
+///         .build()
+///         .expect("job state machine should be valid")
 /// }
 ///
 /// let machine = create_job_machine();
@@ -111,11 +112,11 @@ where
     ///     Start,
     /// }
     ///
-    /// let mut builder = StateMachine::<State, Event>::builder();
-    /// builder.add_state(State::New);
-    /// builder.set_initial_state(State::New);
-    ///
-    /// let machine = builder.build().expect("single-state machine should build");
+    /// let machine = StateMachine::<State, Event>::builder()
+    ///     .add_state(State::New)
+    ///     .set_initial_state(State::New)
+    ///     .build()
+    ///     .expect("single-state machine should build");
     /// assert!(machine.contains_state(State::New));
     /// ```
     pub fn builder() -> StateMachineBuilder<S, E> {
@@ -162,10 +163,11 @@ where
     /// # enum State { New, Running }
     /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     /// # enum Event { Start }
-    /// # let mut builder = StateMachine::builder();
-    /// # builder.add_states(&[State::New, State::Running]);
-    /// # builder.add_transition(State::New, Event::Start, State::Running);
-    /// # let machine = builder.build().expect("rules should build");
+    /// # let machine = StateMachine::builder()
+    /// #     .add_states(&[State::New, State::Running])
+    /// #     .add_transition(State::New, Event::Start, State::Running)
+    /// #     .build()
+    /// #     .expect("rules should build");
     /// assert!(machine.states().contains(&State::New));
     /// assert_eq!(machine.states().len(), 2);
     /// ```
@@ -186,11 +188,12 @@ where
     /// # enum State { New, Running }
     /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     /// # enum Event { Start }
-    /// # let mut builder = StateMachine::builder();
-    /// # builder.add_states(&[State::New, State::Running]);
-    /// # builder.set_initial_state(State::New);
-    /// # builder.add_transition(State::New, Event::Start, State::Running);
-    /// # let machine = builder.build().expect("rules should build");
+    /// # let machine = StateMachine::builder()
+    /// #     .add_states(&[State::New, State::Running])
+    /// #     .set_initial_state(State::New)
+    /// #     .add_transition(State::New, Event::Start, State::Running)
+    /// #     .build()
+    /// #     .expect("rules should build");
     /// assert!(machine.initial_states().contains(&State::New));
     /// ```
     pub const fn initial_states(&self) -> &HashSet<S> {
@@ -210,11 +213,12 @@ where
     /// # enum State { New, Done }
     /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     /// # enum Event { Finish }
-    /// # let mut builder = StateMachine::builder();
-    /// # builder.add_states(&[State::New, State::Done]);
-    /// # builder.set_final_state(State::Done);
-    /// # builder.add_transition(State::New, Event::Finish, State::Done);
-    /// # let machine = builder.build().expect("rules should build");
+    /// # let machine = StateMachine::builder()
+    /// #     .add_states(&[State::New, State::Done])
+    /// #     .set_final_state(State::Done)
+    /// #     .add_transition(State::New, Event::Finish, State::Done)
+    /// #     .build()
+    /// #     .expect("rules should build");
     /// assert!(machine.final_states().contains(&State::Done));
     /// ```
     pub const fn final_states(&self) -> &HashSet<S> {
@@ -242,10 +246,11 @@ where
     ///     Start,
     /// }
     ///
-    /// let mut builder = StateMachine::builder();
-    /// builder.add_states(&[State::New, State::Running]);
-    /// builder.add_transition(State::New, Event::Start, State::Running);
-    /// let machine = builder.build().expect("rules should build");
+    /// let machine = StateMachine::builder()
+    ///     .add_states(&[State::New, State::Running])
+    ///     .add_transition(State::New, Event::Start, State::Running)
+    ///     .build()
+    ///     .expect("rules should build");
     ///
     /// assert!(machine
     ///     .transitions()
@@ -271,10 +276,11 @@ where
     /// # enum State { New, Running, Detached }
     /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     /// # enum Event { Start }
-    /// # let mut builder = StateMachine::builder();
-    /// # builder.add_states(&[State::New, State::Running]);
-    /// # builder.add_transition(State::New, Event::Start, State::Running);
-    /// # let machine = builder.build().expect("rules should build");
+    /// # let machine = StateMachine::builder()
+    /// #     .add_states(&[State::New, State::Running])
+    /// #     .add_transition(State::New, Event::Start, State::Running)
+    /// #     .build()
+    /// #     .expect("rules should build");
     /// assert!(machine.contains_state(State::Running));
     /// assert!(!machine.contains_state(State::Detached));
     /// ```
@@ -298,11 +304,12 @@ where
     /// # enum State { New, Running }
     /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     /// # enum Event { Start }
-    /// # let mut builder = StateMachine::builder();
-    /// # builder.add_states(&[State::New, State::Running]);
-    /// # builder.set_initial_state(State::New);
-    /// # builder.add_transition(State::New, Event::Start, State::Running);
-    /// # let machine = builder.build().expect("rules should build");
+    /// # let machine = StateMachine::builder()
+    /// #     .add_states(&[State::New, State::Running])
+    /// #     .set_initial_state(State::New)
+    /// #     .add_transition(State::New, Event::Start, State::Running)
+    /// #     .build()
+    /// #     .expect("rules should build");
     /// assert!(machine.is_initial_state(State::New));
     /// assert!(!machine.is_initial_state(State::Running));
     /// ```
@@ -326,11 +333,12 @@ where
     /// # enum State { Running, Done }
     /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     /// # enum Event { Finish }
-    /// # let mut builder = StateMachine::builder();
-    /// # builder.add_states(&[State::Running, State::Done]);
-    /// # builder.set_final_state(State::Done);
-    /// # builder.add_transition(State::Running, Event::Finish, State::Done);
-    /// # let machine = builder.build().expect("rules should build");
+    /// # let machine = StateMachine::builder()
+    /// #     .add_states(&[State::Running, State::Done])
+    /// #     .set_final_state(State::Done)
+    /// #     .add_transition(State::Running, Event::Finish, State::Done)
+    /// #     .build()
+    /// #     .expect("rules should build");
     /// assert!(machine.is_final_state(State::Done));
     /// assert!(!machine.is_final_state(State::Running));
     /// ```
@@ -358,10 +366,11 @@ where
     /// # enum State { New, Running }
     /// # #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     /// # enum Event { Start, Finish }
-    /// # let mut builder = StateMachine::builder();
-    /// # builder.add_states(&[State::New, State::Running]);
-    /// # builder.add_transition(State::New, Event::Start, State::Running);
-    /// # let machine = builder.build().expect("rules should build");
+    /// # let machine = StateMachine::builder()
+    /// #     .add_states(&[State::New, State::Running])
+    /// #     .add_transition(State::New, Event::Start, State::Running)
+    /// #     .build()
+    /// #     .expect("rules should build");
     /// assert_eq!(
     ///     machine.transition_target(State::New, Event::Start),
     ///     Some(State::Running),
@@ -402,10 +411,11 @@ where
     ///     Start,
     /// }
     ///
-    /// let mut builder = StateMachine::builder();
-    /// builder.add_states(&[State::New, State::Running]);
-    /// builder.add_transition(State::New, Event::Start, State::Running);
-    /// let machine = builder.build().expect("rules should build");
+    /// let machine = StateMachine::builder()
+    ///     .add_states(&[State::New, State::Running])
+    ///     .add_transition(State::New, Event::Start, State::Running)
+    ///     .build()
+    ///     .expect("rules should build");
     /// let state = AtomicRef::from_value(State::New);
     ///
     /// assert_eq!(machine.trigger(&state, Event::Start).unwrap(), State::Running);
@@ -448,10 +458,11 @@ where
     ///     Start,
     /// }
     ///
-    /// let mut builder = StateMachine::builder();
-    /// builder.add_states(&[State::New, State::Running]);
-    /// builder.add_transition(State::New, Event::Start, State::Running);
-    /// let machine = builder.build().expect("rules should build");
+    /// let machine = StateMachine::builder()
+    ///     .add_states(&[State::New, State::Running])
+    ///     .add_transition(State::New, Event::Start, State::Running)
+    ///     .build()
+    ///     .expect("rules should build");
     /// let state = AtomicRef::from_value(State::New);
     /// let mut observed = None;
     ///
@@ -505,10 +516,11 @@ where
     ///     Finish,
     /// }
     ///
-    /// let mut builder = StateMachine::builder();
-    /// builder.add_states(&[State::New, State::Running]);
-    /// builder.add_transition(State::New, Event::Start, State::Running);
-    /// let machine = builder.build().expect("rules should build");
+    /// let machine = StateMachine::builder()
+    ///     .add_states(&[State::New, State::Running])
+    ///     .add_transition(State::New, Event::Start, State::Running)
+    ///     .build()
+    ///     .expect("rules should build");
     /// let state = AtomicRef::from_value(State::New);
     ///
     /// assert!(!machine.try_trigger(&state, Event::Finish));
@@ -547,10 +559,11 @@ where
     ///     Finish,
     /// }
     ///
-    /// let mut builder = StateMachine::builder();
-    /// builder.add_states(&[State::New, State::Running]);
-    /// builder.add_transition(State::New, Event::Start, State::Running);
-    /// let machine = builder.build().expect("rules should build");
+    /// let machine = StateMachine::builder()
+    ///     .add_states(&[State::New, State::Running])
+    ///     .add_transition(State::New, Event::Start, State::Running)
+    ///     .build()
+    ///     .expect("rules should build");
     /// let state = AtomicRef::from_value(State::New);
     /// let mut callback_count = 0;
     ///

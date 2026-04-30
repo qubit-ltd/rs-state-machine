@@ -53,20 +53,19 @@ enum JobEvent {
 }
 
 fn create_job_machine() -> Result<StateMachine<JobState, JobEvent>, Box<dyn std::error::Error>> {
-    let mut builder = StateMachine::builder();
-    builder.add_states(&[
-        JobState::Queued,
-        JobState::Running,
-        JobState::Succeeded,
-        JobState::Failed,
-    ]);
-    builder.set_initial_state(JobState::Queued);
-    builder.set_final_states(&[JobState::Succeeded, JobState::Failed]);
-    builder.add_transition(JobState::Queued, JobEvent::Start, JobState::Running);
-    builder.add_transition(JobState::Running, JobEvent::Complete, JobState::Succeeded);
-    builder.add_transition(JobState::Running, JobEvent::Fail, JobState::Failed);
-
-    Ok(builder.build()?)
+    Ok(StateMachine::builder()
+        .add_states(&[
+            JobState::Queued,
+            JobState::Running,
+            JobState::Succeeded,
+            JobState::Failed,
+        ])
+        .set_initial_state(JobState::Queued)
+        .set_final_states(&[JobState::Succeeded, JobState::Failed])
+        .add_transition(JobState::Queued, JobEvent::Start, JobState::Running)
+        .add_transition(JobState::Running, JobEvent::Complete, JobState::Succeeded)
+        .add_transition(JobState::Running, JobEvent::Fail, JobState::Failed)
+        .build()?)
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -117,11 +116,9 @@ enum JobEvent {
     Start,
 }
 
-let mut builder = StateMachine::builder();
-builder.add_state(JobState::Queued);
-builder.add_transition(JobState::Queued, JobEvent::Start, JobState::Running);
-
-let error = builder
+let error = StateMachine::builder()
+    .add_state(JobState::Queued)
+    .add_transition(JobState::Queued, JobEvent::Start, JobState::Running)
     .build()
     .expect_err("transition target must be registered");
 
@@ -155,10 +152,11 @@ enum DoorEvent {
     Reopen,
 }
 
-let mut builder = StateMachine::builder();
-builder.add_states(&[DoorState::Open, DoorState::Closed]);
-builder.add_transition(DoorState::Open, DoorEvent::Close, DoorState::Closed);
-let machine = builder.build().expect("rules should build");
+let machine = StateMachine::builder()
+    .add_states(&[DoorState::Open, DoorState::Closed])
+    .add_transition(DoorState::Open, DoorEvent::Close, DoorState::Closed)
+    .build()
+    .expect("rules should build");
 let state = AtomicRef::from_value(DoorState::Open);
 
 assert!(machine.try_trigger(&state, DoorEvent::Close));

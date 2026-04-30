@@ -35,23 +35,22 @@ enum JobEvent {
 }
 
 fn create_job_machine() -> StateMachine<JobState, JobEvent> {
-    let mut builder = StateMachine::builder();
-    builder.add_states(&[
-        JobState::New,
-        JobState::Running,
-        JobState::Paused,
-        JobState::Done,
-        JobState::Failed,
-    ]);
-    builder.set_initial_state(JobState::New);
-    builder.set_final_states(&[JobState::Done, JobState::Failed]);
-    builder.add_transition(JobState::New, JobEvent::Start, JobState::Running);
-    builder.add_transition(JobState::Running, JobEvent::Pause, JobState::Paused);
-    builder.add_transition(JobState::Paused, JobEvent::Resume, JobState::Running);
-    builder.add_transition(JobState::Running, JobEvent::Finish, JobState::Done);
-    builder.add_transition(JobState::Running, JobEvent::Fail, JobState::Failed);
-    builder.add_transition(JobState::Running, JobEvent::Tick, JobState::Running);
-    builder
+    StateMachine::builder()
+        .add_states(&[
+            JobState::New,
+            JobState::Running,
+            JobState::Paused,
+            JobState::Done,
+            JobState::Failed,
+        ])
+        .set_initial_state(JobState::New)
+        .set_final_states(&[JobState::Done, JobState::Failed])
+        .add_transition(JobState::New, JobEvent::Start, JobState::Running)
+        .add_transition(JobState::Running, JobEvent::Pause, JobState::Paused)
+        .add_transition(JobState::Paused, JobEvent::Resume, JobState::Running)
+        .add_transition(JobState::Running, JobEvent::Finish, JobState::Done)
+        .add_transition(JobState::Running, JobEvent::Fail, JobState::Failed)
+        .add_transition(JobState::Running, JobEvent::Tick, JobState::Running)
         .build()
         .expect("job state machine rules should be valid")
 }
