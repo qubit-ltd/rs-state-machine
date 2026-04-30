@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use qubit_state_machine::{StateCell, StateMachine, StateMachineError};
+use qubit_state_machine::{AtomicRef, StateMachine, StateMachineError, StateMachineResult};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum JobState {
@@ -56,23 +56,29 @@ fn create_job_machine() -> StateMachine<JobState, JobEvent> {
         .expect("job state machine rules should be valid")
 }
 
+fn trigger_start(
+    machine: &StateMachine<JobState, JobEvent>,
+    state: &AtomicRef<JobState>,
+) -> StateMachineResult<JobState, JobEvent> {
+    machine.trigger(state, JobEvent::Start)
+}
+
 #[test]
 fn test_trigger_updates_state_and_returns_new_state() {
     let machine = create_job_machine();
-    let state = StateCell::new(JobState::New);
+    let state = AtomicRef::from_value(JobState::New);
 
-    let new_state = machine
-        .trigger(&state, JobEvent::Start)
-        .expect("start event should transition to running");
+    let new_state =
+        trigger_start(&machine, &state).expect("start event should transition to running");
 
     assert_eq!(new_state, JobState::Running);
-    assert_eq!(state.get(), JobState::Running);
+    assert_eq!(*state.load(), JobState::Running);
 }
 
 #[test]
 fn test_trigger_returns_error_and_keeps_state_for_invalid_transition() {
     let machine = create_job_machine();
-    let state = StateCell::new(JobState::New);
+    let state = AtomicRef::from_value(JobState::New);
 
     let error = machine
         .trigger(&state, JobEvent::Finish)
@@ -85,13 +91,13 @@ fn test_trigger_returns_error_and_keeps_state_for_invalid_transition() {
             event: JobEvent::Finish,
         }
     );
-    assert_eq!(state.get(), JobState::New);
+    assert_eq!(*state.load(), JobState::New);
 }
 
 #[test]
 fn test_trigger_returns_error_and_keeps_state_for_unknown_current_state() {
     let machine = create_job_machine();
-    let state = StateCell::new(JobState::Detached);
+    let state = AtomicRef::from_value(JobState::Detached);
 
     let error = machine
         .trigger(&state, JobEvent::Start)
@@ -103,7 +109,7 @@ fn test_trigger_returns_error_and_keeps_state_for_unknown_current_state() {
             state: JobState::Detached,
         }
     );
-    assert_eq!(state.get(), JobState::Detached);
+    assert_eq!(*state.load(), JobState::Detached);
 }
 
 #[test]
@@ -123,12 +129,16 @@ fn test_state_machine_error_display_describes_failure_context() {
         .to_string(),
         "unknown transition: New --Finish--> ?"
     );
+    assert_eq!(
+        StateMachineError::<JobState, JobEvent>::CasConflict { attempts: 3 }.to_string(),
+        "CAS transition failed after 3 attempt(s)"
+    );
 }
 
 #[test]
 fn test_trigger_with_invokes_callback_after_successful_transition() {
     let machine = create_job_machine();
-    let state = StateCell::new(JobState::New);
+    let state = AtomicRef::from_value(JobState::New);
     let observed = Mutex::new(Vec::new());
 
     let new_state = machine
@@ -136,7 +146,7 @@ fn test_trigger_with_invokes_callback_after_successful_transition() {
             observed.lock().expect("callback log should lock").push((
                 old_state,
                 new_state,
-                state.get(),
+                *state.load(),
             ));
         })
         .expect("start event should succeed");
@@ -154,27 +164,27 @@ fn test_trigger_with_invokes_callback_after_successful_transition() {
 #[test]
 fn test_try_trigger_returns_true_and_updates_state_on_success() {
     let machine = create_job_machine();
-    let state = StateCell::new(JobState::New);
+    let state = AtomicRef::from_value(JobState::New);
 
     assert!(machine.try_trigger(&state, JobEvent::Start));
 
-    assert_eq!(state.get(), JobState::Running);
+    assert_eq!(*state.load(), JobState::Running);
 }
 
 #[test]
 fn test_try_trigger_returns_false_and_keeps_state_on_failure() {
     let machine = create_job_machine();
-    let state = StateCell::new(JobState::New);
+    let state = AtomicRef::from_value(JobState::New);
 
     assert!(!machine.try_trigger(&state, JobEvent::Finish));
 
-    assert_eq!(state.get(), JobState::New);
+    assert_eq!(*state.load(), JobState::New);
 }
 
 #[test]
 fn test_try_trigger_with_skips_callback_on_failure() {
     let machine = create_job_machine();
-    let state = StateCell::new(JobState::New);
+    let state = AtomicRef::from_value(JobState::New);
     let callback_count = AtomicUsize::new(0);
 
     let triggered = machine.try_trigger_with(&state, JobEvent::Finish, |_, _| {
@@ -188,7 +198,7 @@ fn test_try_trigger_with_skips_callback_on_failure() {
 #[test]
 fn test_trigger_is_thread_safe_for_shared_state() {
     let machine = Arc::new(create_job_machine());
-    let state = Arc::new(StateCell::new(JobState::Running));
+    let state = Arc::new(AtomicRef::from_value(JobState::Running));
     let callback_count = Arc::new(AtomicUsize::new(0));
     let mut handles = Vec::new();
 
@@ -209,6 +219,6 @@ fn test_trigger_is_thread_safe_for_shared_state() {
         handle.join().expect("worker should complete");
     }
 
-    assert_eq!(state.get(), JobState::Running);
+    assert_eq!(*state.load(), JobState::Running);
     assert_eq!(callback_count.load(Ordering::SeqCst), 16);
 }

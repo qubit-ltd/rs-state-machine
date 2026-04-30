@@ -28,6 +28,11 @@ pub enum StateMachineError<S, E> {
         /// The event that was triggered.
         event: E,
     },
+    /// CAS retry limits were exhausted before a transition could be installed.
+    CasConflict {
+        /// Number of attempts executed by the CAS executor.
+        attempts: u32,
+    },
 }
 
 impl<S, E> Display for StateMachineError<S, E>
@@ -43,6 +48,12 @@ where
             }
             Self::UnknownTransition { source, event } => {
                 write!(formatter, "unknown transition: {source:?} --{event:?}--> ?")
+            }
+            Self::CasConflict { attempts } => {
+                write!(
+                    formatter,
+                    "CAS transition failed after {attempts} attempt(s)"
+                )
             }
         }
     }

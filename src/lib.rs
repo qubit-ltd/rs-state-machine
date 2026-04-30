@@ -11,13 +11,12 @@
 //! A small, thread-safe finite state machine for Rust.
 //!
 //! This crate is intentionally compact. It stores immutable transition rules
-//! and applies events to a [`StateCell`] so each state change is guarded by a
-//! single critical section.
+//! and applies events to an [`AtomicRef`] through a compare-and-swap executor.
 //!
 //! # Examples
 //!
 //! ```
-//! use qubit_state_machine::{StateCell, StateMachine};
+//! use qubit_state_machine::{AtomicRef, StateMachine};
 //!
 //! #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 //! enum State {
@@ -40,9 +39,9 @@
 //! builder.add_transition(State::Running, Event::Finish, State::Done);
 //! let machine = builder.build().expect("state machine should be valid");
 //!
-//! let state = StateCell::new(State::New);
+//! let state = AtomicRef::from_value(State::New);
 //! assert_eq!(machine.trigger(&state, Event::Start).unwrap(), State::Running);
-//! assert_eq!(state.get(), State::Running);
+//! assert_eq!(*state.load(), State::Running);
 //! ```
 //!
 //! # Author
@@ -58,9 +57,15 @@ mod state_machine_builder;
 mod state_machine_error;
 mod transition;
 
+pub use qubit_atomic::AtomicRef;
 pub use state_cell::StateCell;
 pub use state_machine::StateMachine;
 pub use state_machine_build_error::StateMachineBuildError;
 pub use state_machine_builder::StateMachineBuilder;
 pub use state_machine_error::StateMachineError;
 pub use transition::Transition;
+
+/// Result returned by event-triggering state machine operations.
+///
+/// `S` is the state type and `E` is the event type.
+pub type StateMachineResult<S, E> = Result<S, StateMachineError<S, E>>;

@@ -67,6 +67,20 @@ fn test_builder_build_creates_immutable_state_machine() {
 }
 
 #[test]
+fn test_state_machine_new_accepts_builder() {
+    let machine = StateMachine::new(create_valid_builder())
+        .expect("valid builder should create state machine");
+
+    assert!(machine.contains_state(JobState::New));
+    assert!(machine.is_initial_state(JobState::New));
+    assert!(machine.is_final_state(JobState::Done));
+    assert_eq!(
+        machine.transition_target(JobState::Running, JobEvent::Finish),
+        Some(JobState::Done)
+    );
+}
+
+#[test]
 fn test_builder_add_transition_value_accepts_transition_object() {
     let mut builder = StateMachine::builder();
     builder.add_states(&[JobState::New, JobState::Running]);

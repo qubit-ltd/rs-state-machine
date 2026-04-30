@@ -6,7 +6,7 @@
  *    All rights reserved.
  *
  ******************************************************************************/
-//! Tests for the `StateCell` type.
+//! Tests for the `StateCell` alias.
 
 use std::sync::Arc;
 use std::thread;
@@ -21,30 +21,30 @@ enum TestState {
 }
 
 #[test]
-fn test_state_cell_new_stores_initial_state() {
-    let state = StateCell::new(TestState::Ready);
+fn test_state_cell_alias_can_create_atomic_ref() {
+    let state = StateCell::from_value(TestState::Ready);
 
-    assert_eq!(state.get(), TestState::Ready);
+    assert_eq!(*state.load(), TestState::Ready);
 }
 
 #[test]
-fn test_state_cell_replace_returns_old_state_and_updates_current_state() {
-    let state = StateCell::new(TestState::Ready);
+fn test_state_cell_alias_exposes_atomic_swap() {
+    let state = StateCell::from_value(TestState::Ready);
 
-    let old_state = state.replace(TestState::Running);
+    let old_state = state.swap(Arc::new(TestState::Running));
 
-    assert_eq!(old_state, TestState::Ready);
-    assert_eq!(state.get(), TestState::Running);
+    assert_eq!(*old_state, TestState::Ready);
+    assert_eq!(*state.load(), TestState::Running);
 }
 
 #[test]
 fn test_state_cell_get_is_thread_safe() {
-    let state = Arc::new(StateCell::new(TestState::Stopped));
+    let state = Arc::new(StateCell::from_value(TestState::Stopped));
     let mut handles = Vec::new();
 
     for _ in 0..8 {
         let state = Arc::clone(&state);
-        handles.push(thread::spawn(move || state.get()));
+        handles.push(thread::spawn(move || *state.load()));
     }
 
     for handle in handles {

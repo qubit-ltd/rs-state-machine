@@ -27,6 +27,8 @@ name = "qubit_state_machine"
 doctest = true
 
 [dependencies]
+qubit-atomic = "0.10"
+qubit-cas = "0.3"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
