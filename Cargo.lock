@@ -563,9 +563,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-atomic"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16d4f6fbee18962c1c619c432a4e6b60bc07077887da2bc196d26e82b51c23dc"
+checksum = "2bd26945075d2dd1955e43a921ba6cd24d4ee4542c4b514e097b9c88e9279145"
 dependencies = [
  "arc-swap",
  "portable-atomic",
@@ -573,7 +573,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-cas"
-version = "0.4.0"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "526540c98712c1a41a18d035be224fc682aa37c978e83ac8bb54544051e64874"
 dependencies = [
  "qubit-atomic",
  "qubit-error",
@@ -604,9 +606,9 @@ checksum = "6f8f052350ff3e4adffde1814a929c8403af2307552d2b4d0253f47818d26c09"
 
 [[package]]
 name = "qubit-function"
-version = "0.11.0"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75b0c1116f3b58ba20314ba96e24264991a9a58792fe05fa59b9bc912d305fdb"
+checksum = "cdac38d5ed76324aaf340709253af4aa596bc01014d169c2b5e7e736c6504362"
 dependencies = [
  "parking_lot",
  "pastey",
@@ -614,7 +616,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-retry"
-version = "0.10.0"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f1d2855e2a5c1f0f68fc5994a89eba8dcead1c2836f2351f9fa7c9035d97cfd"
 dependencies = [
  "parse-display",
  "qubit-datatype",
@@ -638,7 +642,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-state-machine"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "qubit-atomic",
  "qubit-cas",
