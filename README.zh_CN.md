@@ -29,7 +29,7 @@
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.1.0"
+qubit-state-machine = "0.2"
 ```
 
 ## 快速开始：任务处理
