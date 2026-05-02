@@ -31,7 +31,7 @@ Use `qubit-state-machine` when you need:
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.1.0"
+qubit-state-machine = "0.2"
 ```
 
 ## Quick Start: Job Processing
