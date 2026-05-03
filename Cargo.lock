@@ -573,9 +573,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-cas"
-version = "0.4.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "526540c98712c1a41a18d035be224fc682aa37c978e83ac8bb54544051e64874"
+checksum = "ab208fab7cec3cb082bfcf0e0d8ee29abcea2df2c3a7e3d3fefa5b23e6422949"
 dependencies = [
  "qubit-atomic",
  "qubit-error",
@@ -616,9 +616,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-retry"
-version = "0.10.1"
+version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f1d2855e2a5c1f0f68fc5994a89eba8dcead1c2836f2351f9fa7c9035d97cfd"
+checksum = "16295ac22cc861130b327c0829188ad3616f5ea00f1f226138bff3bd8efac140"
 dependencies = [
  "parse-display",
  "qubit-datatype",
