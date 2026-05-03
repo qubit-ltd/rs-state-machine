@@ -36,6 +36,11 @@ pub enum StateMachineError<S, E> {
     },
 }
 
+/// Result returned by event-triggering state machine operations.
+///
+/// `S` is the state type and `E` is the event type.
+pub type StateMachineResult<S, E> = Result<S, StateMachineError<S, E>>;
+
 impl<S, E> Display for StateMachineError<S, E>
 where
     S: Debug,

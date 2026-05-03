@@ -59,10 +59,5 @@ pub use qubit_atomic::AtomicRef;
 pub use state_machine::StateMachine;
 pub use state_machine_build_error::StateMachineBuildError;
 pub use state_machine_builder::StateMachineBuilder;
-pub use state_machine_error::StateMachineError;
+pub use state_machine_error::{StateMachineError, StateMachineResult};
 pub use transition::Transition;
-
-/// Result returned by event-triggering state machine operations.
-///
-/// `S` is the state type and `E` is the event type.
-pub type StateMachineResult<S, E> = Result<S, StateMachineError<S, E>>;
