@@ -9,14 +9,27 @@
  ******************************************************************************/
 //! Immutable finite state machine rules and CAS-backed event triggering.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{
+    HashMap,
+    HashSet,
+};
 use std::fmt::Debug;
 use std::hash::Hash;
 
 use qubit_atomic::AtomicRef;
-use qubit_cas::{CasDecision, CasError, CasExecutor, CasSuccess};
+use qubit_cas::{
+    CasDecision,
+    CasError,
+    CasExecutor,
+    CasSuccess,
+};
 
-use crate::{StateMachineBuilder, StateMachineError, StateMachineResult, Transition};
+use crate::{
+    StateMachineBuilder,
+    StateMachineError,
+    StateMachineResult,
+    Transition,
+};
 
 /// Immutable finite state machine rules.
 ///

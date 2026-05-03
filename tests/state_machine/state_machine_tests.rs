@@ -9,11 +9,22 @@
  ******************************************************************************/
 //! Tests for event-driven state transitions.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::atomic::{
+    AtomicUsize,
+    Ordering,
+};
+use std::sync::{
+    Arc,
+    Mutex,
+};
 use std::thread;
 
-use qubit_state_machine::{AtomicRef, StateMachine, StateMachineError, StateMachineResult};
+use qubit_state_machine::{
+    AtomicRef,
+    StateMachine,
+    StateMachineError,
+    StateMachineResult,
+};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum JobState {

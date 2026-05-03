@@ -10,7 +10,12 @@
 //! Runtime errors returned by state transitions.
 
 use std::error::Error;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{
+    self,
+    Debug,
+    Display,
+    Formatter,
+};
 
 /// Error returned when an event cannot be applied to the current state.
 ///

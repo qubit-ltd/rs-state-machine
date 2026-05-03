@@ -10,7 +10,12 @@
 //! Validation errors returned when building a state machine.
 
 use std::error::Error;
-use std::fmt::{self, Debug, Display, Formatter};
+use std::fmt::{
+    self,
+    Debug,
+    Display,
+    Formatter,
+};
 
 /// Error returned when state machine rules are internally inconsistent.
 ///

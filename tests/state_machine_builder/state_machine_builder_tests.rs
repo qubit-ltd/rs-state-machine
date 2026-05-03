@@ -9,7 +9,11 @@
  ******************************************************************************/
 //! Tests for state machine construction and rule validation.
 
-use qubit_state_machine::{StateMachine, StateMachineBuildError, Transition};
+use qubit_state_machine::{
+    StateMachine,
+    StateMachineBuildError,
+    Transition,
+};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum JobState {

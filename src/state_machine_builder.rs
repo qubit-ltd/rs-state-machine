@@ -9,11 +9,18 @@
  ******************************************************************************/
 //! Builder for immutable state machine rules.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{
+    HashMap,
+    HashSet,
+};
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use crate::{StateMachine, StateMachineBuildError, Transition};
+use crate::{
+    StateMachine,
+    StateMachineBuildError,
+    Transition,
+};
 
 /// Builder used to define and validate finite state machine rules.
 ///
