@@ -7,11 +7,6 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! Integration tests for `qubit-state-machine`.
+//! Tests for state machine modules.
 
-mod state_machine_builder;
-
-mod state_machine;
-mod state_machine_build_error_tests;
-mod state_machine_error_tests;
-mod transition;
+mod state_machine_tests;
