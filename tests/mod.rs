@@ -12,6 +12,9 @@
 #[path = "state_machine_builder/state_machine_builder_tests.rs"]
 mod state_machine_builder_tests;
 
+mod state_machine_build_error_tests;
+mod state_machine_error_tests;
+
 #[path = "state_machine/state_machine_tests.rs"]
 mod state_machine_tests;
 
