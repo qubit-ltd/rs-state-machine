@@ -13,12 +13,16 @@ Documentation: [API Reference](https://docs.rs/qubit-state-machine)
 `qubit-state-machine` is a small Rust finite state machine crate for lifecycle,
 workflow, and task-state tracking code.
 
-It provides immutable transition rules, validation at build time, and a
-CAS-backed `AtomicRef` for applying events to shared state.
+It provides immutable transition rules, build-time validation, and a
+CAS-backed `AtomicRef` for shared-state transitions.
 
-For performance-critical hot paths, it also provides
-[`FastStateMachine`], a compact integer-based implementation that stores transitions
-in a fixed table and updates state through `FastCas`.
+There are two variants:
+
+- `StateMachine` for clear, generic APIs suitable for enum-like state/event types.
+- `FastStateMachine` for high-throughput, integer-coded state/event processing.
+
+Both variants keep transition tables immutable after construction and execute event
+triggers through CAS-backed state updates.
 
 ## Why Use It
 
@@ -30,8 +34,8 @@ Use `qubit-state-machine` when you need:
 - event-driven state updates through `trigger` and `try_trigger`
 - success callbacks that observe the old and new state after an update
 - simple state tracking for services, jobs, devices, or UI logic
-- dense integer state/event transitions through [`FastStateMachine`] when you need
-  predictable low-latency path performance
+- predictable low-latency path performance through [`FastStateMachine`] with dense
+  integer state/event transitions
 
 ## Installation
 
@@ -106,11 +110,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+## Choosing Standard vs Fast
+
+Use `StateMachine` when readability, explicit type modeling, and standard enum-based
+business semantics are the priority.
+
+Use `FastStateMachine` when you need low-latency dispatch loops and can model
+states/events as dense integer ranges. It trades some ergonomics (explicit bounds,
+integer conventions) for constant-time, memory-local transition lookup and tighter
+hot-path control.
+
 ## Fast State Machine
 
-`FastStateMachine` is intended for dense integer codes and high-throughput
-dispatch loops. It validates the complete transition table at build time and keeps
-runtime transition logic in O(1) by indexing a flat transition array.
+`FastStateMachine` is for high-throughput loops with dense integer codes.
+It validates the full transition table at build time and keeps runtime transition
+lookup O(1) with a row-major flat array (`index = state * event_count + event`).
 
 ```rust
 use qubit_state_machine::{
@@ -135,25 +149,39 @@ let machine = FastStateMachine::builder()
     .transition(QUEUED, START, RUNNING)
     .transition(RUNNING, COMPLETE, SUCCEEDED)
     .transition(RUNNING, FAIL, FAILED)
+    .build()?;
+
+let tuned = FastStateMachine::builder()
+    .state_count(4)
+    .event_count(3)
+    .initial_state(QUEUED)
+    .final_states(&[SUCCEEDED, FAILED])
+    .transition(QUEUED, START, RUNNING)
+    .transition(RUNNING, COMPLETE, SUCCEEDED)
+    .transition(RUNNING, FAIL, FAILED)
     .cas_policy(FastCasPolicy::spin(8))
     .build()?;
 
 let state = qubit_cas::FastCasState::new(QUEUED);
 assert_eq!(machine.trigger(&state, START)?, RUNNING);
+let tuned_state = qubit_cas::FastCasState::new(RUNNING);
+assert_eq!(tuned.trigger(&tuned_state, COMPLETE)?, SUCCEEDED);
 assert_eq!(machine.transition_target(QUEUED, START), Some(RUNNING));
 assert_eq!(machine.state_count(), 4);
 assert_eq!(machine.event_count(), 3);
 assert!(machine.is_initial_state(QUEUED));
 assert!(machine.is_final_state(SUCCEEDED));
 assert_eq!(machine.cas_policy(), FAST_STATE_MACHINE_DEFAULT_CAS_POLICY);
+assert_eq!(tuned.cas_policy(), FastCasPolicy::spin(8));
 ```
 
-Default policy is `FAST_STATE_MACHINE_DEFAULT_CAS_POLICY` so callers can start
-from safe defaults and only override with `.cas_policy(...)` when needed.
+`FAST_STATE_MACHINE_DEFAULT_CAS_POLICY` is used when `.cas_policy(...)` is omitted.
+Callers can keep defaults during integration and switch to explicit policies later
+when contention characteristics require tuning.
 
 ## Build-Time Validation
 
-Invalid rules are rejected before a `StateMachine` is created.
+Invalid rules are rejected before a state machine is created.
 
 ```rust
 use qubit_state_machine::{StateMachine, StateMachineBuildError};
@@ -226,8 +254,9 @@ assert_eq!(*state.load(), DoorState::Closed);
 | --- | --- |
 | Define states and transitions | `StateMachine::builder`, `StateMachineBuilder` |
 | Define dense fast machines | `FastStateMachine::builder`, `FastStateMachineBuilder` |
-| Add one or more states | `add_state`, `add_states` |
-| Mark initial and final states | `set_initial_state`, `set_initial_states`, `set_final_state`, `set_final_states` |
+| Add one or more states | `StateMachineBuilder::add_state`, `StateMachineBuilder::add_states` |
+| Configure fast state/event space | `FastStateMachineBuilder::state_count`, `FastStateMachineBuilder::event_count` |
+| Mark initial and final states | `set_initial_state`, `set_initial_states`, `set_final_state`, `set_final_states`, `initial_state`, `initial_states`, `final_state`, `final_states` |
 | Add transition rules | `add_transition`, `add_transition_value`, `Transition` |
 | Query transition targets without changing state | `transition_target` |
 | Apply events and get detailed errors | `trigger`, `trigger_with`, `StateMachineError` |
@@ -256,12 +285,13 @@ assert_eq!(*state.load(), DoorState::Closed);
   workflow engine.
 - State and event types should be small enum-like values implementing
   `Copy + Eq + Hash + Debug`.
+- Fast state machines require dense `usize` state/event codes in `[0, state_count)` and
+  `[0, event_count)` and a complete table budget of `state_count * event_count`.
 - Rule definitions become immutable after `StateMachineBuilder::build`.
-- `trigger` accepts `AtomicRef<S>` directly.
-- Event-driven transitions are installed through `qubit-cas`.
-- Callbacks run after the CAS update has succeeded.
+- Standard event triggering uses `AtomicRef<S>` with CAS execution via `qubit-cas`.
+- Success callbacks are executed only after CAS transition succeeds.
 - `FastStateMachine` uses compact state/event integer codes and a flat transition
-  table for predictable performance.
+  table for predictable O(1) transition lookup.
 
 ## Contributing
 
