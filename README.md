@@ -293,21 +293,75 @@ assert_eq!(*state.load(), DoorState::Closed);
 - `FastStateMachine` uses compact state/event integer codes and a flat transition
   table for predictable O(1) transition lookup.
 
-## Contributing
+## Rust Version
 
-Issues and pull requests are welcome.
+This crate uses Rust 2024 edition and requires Rust 1.94 or newer.
 
-Please keep contributions focused and easy to review:
+## Testing & Code Coverage
 
-- open an issue for bug reports, design questions, or larger feature proposals
-- keep pull requests scoped to one behavior change, fix, or documentation update
-- run `./ci-check.sh` before submitting changes
-- include tests when changing runtime behavior
-- update the README when public API behavior changes
+This project keeps tests under `tests/` and validates standard and fast state
+machine builders, transition tables, trigger semantics, CAS-backed updates, and
+error formatting for build-time and runtime failures.
 
-By contributing to this project, you agree that your contribution will be
-licensed under the same license as the project.
+### Running Tests
+
+```bash
+# Run all tests
+cargo test
+
+# Generate a coverage report
+./coverage.sh
+
+# Generate a text format coverage report
+./coverage.sh text
+
+# Align formatting with CI
+./align-ci.sh
+
+# Run CI checks (format, clippy, tests, docs, coverage, audit)
+./ci-check.sh
+```
+
+## Dependencies
+
+Runtime dependencies are intentionally focused:
+
+- `thiserror` provides concrete error implementations.
+- `qubit-atomic` provides `AtomicRef` for shared current state storage.
+- `qubit-cas` provides CAS execution utilities used during event triggering.
 
 ## License
 
-Licensed under the [Apache License, Version 2.0](LICENSE).
+Copyright (c) 2026. Haixing Hu.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+<http://www.apache.org/licenses/LICENSE-2.0>
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+See [LICENSE](LICENSE) for the full license text.
+
+## Contributing
+
+Contributions are welcome. Please keep changes aligned with the existing Rust
+project structure and run `./ci-check.sh` before opening a pull request.
+
+## Author
+
+**Haixing Hu**
+
+## Related Projects
+
+More Rust libraries from Qubit are published under the
+[qubit-ltd](https://github.com/qubit-ltd) GitHub organization.
+
+---
+
+Repository: [https://github.com/qubit-ltd/rs-state-machine](https://github.com/qubit-ltd/rs-state-machine)

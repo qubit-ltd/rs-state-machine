@@ -287,20 +287,72 @@ assert_eq!(*state.load(), DoorState::Closed);
 - 回调只会在 CAS 更新成功后执行。
 - `FastStateMachine` 采用紧凑整数编码和平铺转移表，适合性能敏感路径。
 
-## 贡献
+## Rust 版本
 
-欢迎提交 issue 和 pull request。
+本 crate 使用 Rust 2024 edition，要求 Rust 1.94 或更新版本。
 
-为了让维护和评审更顺畅，请尽量遵循以下约定：
+## 测试与代码覆盖率
 
-- bug 报告、设计问题或较大的功能建议，先提交 issue 讨论
-- pull request 尽量聚焦一个行为变更、问题修复或文档更新
-- 提交前运行 `./ci-check.sh`
-- 修改运行时行为时，请补充相应测试
-- 公共 API 行为变化时，请同步更新 README
+本项目测试统一放在 `tests/` 目录下，覆盖标准版与 Fast 版构建器、转移表、触发语义、
+CAS 更新，以及构建期与运行期错误的格式化输出。
 
-向本项目提交贡献，即表示你同意该贡献使用与本项目相同的许可证。
+### 运行测试
+
+```bash
+# 运行所有测试
+cargo test
+
+# 生成覆盖率报告
+./coverage.sh
+
+# 生成文本格式覆盖率报告
+./coverage.sh text
+
+# 对齐 CI 格式化要求
+./align-ci.sh
+
+# 运行 CI 检查（格式化、clippy、测试、文档、覆盖率、audit）
+./ci-check.sh
+```
+
+## 依赖项
+
+运行时依赖保持简洁且聚焦：
+
+- `thiserror` 用于实现具体错误类型。
+- `qubit-atomic` 提供用于共享当前状态存储的 `AtomicRef`。
+- `qubit-cas` 提供事件触发阶段使用的 CAS 执行工具。
 
 ## 许可证
 
-本项目使用 [Apache License, Version 2.0](LICENSE) 许可证。
+Copyright (c) 2026. Haixing Hu.
+
+根据 Apache 许可证 2.0 版（"许可证"）授权；
+除非遵守许可证，否则您不得使用此文件。
+您可以在以下位置获取许可证副本：
+
+<http://www.apache.org/licenses/LICENSE-2.0>
+
+除非适用法律要求或书面同意，否则根据许可证分发的软件
+按"原样"分发，不附带任何明示或暗示的担保或条件。
+有关许可证下的特定语言管理权限和限制，请参阅许可证。
+
+完整的许可证文本请参阅 [LICENSE](LICENSE)。
+
+## 贡献
+
+欢迎贡献。请保持改动与现有 Rust 项目结构一致，并在提交 Pull Request 前运行
+`./ci-check.sh`。
+
+## 作者
+
+**Haixing Hu**
+
+## 相关项目
+
+Qubit 旗下的更多 Rust 库发布在 GitHub 组织
+[qubit-ltd](https://github.com/qubit-ltd)。
+
+---
+
+仓库地址：[https://github.com/qubit-ltd/rs-state-machine](https://github.com/qubit-ltd/rs-state-machine)
