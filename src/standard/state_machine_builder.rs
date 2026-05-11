@@ -81,7 +81,7 @@ where
         self
     }
 
-    /// Marks a state as an initial state.
+    /// Registers one initial state.
     ///
     /// The state must also be registered through [`add_state`](Self::add_state)
     /// or [`add_states`](Self::add_states) before [`build`](Self::build) is
@@ -92,24 +92,24 @@ where
     ///
     /// # Returns
     /// The updated builder.
-    pub fn set_initial_state(mut self, state: S) -> Self {
+    pub fn initial_state(mut self, state: S) -> Self {
         self.initial_states.insert(state);
         self
     }
 
-    /// Marks multiple states as initial states.
+    /// Registers multiple initial states.
     ///
     /// # Parameters
     /// - `states`: Initial states to add.
     ///
     /// # Returns
     /// The updated builder.
-    pub fn set_initial_states(mut self, states: &[S]) -> Self {
+    pub fn initial_states(mut self, states: &[S]) -> Self {
         self.initial_states.extend(states.iter().copied());
         self
     }
 
-    /// Marks a state as a final state.
+    /// Registers one final state.
     ///
     /// The state must also be registered through [`add_state`](Self::add_state)
     /// or [`add_states`](Self::add_states) before [`build`](Self::build) is
@@ -120,24 +120,24 @@ where
     ///
     /// # Returns
     /// The updated builder.
-    pub fn set_final_state(mut self, state: S) -> Self {
+    pub fn final_state(mut self, state: S) -> Self {
         self.final_states.insert(state);
         self
     }
 
-    /// Marks multiple states as final states.
+    /// Registers multiple final states.
     ///
     /// # Parameters
     /// - `states`: Final states to add.
     ///
     /// # Returns
     /// The updated builder.
-    pub fn set_final_states(mut self, states: &[S]) -> Self {
+    pub fn final_states(mut self, states: &[S]) -> Self {
         self.final_states.extend(states.iter().copied());
         self
     }
 
-    /// Adds a transition by source state, event, and target state.
+    /// Registers one transition by source state, event, and target state.
     ///
     /// Source and target states must be registered before
     /// [`build`](Self::build) is called. Adding the same transition more than
@@ -151,18 +151,18 @@ where
     ///
     /// # Returns
     /// The updated builder.
-    pub fn add_transition(self, source: S, event: E, target: S) -> Self {
-        self.add_transition_value(Transition::new(source, event, target))
+    pub fn transition(self, source: S, event: E, target: S) -> Self {
+        self.transition_value(Transition::new(source, event, target))
     }
 
-    /// Adds a transition value.
+    /// Registers one transition value.
     ///
     /// # Parameters
     /// - `transition`: Transition to add to the state machine definition.
     ///
     /// # Returns
     /// The updated builder.
-    pub fn add_transition_value(mut self, transition: Transition<S, E>) -> Self {
+    pub fn transition_value(mut self, transition: Transition<S, E>) -> Self {
         self.transitions.push(transition);
         self
     }

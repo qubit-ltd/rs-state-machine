@@ -44,10 +44,10 @@
 //!
 //! let machine = StateMachine::builder()
 //!     .add_states(&[State::New, State::Running, State::Done])
-//!     .set_initial_state(State::New)
-//!     .set_final_state(State::Done)
-//!     .add_transition(State::New, Event::Start, State::Running)
-//!     .add_transition(State::Running, Event::Finish, State::Done)
+//!     .initial_state(State::New)
+//!     .final_state(State::Done)
+//!     .transition(State::New, Event::Start, State::Running)
+//!     .transition(State::Running, Event::Finish, State::Done)
 //!     .build()
 //!     .expect("job state machine should be valid");
 //!
