@@ -38,7 +38,7 @@ CAS 支持 `AtomicRef`。
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.2"
+qubit-state-machine = "0.3"
 ```
 
 ## 快速开始：任务处理
@@ -69,11 +69,11 @@ fn create_job_machine() -> Result<StateMachine<JobState, JobEvent>, Box<dyn std:
             JobState::Succeeded,
             JobState::Failed,
         ])
-        .set_initial_state(JobState::Queued)
-        .set_final_states(&[JobState::Succeeded, JobState::Failed])
-        .add_transition(JobState::Queued, JobEvent::Start, JobState::Running)
-        .add_transition(JobState::Running, JobEvent::Complete, JobState::Succeeded)
-        .add_transition(JobState::Running, JobEvent::Fail, JobState::Failed)
+        .initial_state(JobState::Queued)
+        .final_states(&[JobState::Succeeded, JobState::Failed])
+        .transition(JobState::Queued, JobEvent::Start, JobState::Running)
+        .transition(JobState::Running, JobEvent::Complete, JobState::Succeeded)
+        .transition(JobState::Running, JobEvent::Fail, JobState::Failed)
         .build()?)
 }
 
@@ -195,7 +195,7 @@ enum JobEvent {
 
 let error = StateMachine::builder()
     .add_state(JobState::Queued)
-    .add_transition(JobState::Queued, JobEvent::Start, JobState::Running)
+    .transition(JobState::Queued, JobEvent::Start, JobState::Running)
     .build()
     .expect_err("transition target must be registered");
 
@@ -231,7 +231,7 @@ enum DoorEvent {
 
 let machine = StateMachine::builder()
     .add_states(&[DoorState::Open, DoorState::Closed])
-    .add_transition(DoorState::Open, DoorEvent::Close, DoorState::Closed)
+    .transition(DoorState::Open, DoorEvent::Close, DoorState::Closed)
     .build()
     .expect("rules should build");
 let state = AtomicRef::from_value(DoorState::Open);
@@ -252,8 +252,8 @@ assert_eq!(*state.load(), DoorState::Closed);
 | 定义高性能状态机 | `FastStateMachine::builder`、`FastStateMachineBuilder` |
 | 添加一个或多个状态 | `StateMachineBuilder::add_state`、`StateMachineBuilder::add_states` |
 | 配置高性能状态/事件空间 | `FastStateMachineBuilder::state_count`、`FastStateMachineBuilder::event_count` |
-| 标记初始状态和最终状态 | `set_initial_state`、`set_initial_states`、`set_final_state`、`set_final_states`、`initial_state`、`initial_states`、`final_state`、`final_states` |
-| 添加状态转换规则 | `add_transition`、`add_transition_value`、`Transition` |
+| 标记初始状态和最终状态 | `initial_state`、`initial_states`、`final_state`、`final_states` |
+| 添加状态转换规则 | `transition`、`transition_value`、`Transition` |
 | 只查询转换目标，不修改当前状态 | `transition_target` |
 | 应用事件并获取详细错误 | `trigger`、`trigger_with`、`StateMachineError` |
 | 应用事件但不处理错误详情 | `try_trigger`、`try_trigger_with` |

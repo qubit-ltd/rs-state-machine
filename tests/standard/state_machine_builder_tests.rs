@@ -39,11 +39,11 @@ fn create_valid_builder() -> qubit_state_machine::StateMachineBuilder<JobState, 
             JobState::Done,
             JobState::Failed,
         ])
-        .set_initial_state(JobState::New)
-        .set_final_states(&[JobState::Done, JobState::Failed])
-        .add_transition(JobState::New, JobEvent::Start, JobState::Running)
-        .add_transition(JobState::Running, JobEvent::Finish, JobState::Done)
-        .add_transition(JobState::Running, JobEvent::Fail, JobState::Failed)
+        .initial_state(JobState::New)
+        .final_states(&[JobState::Done, JobState::Failed])
+        .transition(JobState::New, JobEvent::Start, JobState::Running)
+        .transition(JobState::Running, JobEvent::Finish, JobState::Done)
+        .transition(JobState::Running, JobEvent::Fail, JobState::Failed)
 }
 
 #[test]
@@ -79,11 +79,11 @@ fn test_builder_build_supports_chained_rule_definition() {
             JobState::Done,
             JobState::Failed,
         ])
-        .set_initial_state(JobState::New)
-        .set_final_states(&[JobState::Done, JobState::Failed])
-        .add_transition(JobState::New, JobEvent::Start, JobState::Running)
-        .add_transition(JobState::Running, JobEvent::Finish, JobState::Done)
-        .add_transition(JobState::Running, JobEvent::Fail, JobState::Failed)
+        .initial_state(JobState::New)
+        .final_states(&[JobState::Done, JobState::Failed])
+        .transition(JobState::New, JobEvent::Start, JobState::Running)
+        .transition(JobState::Running, JobEvent::Finish, JobState::Done)
+        .transition(JobState::Running, JobEvent::Fail, JobState::Failed)
         .build()
         .expect("chained builder should build valid rules");
 
@@ -99,7 +99,7 @@ fn test_builder_build_supports_chained_rule_definition() {
 #[test]
 fn test_builder_build_accepts_exact_duplicate_transition() {
     let builder =
-        create_valid_builder().add_transition(JobState::New, JobEvent::Start, JobState::Running);
+        create_valid_builder().transition(JobState::New, JobEvent::Start, JobState::Running);
 
     let machine = builder
         .build()
@@ -116,11 +116,11 @@ fn test_builder_build_accepts_exact_duplicate_transition() {
 }
 
 #[test]
-fn test_builder_add_transition_value_accepts_transition_object() {
+fn test_builder_transition_value_accepts_transition_object() {
     let builder = StateMachine::builder()
         .add_states(&[JobState::New, JobState::Running])
-        .set_initial_state(JobState::New)
-        .add_transition_value(Transition::new(
+        .initial_state(JobState::New)
+        .transition_value(Transition::new(
             JobState::New,
             JobEvent::Start,
             JobState::Running,
@@ -139,7 +139,7 @@ fn test_builder_default_matches_new_builder() {
     let builder: qubit_state_machine::StateMachineBuilder<JobState, JobEvent> =
         qubit_state_machine::StateMachineBuilder::default()
             .add_state(JobState::New)
-            .set_initial_state(JobState::New);
+            .initial_state(JobState::New);
 
     let machine = builder.build().expect("single-state machine should build");
 
@@ -148,11 +148,11 @@ fn test_builder_default_matches_new_builder() {
 }
 
 #[test]
-fn test_builder_set_initial_states_registers_multiple_initial_states() {
+fn test_builder_initial_states_registers_multiple_initial_states() {
     let builder: qubit_state_machine::StateMachineBuilder<JobState, JobEvent> =
         StateMachine::builder()
             .add_states(&[JobState::New, JobState::Running])
-            .set_initial_states(&[JobState::New, JobState::Running]);
+            .initial_states(&[JobState::New, JobState::Running]);
 
     let machine = builder
         .build()
@@ -167,7 +167,7 @@ fn test_builder_build_rejects_unregistered_initial_state() {
     let builder: qubit_state_machine::StateMachineBuilder<JobState, JobEvent> =
         StateMachine::builder()
             .add_state(JobState::Running)
-            .set_initial_state(JobState::New);
+            .initial_state(JobState::New);
 
     let error = builder
         .build()
@@ -232,7 +232,7 @@ fn test_builder_build_rejects_unregistered_final_state() {
     let builder: qubit_state_machine::StateMachineBuilder<JobState, JobEvent> =
         StateMachine::builder()
             .add_state(JobState::Running)
-            .set_final_state(JobState::Done);
+            .final_state(JobState::Done);
 
     let error = builder
         .build()
@@ -250,7 +250,7 @@ fn test_builder_build_rejects_unregistered_final_state() {
 fn test_builder_build_rejects_transition_with_unknown_source() {
     let builder = StateMachine::builder()
         .add_state(JobState::Running)
-        .add_transition(JobState::New, JobEvent::Start, JobState::Running);
+        .transition(JobState::New, JobEvent::Start, JobState::Running);
 
     let error = builder
         .build()
@@ -268,9 +268,11 @@ fn test_builder_build_rejects_transition_with_unknown_source() {
 
 #[test]
 fn test_builder_build_rejects_transition_with_unknown_target() {
-    let builder = StateMachine::builder()
-        .add_state(JobState::New)
-        .add_transition(JobState::New, JobEvent::Start, JobState::Running);
+    let builder = StateMachine::builder().add_state(JobState::New).transition(
+        JobState::New,
+        JobEvent::Start,
+        JobState::Running,
+    );
 
     let error = builder
         .build()
@@ -290,7 +292,7 @@ fn test_builder_build_rejects_transition_with_unknown_target() {
 fn test_builder_build_rejects_conflicting_transition_targets() {
     let builder = create_valid_builder()
         .add_state(JobState::Detached)
-        .add_transition(JobState::New, JobEvent::Start, JobState::Detached);
+        .transition(JobState::New, JobEvent::Start, JobState::Detached);
 
     let error = builder
         .build()

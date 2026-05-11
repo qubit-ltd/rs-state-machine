@@ -69,11 +69,11 @@ use super::{
 ///             JobState::Succeeded,
 ///             JobState::Failed,
 ///         ])
-///         .set_initial_state(JobState::Queued)
-///         .set_final_states(&[JobState::Succeeded, JobState::Failed])
-///         .add_transition(JobState::Queued, JobEvent::Start, JobState::Running)
-///         .add_transition(JobState::Running, JobEvent::Complete, JobState::Succeeded)
-///         .add_transition(JobState::Running, JobEvent::Fail, JobState::Failed)
+///         .initial_state(JobState::Queued)
+///         .final_states(&[JobState::Succeeded, JobState::Failed])
+///         .transition(JobState::Queued, JobEvent::Start, JobState::Running)
+///         .transition(JobState::Running, JobEvent::Complete, JobState::Succeeded)
+///         .transition(JobState::Running, JobEvent::Fail, JobState::Failed)
 ///         .build()
 ///         .expect("job state machine should be valid")
 /// }
@@ -128,7 +128,7 @@ where
     ///
     /// let machine = StateMachine::<State, Event>::builder()
     ///     .add_state(State::New)
-    ///     .set_initial_state(State::New)
+    ///     .initial_state(State::New)
     ///     .build()
     ///     .expect("single-state machine should build");
     /// assert!(machine.contains_state(State::New));
@@ -179,7 +179,7 @@ where
     /// # enum Event { Start }
     /// # let machine = StateMachine::builder()
     /// #     .add_states(&[State::New, State::Running])
-    /// #     .add_transition(State::New, Event::Start, State::Running)
+    /// #     .transition(State::New, Event::Start, State::Running)
     /// #     .build()
     /// #     .expect("rules should build");
     /// assert!(machine.states().contains(&State::New));
@@ -204,8 +204,8 @@ where
     /// # enum Event { Start }
     /// # let machine = StateMachine::builder()
     /// #     .add_states(&[State::New, State::Running])
-    /// #     .set_initial_state(State::New)
-    /// #     .add_transition(State::New, Event::Start, State::Running)
+    /// #     .initial_state(State::New)
+    /// #     .transition(State::New, Event::Start, State::Running)
     /// #     .build()
     /// #     .expect("rules should build");
     /// assert!(machine.initial_states().contains(&State::New));
@@ -229,8 +229,8 @@ where
     /// # enum Event { Finish }
     /// # let machine = StateMachine::builder()
     /// #     .add_states(&[State::New, State::Done])
-    /// #     .set_final_state(State::Done)
-    /// #     .add_transition(State::New, Event::Finish, State::Done)
+    /// #     .final_state(State::Done)
+    /// #     .transition(State::New, Event::Finish, State::Done)
     /// #     .build()
     /// #     .expect("rules should build");
     /// assert!(machine.final_states().contains(&State::Done));
@@ -262,7 +262,7 @@ where
     ///
     /// let machine = StateMachine::builder()
     ///     .add_states(&[State::New, State::Running])
-    ///     .add_transition(State::New, Event::Start, State::Running)
+    ///     .transition(State::New, Event::Start, State::Running)
     ///     .build()
     ///     .expect("rules should build");
     ///
@@ -292,7 +292,7 @@ where
     /// # enum Event { Start }
     /// # let machine = StateMachine::builder()
     /// #     .add_states(&[State::New, State::Running])
-    /// #     .add_transition(State::New, Event::Start, State::Running)
+    /// #     .transition(State::New, Event::Start, State::Running)
     /// #     .build()
     /// #     .expect("rules should build");
     /// assert!(machine.contains_state(State::Running));
@@ -320,8 +320,8 @@ where
     /// # enum Event { Start }
     /// # let machine = StateMachine::builder()
     /// #     .add_states(&[State::New, State::Running])
-    /// #     .set_initial_state(State::New)
-    /// #     .add_transition(State::New, Event::Start, State::Running)
+    /// #     .initial_state(State::New)
+    /// #     .transition(State::New, Event::Start, State::Running)
     /// #     .build()
     /// #     .expect("rules should build");
     /// assert!(machine.is_initial_state(State::New));
@@ -349,8 +349,8 @@ where
     /// # enum Event { Finish }
     /// # let machine = StateMachine::builder()
     /// #     .add_states(&[State::Running, State::Done])
-    /// #     .set_final_state(State::Done)
-    /// #     .add_transition(State::Running, Event::Finish, State::Done)
+    /// #     .final_state(State::Done)
+    /// #     .transition(State::Running, Event::Finish, State::Done)
     /// #     .build()
     /// #     .expect("rules should build");
     /// assert!(machine.is_final_state(State::Done));
@@ -382,7 +382,7 @@ where
     /// # enum Event { Start, Finish }
     /// # let machine = StateMachine::builder()
     /// #     .add_states(&[State::New, State::Running])
-    /// #     .add_transition(State::New, Event::Start, State::Running)
+    /// #     .transition(State::New, Event::Start, State::Running)
     /// #     .build()
     /// #     .expect("rules should build");
     /// assert_eq!(
@@ -427,7 +427,7 @@ where
     ///
     /// let machine = StateMachine::builder()
     ///     .add_states(&[State::New, State::Running])
-    ///     .add_transition(State::New, Event::Start, State::Running)
+    ///     .transition(State::New, Event::Start, State::Running)
     ///     .build()
     ///     .expect("rules should build");
     /// let state = AtomicRef::from_value(State::New);
@@ -474,7 +474,7 @@ where
     ///
     /// let machine = StateMachine::builder()
     ///     .add_states(&[State::New, State::Running])
-    ///     .add_transition(State::New, Event::Start, State::Running)
+    ///     .transition(State::New, Event::Start, State::Running)
     ///     .build()
     ///     .expect("rules should build");
     /// let state = AtomicRef::from_value(State::New);
@@ -532,7 +532,7 @@ where
     ///
     /// let machine = StateMachine::builder()
     ///     .add_states(&[State::New, State::Running])
-    ///     .add_transition(State::New, Event::Start, State::Running)
+    ///     .transition(State::New, Event::Start, State::Running)
     ///     .build()
     ///     .expect("rules should build");
     /// let state = AtomicRef::from_value(State::New);
@@ -575,7 +575,7 @@ where
     ///
     /// let machine = StateMachine::builder()
     ///     .add_states(&[State::New, State::Running])
-    ///     .add_transition(State::New, Event::Start, State::Running)
+    ///     .transition(State::New, Event::Start, State::Running)
     ///     .build()
     ///     .expect("rules should build");
     /// let state = AtomicRef::from_value(State::New);

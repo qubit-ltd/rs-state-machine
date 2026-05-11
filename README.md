@@ -41,7 +41,7 @@ Use `qubit-state-machine` when you need:
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.2"
+qubit-state-machine = "0.3"
 ```
 
 ## Quick Start: Job Processing
@@ -72,11 +72,11 @@ fn create_job_machine() -> Result<StateMachine<JobState, JobEvent>, Box<dyn std:
             JobState::Succeeded,
             JobState::Failed,
         ])
-        .set_initial_state(JobState::Queued)
-        .set_final_states(&[JobState::Succeeded, JobState::Failed])
-        .add_transition(JobState::Queued, JobEvent::Start, JobState::Running)
-        .add_transition(JobState::Running, JobEvent::Complete, JobState::Succeeded)
-        .add_transition(JobState::Running, JobEvent::Fail, JobState::Failed)
+        .initial_state(JobState::Queued)
+        .final_states(&[JobState::Succeeded, JobState::Failed])
+        .transition(JobState::Queued, JobEvent::Start, JobState::Running)
+        .transition(JobState::Running, JobEvent::Complete, JobState::Succeeded)
+        .transition(JobState::Running, JobEvent::Fail, JobState::Failed)
         .build()?)
 }
 
@@ -199,7 +199,7 @@ enum JobEvent {
 
 let error = StateMachine::builder()
     .add_state(JobState::Queued)
-    .add_transition(JobState::Queued, JobEvent::Start, JobState::Running)
+    .transition(JobState::Queued, JobEvent::Start, JobState::Running)
     .build()
     .expect_err("transition target must be registered");
 
@@ -235,7 +235,7 @@ enum DoorEvent {
 
 let machine = StateMachine::builder()
     .add_states(&[DoorState::Open, DoorState::Closed])
-    .add_transition(DoorState::Open, DoorEvent::Close, DoorState::Closed)
+    .transition(DoorState::Open, DoorEvent::Close, DoorState::Closed)
     .build()
     .expect("rules should build");
 let state = AtomicRef::from_value(DoorState::Open);
@@ -256,8 +256,8 @@ assert_eq!(*state.load(), DoorState::Closed);
 | Define dense fast machines | `FastStateMachine::builder`, `FastStateMachineBuilder` |
 | Add one or more states | `StateMachineBuilder::add_state`, `StateMachineBuilder::add_states` |
 | Configure fast state/event space | `FastStateMachineBuilder::state_count`, `FastStateMachineBuilder::event_count` |
-| Mark initial and final states | `set_initial_state`, `set_initial_states`, `set_final_state`, `set_final_states`, `initial_state`, `initial_states`, `final_state`, `final_states` |
-| Add transition rules | `add_transition`, `add_transition_value`, `Transition` |
+| Mark initial and final states | `initial_state`, `initial_states`, `final_state`, `final_states` |
+| Add transition rules | `transition`, `transition_value`, `Transition` |
 | Query transition targets without changing state | `transition_target` |
 | Apply events and get detailed errors | `trigger`, `trigger_with`, `StateMachineError` |
 | Apply events without handling errors | `try_trigger`, `try_trigger_with` |

@@ -55,14 +55,14 @@ fn create_job_machine() -> StateMachine<JobState, JobEvent> {
             JobState::Done,
             JobState::Failed,
         ])
-        .set_initial_state(JobState::New)
-        .set_final_states(&[JobState::Done, JobState::Failed])
-        .add_transition(JobState::New, JobEvent::Start, JobState::Running)
-        .add_transition(JobState::Running, JobEvent::Pause, JobState::Paused)
-        .add_transition(JobState::Paused, JobEvent::Resume, JobState::Running)
-        .add_transition(JobState::Running, JobEvent::Finish, JobState::Done)
-        .add_transition(JobState::Running, JobEvent::Fail, JobState::Failed)
-        .add_transition(JobState::Running, JobEvent::Tick, JobState::Running)
+        .initial_state(JobState::New)
+        .final_states(&[JobState::Done, JobState::Failed])
+        .transition(JobState::New, JobEvent::Start, JobState::Running)
+        .transition(JobState::Running, JobEvent::Pause, JobState::Paused)
+        .transition(JobState::Paused, JobEvent::Resume, JobState::Running)
+        .transition(JobState::Running, JobEvent::Finish, JobState::Done)
+        .transition(JobState::Running, JobEvent::Fail, JobState::Failed)
+        .transition(JobState::Running, JobEvent::Tick, JobState::Running)
         .build()
         .expect("job state machine rules should be valid")
 }
