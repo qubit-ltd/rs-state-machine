@@ -15,8 +15,12 @@
 它提供不可变的状态转换规则、构建阶段校验，以及用于对共享状态应用事件的
 CAS 支持 `AtomicRef`。
 
-在高并发热点路径下，它还提供 [`FastStateMachine`]。该实现使用数字编码状态和事件，
-用紧凑的平铺数组做 O(1) 查询，并通过 `FastCas` 做快速更新。
+库内同时提供两种实现方式：
+
+- `StateMachine`：适合可读性优先、以枚举语义建模状态/事件的场景。
+- `FastStateMachine`：适合高吞吐、热点路径对延迟要求更严格的场景。
+
+这两种实现都在构建后冻结转换规则，并通过 CAS 机制更新共享状态。
 
 ## 为什么使用
 
@@ -103,10 +107,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+## 标准版与高性能版如何选
+
+如果你的模型天然适合枚举表达，且优先考虑代码可读性和业务语义清晰度，
+优先使用 `StateMachine`。
+
+如果你面对的是高频触发路径、并且状态和事件可以表达为稠密 `usize` 编码，
+优先使用 `FastStateMachine`。它通过可计算下标的扁平转移表换取更稳定的热点路径
+性能。
+
 ## Fast State Machine（高性能模式）
 
 `FastStateMachine` 使用稠密的整数编码。它要求你显式声明状态数和事件数，
-并在构建时一次性校验完整转移表，适合高频状态转换场景。
+并在构建时一次性校验完整转移表，适合高频状态转换场景。运行时转换查找采用
+行优先（row-major）布局，索引计算为：
+`index = source * event_count + event`。
 
 ```rust
 use qubit_state_machine::{
@@ -131,17 +146,30 @@ let machine = FastStateMachine::builder()
     .transition(QUEUED, START, RUNNING)
     .transition(RUNNING, COMPLETE, SUCCEEDED)
     .transition(RUNNING, FAIL, FAILED)
+    .build()?;
+
+let tuned = FastStateMachine::builder()
+    .state_count(4)
+    .event_count(3)
+    .initial_state(QUEUED)
+    .final_states(&[SUCCEEDED, FAILED])
+    .transition(QUEUED, START, RUNNING)
+    .transition(RUNNING, COMPLETE, SUCCEEDED)
+    .transition(RUNNING, FAIL, FAILED)
     .cas_policy(FastCasPolicy::spin(8))
     .build()?;
 
 let state = qubit_cas::FastCasState::new(QUEUED);
 assert_eq!(machine.trigger(&state, START)?, RUNNING);
+let tuned_state = qubit_cas::FastCasState::new(RUNNING);
+assert_eq!(tuned.trigger(&tuned_state, COMPLETE)?, SUCCEEDED);
 assert_eq!(machine.transition_target(QUEUED, START), Some(RUNNING));
 assert_eq!(machine.state_count(), 4);
 assert_eq!(machine.event_count(), 3);
 assert!(machine.is_initial_state(QUEUED));
 assert!(machine.is_final_state(SUCCEEDED));
 assert_eq!(machine.cas_policy(), FAST_STATE_MACHINE_DEFAULT_CAS_POLICY);
+assert_eq!(tuned.cas_policy(), FastCasPolicy::spin(8));
 ```
 
 默认不显式设置时会使用 `FAST_STATE_MACHINE_DEFAULT_CAS_POLICY`，如需调优可通过
@@ -222,8 +250,9 @@ assert_eq!(*state.load(), DoorState::Closed);
 | --- | --- |
 | 定义状态和转换 | `StateMachine::builder`、`StateMachineBuilder` |
 | 定义高性能状态机 | `FastStateMachine::builder`、`FastStateMachineBuilder` |
-| 添加一个或多个状态 | `add_state`、`add_states` |
-| 标记初始状态和最终状态 | `set_initial_state`、`set_initial_states`、`set_final_state`、`set_final_states` |
+| 添加一个或多个状态 | `StateMachineBuilder::add_state`、`StateMachineBuilder::add_states` |
+| 配置高性能状态/事件空间 | `FastStateMachineBuilder::state_count`、`FastStateMachineBuilder::event_count` |
+| 标记初始状态和最终状态 | `set_initial_state`、`set_initial_states`、`set_final_state`、`set_final_states`、`initial_state`、`initial_states`、`final_state`、`final_states` |
 | 添加状态转换规则 | `add_transition`、`add_transition_value`、`Transition` |
 | 只查询转换目标，不修改当前状态 | `transition_target` |
 | 应用事件并获取详细错误 | `trigger`、`trigger_with`、`StateMachineError` |
@@ -250,10 +279,12 @@ assert_eq!(*state.load(), DoorState::Closed);
 
 - `qubit-state-machine` 面向简单有限状态机，不是完整工作流引擎。
 - 状态和事件类型应是小型枚举风格值，并实现 `Copy + Eq + Hash + Debug`。
+- Fast 版本要求状态码/事件码是连续的 `usize`，且位于
+  `[0, state_count)`、`[0, event_count)`，转移表容量固定为
+  `state_count * event_count`。
 - 规则定义在 `StateMachineBuilder::build` 之后变为不可变。
-- `trigger` 直接接受 `AtomicRef<S>`。
-- 事件驱动的转换通过 `qubit-cas` 安装。
-- 回调会在 CAS 更新成功后执行。
+- 标准版转换通过 `AtomicRef<S>` 与 `qubit-cas` CAS 机制执行更新。
+- 回调只会在 CAS 更新成功后执行。
 - `FastStateMachine` 采用紧凑整数编码和平铺转移表，适合性能敏感路径。
 
 ## 贡献
