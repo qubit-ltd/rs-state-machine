@@ -29,19 +29,19 @@ enum TestEvent {
 #[test]
 fn test_state_machine_build_error_equality_uses_variant_fields() {
     let error = StateMachineBuildError::DuplicateTransition {
-        source: TestState::New,
+        source_state: TestState::New,
         event: TestEvent::Start,
         existing_target: TestState::Running,
         new_target: TestState::Done,
     };
     let same = StateMachineBuildError::DuplicateTransition {
-        source: TestState::New,
+        source_state: TestState::New,
         event: TestEvent::Start,
         existing_target: TestState::Running,
         new_target: TestState::Done,
     };
     let different = StateMachineBuildError::DuplicateTransition {
-        source: TestState::New,
+        source_state: TestState::New,
         event: TestEvent::Start,
         existing_target: TestState::Done,
         new_target: TestState::Running,
@@ -62,7 +62,7 @@ fn test_state_machine_build_error_display_reports_validation_context() {
     );
     assert_eq!(
         StateMachineBuildError::TransitionTargetNotRegistered {
-            source: TestState::New,
+            source_state: TestState::New,
             event: TestEvent::Finish,
             target: TestState::Done,
         }

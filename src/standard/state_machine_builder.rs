@@ -16,7 +16,7 @@ use std::collections::{
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use crate::{
+use super::{
     StateMachine,
     StateMachineBuildError,
     Transition,
@@ -227,14 +227,14 @@ where
     ) -> Result<(), StateMachineBuildError<S, E>> {
         if !self.states.contains(&transition.source()) {
             return Err(StateMachineBuildError::TransitionSourceNotRegistered {
-                source: transition.source(),
+                source_state: transition.source(),
                 event: transition.event(),
                 target: transition.target(),
             });
         }
         if !self.states.contains(&transition.target()) {
             return Err(StateMachineBuildError::TransitionTargetNotRegistered {
-                source: transition.source(),
+                source_state: transition.source(),
                 event: transition.event(),
                 target: transition.target(),
             });
@@ -267,7 +267,7 @@ where
             && *existing_target != target
         {
             return Err(StateMachineBuildError::DuplicateTransition {
-                source,
+                source_state: source,
                 event,
                 existing_target: *existing_target,
                 new_target: target,

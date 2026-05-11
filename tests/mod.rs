@@ -9,9 +9,5 @@
  ******************************************************************************/
 //! Integration tests for `qubit-state-machine`.
 
-mod state_machine_builder;
-
-mod state_machine;
-mod state_machine_build_error_tests;
-mod state_machine_error_tests;
-mod transition;
+mod fast;
+mod standard;

@@ -1,6 +1,6 @@
 # Qubit State Machine (`rs-state-machine`)
 
-[![CircleCI](https://circleci.com/gh/qubit-ltd/rs-state-machine.svg?style=shield)](https://circleci.com/gh/qubit-ltd/rs-state-machine)
+[![Rust CI](https://github.com/qubit-ltd/rs-state-machine/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-state-machine/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/qubit-ltd/rs-state-machine/badge.svg?branch=main)](https://coveralls.io/github/qubit-ltd/rs-state-machine?branch=main)
 [![Crates.io](https://img.shields.io/crates/v/qubit-state-machine.svg?color=blue)](https://crates.io/crates/qubit-state-machine)
 [![Docs.rs](https://docs.rs/qubit-state-machine/badge.svg)](https://docs.rs/qubit-state-machine)
@@ -16,6 +16,10 @@ workflow, and task-state tracking code.
 It provides immutable transition rules, validation at build time, and a
 CAS-backed `AtomicRef` for applying events to shared state.
 
+For performance-critical hot paths, it also provides
+[`FastStateMachine`], a compact integer-based implementation that stores transitions
+in a fixed table and updates state through `FastCas`.
+
 ## Why Use It
 
 Use `qubit-state-machine` when you need:
@@ -26,6 +30,8 @@ Use `qubit-state-machine` when you need:
 - event-driven state updates through `trigger` and `try_trigger`
 - success callbacks that observe the old and new state after an update
 - simple state tracking for services, jobs, devices, or UI logic
+- dense integer state/event transitions through [`FastStateMachine`] when you need
+  predictable low-latency path performance
 
 ## Installation
 
@@ -100,6 +106,51 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+## Fast State Machine
+
+`FastStateMachine` is intended for dense integer codes and high-throughput
+dispatch loops. It validates the complete transition table at build time and keeps
+runtime transition logic in O(1) by indexing a flat transition array.
+
+```rust
+use qubit_state_machine::{
+    FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
+    FastCasPolicy,
+    FastStateMachine,
+};
+
+const QUEUED: usize = 0;
+const RUNNING: usize = 1;
+const SUCCEEDED: usize = 2;
+const FAILED: usize = 3;
+const START: usize = 0;
+const COMPLETE: usize = 1;
+const FAIL: usize = 2;
+
+let machine = FastStateMachine::builder()
+    .state_count(4)
+    .event_count(3)
+    .initial_state(QUEUED)
+    .final_states(&[SUCCEEDED, FAILED])
+    .transition(QUEUED, START, RUNNING)
+    .transition(RUNNING, COMPLETE, SUCCEEDED)
+    .transition(RUNNING, FAIL, FAILED)
+    .cas_policy(FastCasPolicy::spin(8))
+    .build()?;
+
+let state = qubit_cas::FastCasState::new(QUEUED);
+assert_eq!(machine.trigger(&state, START)?, RUNNING);
+assert_eq!(machine.transition_target(QUEUED, START), Some(RUNNING));
+assert_eq!(machine.state_count(), 4);
+assert_eq!(machine.event_count(), 3);
+assert!(machine.is_initial_state(QUEUED));
+assert!(machine.is_final_state(SUCCEEDED));
+assert_eq!(machine.cas_policy(), FAST_STATE_MACHINE_DEFAULT_CAS_POLICY);
+```
+
+Default policy is `FAST_STATE_MACHINE_DEFAULT_CAS_POLICY` so callers can start
+from safe defaults and only override with `.cas_policy(...)` when needed.
+
 ## Build-Time Validation
 
 Invalid rules are rejected before a `StateMachine` is created.
@@ -127,7 +178,7 @@ let error = StateMachine::builder()
 assert_eq!(
     error,
     StateMachineBuildError::TransitionTargetNotRegistered {
-        source: JobState::Queued,
+        source_state: JobState::Queued,
         event: JobEvent::Start,
         target: JobState::Running,
     },
@@ -174,6 +225,7 @@ assert_eq!(*state.load(), DoorState::Closed);
 | Task | API |
 | --- | --- |
 | Define states and transitions | `StateMachine::builder`, `StateMachineBuilder` |
+| Define dense fast machines | `FastStateMachine::builder`, `FastStateMachineBuilder` |
 | Add one or more states | `add_state`, `add_states` |
 | Mark initial and final states | `set_initial_state`, `set_initial_states`, `set_final_state`, `set_final_states` |
 | Add transition rules | `add_transition`, `add_transition_value`, `Transition` |
@@ -187,6 +239,11 @@ assert_eq!(*state.load(), DoorState::Closed);
 | Type | Purpose |
 | --- | --- |
 | `Transition` | Immutable value describing `source --event--> target`. |
+| `FastStateMachine` | Dense integer-coded transition machine for high-throughput scenarios. |
+| `FastStateMachineBuilder` | Builder for state/event code counts, transition table, and CAS policy. |
+| `FastStateMachineError` | Runtime error from fast transition execution. |
+| `FastStateMachineBuildError` | Build-time validation error for fast transition table configuration. |
+| `FastCasPolicy` | Optional CAS retry policy to control contention behavior. |
 | `StateMachineBuilder` | Mutable builder for states, initial states, final states, and transitions. |
 | `StateMachine` | Immutable, validated transition table used to query and trigger events. |
 | `AtomicRef` | Re-exported atomic reference used for CAS-backed current state. |
@@ -203,6 +260,8 @@ assert_eq!(*state.load(), DoorState::Closed);
 - `trigger` accepts `AtomicRef<S>` directly.
 - Event-driven transitions are installed through `qubit-cas`.
 - Callbacks run after the CAS update has succeeded.
+- `FastStateMachine` uses compact state/event integer codes and a flat transition
+  table for predictable performance.
 
 ## Contributing
 

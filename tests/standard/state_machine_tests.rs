@@ -98,7 +98,7 @@ fn test_trigger_returns_error_and_keeps_state_for_invalid_transition() {
     assert_eq!(
         error,
         StateMachineError::UnknownTransition {
-            source: JobState::New,
+            source_state: JobState::New,
             event: JobEvent::Finish,
         }
     );
@@ -134,7 +134,7 @@ fn test_state_machine_error_display_describes_failure_context() {
     );
     assert_eq!(
         StateMachineError::UnknownTransition {
-            source: JobState::New,
+            source_state: JobState::New,
             event: JobEvent::Finish,
         }
         .to_string(),
