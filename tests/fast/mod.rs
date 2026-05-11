@@ -7,6 +7,9 @@
  *    Licensed under the Apache License, Version 2.0.
  *
  ******************************************************************************/
-//! Tests for state machine modules.
+//! Tests for fast state machine modules.
 
-mod state_machine_tests;
+mod fast_state_machine_build_error_tests;
+mod fast_state_machine_builder_tests;
+mod fast_state_machine_error_tests;
+mod fast_state_machine_tests;

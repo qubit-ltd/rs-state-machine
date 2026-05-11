@@ -199,7 +199,7 @@ fn test_build_error_display_describes_each_variant() {
     );
     assert_eq!(
         StateMachineBuildError::TransitionSourceNotRegistered {
-            source: JobState::New,
+            source_state: JobState::New,
             event: JobEvent::Start,
             target: JobState::Running,
         }
@@ -208,7 +208,7 @@ fn test_build_error_display_describes_each_variant() {
     );
     assert_eq!(
         StateMachineBuildError::TransitionTargetNotRegistered {
-            source: JobState::New,
+            source_state: JobState::New,
             event: JobEvent::Start,
             target: JobState::Running,
         }
@@ -217,7 +217,7 @@ fn test_build_error_display_describes_each_variant() {
     );
     assert_eq!(
         StateMachineBuildError::DuplicateTransition {
-            source: JobState::New,
+            source_state: JobState::New,
             event: JobEvent::Start,
             existing_target: JobState::Running,
             new_target: JobState::Detached,
@@ -259,7 +259,7 @@ fn test_builder_build_rejects_transition_with_unknown_source() {
     assert_eq!(
         error,
         StateMachineBuildError::TransitionSourceNotRegistered {
-            source: JobState::New,
+            source_state: JobState::New,
             event: JobEvent::Start,
             target: JobState::Running,
         }
@@ -279,7 +279,7 @@ fn test_builder_build_rejects_transition_with_unknown_target() {
     assert_eq!(
         error,
         StateMachineBuildError::TransitionTargetNotRegistered {
-            source: JobState::New,
+            source_state: JobState::New,
             event: JobEvent::Start,
             target: JobState::Running,
         }
@@ -299,7 +299,7 @@ fn test_builder_build_rejects_conflicting_transition_targets() {
     assert_eq!(
         error,
         StateMachineBuildError::DuplicateTransition {
-            source: JobState::New,
+            source_state: JobState::New,
             event: JobEvent::Start,
             existing_target: JobState::Running,
             new_target: JobState::Detached,

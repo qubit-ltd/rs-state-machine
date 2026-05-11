@@ -13,11 +13,12 @@ readme = "README.md"
 keywords = ["state-machine", "fsm", "workflow", "thread-safe", "qubit"]
 categories = ["data-structures", "concurrency"]
 exclude = [
-    "coverage.sh",
-    "COVERAGE.md",
-    "COVERAGE.zh_CN.md",
-    ".circleci/*",
+    "align-ci.sh",
     "ci-check.sh",
+    "coverage.sh",
+    "style-check.sh",
+    "update-submodule.sh",
+    ".github/*",
     ".llvm-cov.toml",
     ".cargo-audit.toml.example",
 ]
@@ -27,8 +28,10 @@ name = "qubit_state_machine"
 doctest = true
 
 [dependencies]
+thiserror = "2.0"
+
 qubit-atomic = "0.10"
-qubit-cas = "0.4"
+qubit-cas = "0.5"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }

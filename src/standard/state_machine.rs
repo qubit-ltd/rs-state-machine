@@ -24,7 +24,7 @@ use qubit_cas::{
     CasSuccess,
 };
 
-use crate::{
+use super::{
     StateMachineBuilder,
     StateMachineError,
     StateMachineResult,
@@ -647,7 +647,7 @@ where
         }
         self.transition_target(current_state, event)
             .ok_or(StateMachineError::UnknownTransition {
-                source: current_state,
+                source_state: current_state,
                 event,
             })
     }

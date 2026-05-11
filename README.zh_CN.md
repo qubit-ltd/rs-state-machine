@@ -1,6 +1,6 @@
 # Qubit State Machine（`rs-state-machine`）
 
-[![CircleCI](https://circleci.com/gh/qubit-ltd/rs-state-machine.svg?style=shield)](https://circleci.com/gh/qubit-ltd/rs-state-machine)
+[![Rust CI](https://github.com/qubit-ltd/rs-state-machine/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-state-machine/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/qubit-ltd/rs-state-machine/badge.svg?branch=main)](https://coveralls.io/github/qubit-ltd/rs-state-machine?branch=main)
 [![Crates.io](https://img.shields.io/crates/v/qubit-state-machine.svg?color=blue)](https://crates.io/crates/qubit-state-machine)
 [![Docs.rs](https://docs.rs/qubit-state-machine/badge.svg)](https://docs.rs/qubit-state-machine)
@@ -12,7 +12,11 @@
 
 `qubit-state-machine` 是一个小型 Rust 有限状态机库，适用于生命周期、工作流和任务状态跟踪代码。
 
-它提供不可变的状态转换规则、构建阶段校验，以及用于对共享状态应用事件的 CAS 支持 `AtomicRef`。
+它提供不可变的状态转换规则、构建阶段校验，以及用于对共享状态应用事件的
+CAS 支持 `AtomicRef`。
+
+在高并发热点路径下，它还提供 [`FastStateMachine`]。该实现使用数字编码状态和事件，
+用紧凑的平铺数组做 O(1) 查询，并通过 `FastCas` 做快速更新。
 
 ## 为什么使用
 
@@ -24,6 +28,7 @@
 - 通过 `trigger` 和 `try_trigger` 执行事件驱动的状态更新
 - 在状态更新成功后通过回调观察旧状态和新状态
 - 为服务、任务、设备或 UI 逻辑提供简单、轻量的状态跟踪能力
+- 在高频触发场景中使用 `FastStateMachine` 获取更紧凑的转移性能
 
 ## 安装
 
@@ -98,6 +103,50 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+## Fast State Machine（高性能模式）
+
+`FastStateMachine` 使用稠密的整数编码。它要求你显式声明状态数和事件数，
+并在构建时一次性校验完整转移表，适合高频状态转换场景。
+
+```rust
+use qubit_state_machine::{
+    FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
+    FastCasPolicy,
+    FastStateMachine,
+};
+
+const QUEUED: usize = 0;
+const RUNNING: usize = 1;
+const SUCCEEDED: usize = 2;
+const FAILED: usize = 3;
+const START: usize = 0;
+const COMPLETE: usize = 1;
+const FAIL: usize = 2;
+
+let machine = FastStateMachine::builder()
+    .state_count(4)
+    .event_count(3)
+    .initial_state(QUEUED)
+    .final_states(&[SUCCEEDED, FAILED])
+    .transition(QUEUED, START, RUNNING)
+    .transition(RUNNING, COMPLETE, SUCCEEDED)
+    .transition(RUNNING, FAIL, FAILED)
+    .cas_policy(FastCasPolicy::spin(8))
+    .build()?;
+
+let state = qubit_cas::FastCasState::new(QUEUED);
+assert_eq!(machine.trigger(&state, START)?, RUNNING);
+assert_eq!(machine.transition_target(QUEUED, START), Some(RUNNING));
+assert_eq!(machine.state_count(), 4);
+assert_eq!(machine.event_count(), 3);
+assert!(machine.is_initial_state(QUEUED));
+assert!(machine.is_final_state(SUCCEEDED));
+assert_eq!(machine.cas_policy(), FAST_STATE_MACHINE_DEFAULT_CAS_POLICY);
+```
+
+默认不显式设置时会使用 `FAST_STATE_MACHINE_DEFAULT_CAS_POLICY`，如需调优可通过
+`.cas_policy(...)` 自定义。
+
 ## 构建阶段校验
 
 无效规则会在创建 `StateMachine` 前被拒绝。
@@ -125,7 +174,7 @@ let error = StateMachine::builder()
 assert_eq!(
     error,
     StateMachineBuildError::TransitionTargetNotRegistered {
-        source: JobState::Queued,
+        source_state: JobState::Queued,
         event: JobEvent::Start,
         target: JobState::Running,
     },
@@ -172,6 +221,7 @@ assert_eq!(*state.load(), DoorState::Closed);
 | 任务 | API |
 | --- | --- |
 | 定义状态和转换 | `StateMachine::builder`、`StateMachineBuilder` |
+| 定义高性能状态机 | `FastStateMachine::builder`、`FastStateMachineBuilder` |
 | 添加一个或多个状态 | `add_state`、`add_states` |
 | 标记初始状态和最终状态 | `set_initial_state`、`set_initial_states`、`set_final_state`、`set_final_states` |
 | 添加状态转换规则 | `add_transition`、`add_transition_value`、`Transition` |
@@ -185,6 +235,11 @@ assert_eq!(*state.load(), DoorState::Closed);
 | 类型 | 用途 |
 | --- | --- |
 | `Transition` | 描述 `source --event--> target` 的不可变值。 |
+| `FastStateMachine` | 针对整数编码场景的高吞吐状态机。 |
+| `FastStateMachineBuilder` | 用于声明状态数、事件数、转移表和 CAS 策略。 |
+| `FastStateMachineError` | `FastStateMachine` 的运行时错误。 |
+| `FastStateMachineBuildError` | 构建 `FastStateMachine` 时的配置校验错误。 |
+| `FastCasPolicy` | 控制 `FastStateMachine` 并发冲突时重试行为的策略。 |
 | `StateMachineBuilder` | 用于定义状态、初始状态、最终状态和转换规则的可变构建器。 |
 | `StateMachine` | 已校验的不可变转换表，用于查询和触发事件。 |
 | `AtomicRef` | 重新导出的原子引用，用作 CAS 支持的当前状态存储。 |
@@ -199,6 +254,7 @@ assert_eq!(*state.load(), DoorState::Closed);
 - `trigger` 直接接受 `AtomicRef<S>`。
 - 事件驱动的转换通过 `qubit-cas` 安装。
 - 回调会在 CAS 更新成功后执行。
+- `FastStateMachine` 采用紧凑整数编码和平铺转移表，适合性能敏感路径。
 
 ## 贡献
 

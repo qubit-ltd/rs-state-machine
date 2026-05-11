@@ -37,15 +37,15 @@ fn create_unknown_state_result() -> StateMachineResult<TestState, TestEvent> {
 #[test]
 fn test_state_machine_error_equality_uses_variant_fields() {
     let error = StateMachineError::UnknownTransition {
-        source: TestState::New,
+        source_state: TestState::New,
         event: TestEvent::Start,
     };
     let same = StateMachineError::UnknownTransition {
-        source: TestState::New,
+        source_state: TestState::New,
         event: TestEvent::Start,
     };
     let different = StateMachineError::UnknownTransition {
-        source: TestState::Running,
+        source_state: TestState::Running,
         event: TestEvent::Finish,
     };
 
@@ -64,7 +64,7 @@ fn test_state_machine_error_display_reports_runtime_context() {
     );
     assert_eq!(
         StateMachineError::UnknownTransition {
-            source: TestState::New,
+            source_state: TestState::New,
             event: TestEvent::Finish,
         }
         .to_string(),
