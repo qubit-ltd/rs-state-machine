@@ -1,6 +1,6 @@
 [package]
 name = "qubit-state-machine"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -30,8 +30,8 @@ doctest = true
 [dependencies]
 thiserror = "2.0"
 
-qubit-atomic = "0.10"
-qubit-cas = "0.5"
+qubit-atomic = "0.11"
+qubit-cas = "0.6"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
