@@ -150,13 +150,7 @@ impl FastStateMachine {
     /// out of range, or if no transition exists for that pair.
     pub fn transition_target(&self, source: usize, event: usize) -> Option<usize> {
         self.get_transition_target(source, event)
-            .and_then(|target| {
-                if target == UNSET_TRANSITION {
-                    None
-                } else {
-                    Some(target)
-                }
-            })
+            .filter(|&target| target != UNSET_TRANSITION)
     }
 
     /// Returns the raw table cell for `(source, event)` without treating the unset sentinel.
