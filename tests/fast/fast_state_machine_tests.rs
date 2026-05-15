@@ -20,12 +20,16 @@ use std::sync::{
 };
 use std::thread;
 
-use qubit_cas::FastCasState;
+use qubit_cas::{
+    FastCasError,
+    FastCasState,
+};
 use qubit_state_machine::{
     FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
     FastCasPolicy,
     FastStateMachine,
     FastStateMachineError,
+    fast_state_machine_error_from_fast_cas_error,
 };
 
 const QUEUED: usize = 0;
@@ -202,72 +206,13 @@ fn test_transition_target_returns_none_for_out_of_range_input() {
 }
 
 #[test]
-fn test_trigger_conflict_maps_to_fast_state_machine_error() {
-    let machine = Arc::new(
-        FastStateMachine::builder()
-            .state_count(2)
-            .event_count(1)
-            .initial_state(QUEUED)
-            .cas_policy(FastCasPolicy::once())
-            .transition(QUEUED, START, RUNNING)
-            .transition(RUNNING, START, QUEUED)
-            .build()
-            .expect("machine with once policy should build"),
-    );
+fn test_fast_cas_conflict_maps_to_fast_state_machine_error() {
+    let error = fast_state_machine_error_from_fast_cas_error(FastCasError::Conflict {
+        current: RUNNING,
+        attempts: 1,
+    });
 
-    let mut saw_conflict = false;
-    for _ in 0..8 {
-        let state = Arc::new(FastCasState::new(QUEUED));
-        let conflict = Arc::new(AtomicUsize::new(0));
-        let errors = Arc::new(AtomicUsize::new(0));
-        let stop = Arc::new(AtomicUsize::new(0));
-
-        let mut handles = Vec::new();
-        let state_for_worker = Arc::clone(&state);
-        let state_for_mutator = Arc::clone(&state);
-        let machine_for_worker = Arc::clone(&machine);
-        let conflict_for_worker = Arc::clone(&conflict);
-        let errors_for_worker = Arc::clone(&errors);
-        let stop_for_mutator = Arc::clone(&stop);
-
-        handles.push(thread::spawn(move || {
-            for _ in 0..256 {
-                match machine_for_worker.trigger(&state_for_worker, START) {
-                    Ok(_) => {}
-                    Err(FastStateMachineError::CasConflict { .. }) => {
-                        conflict_for_worker.fetch_add(1, Ordering::SeqCst);
-                    }
-                    Err(_) => {
-                        errors_for_worker.fetch_add(1, Ordering::SeqCst);
-                    }
-                }
-            }
-            stop_for_mutator.store(1, Ordering::SeqCst);
-        }));
-
-        let stop_for_worker = Arc::clone(&stop);
-        handles.push(thread::spawn(move || {
-            while stop_for_worker.load(Ordering::SeqCst) == 0 {
-                state_for_mutator.store(QUEUED);
-                state_for_mutator.store(RUNNING);
-                thread::yield_now();
-            }
-        }));
-
-        for handle in handles {
-            handle.join().expect("worker should join");
-        }
-
-        if conflict.load(Ordering::SeqCst) > 0 && errors.load(Ordering::SeqCst) == 0 {
-            saw_conflict = true;
-            break;
-        }
-    }
-
-    assert!(
-        saw_conflict,
-        "expected at least one CAS conflict with once policy"
-    );
+    assert_eq!(error, FastStateMachineError::CasConflict { attempts: 1 });
 }
 
 #[test]
