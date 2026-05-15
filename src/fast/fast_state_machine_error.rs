@@ -10,6 +10,7 @@
 
 //! Runtime errors returned by `FastStateMachine` transitions.
 
+use qubit_cas::FastCasError;
 use thiserror::Error;
 
 /// Error returned when applying an event through a [`crate::FastStateMachine`].
@@ -42,3 +43,14 @@ pub enum FastStateMachineError {
 
 /// Result returned by `FastStateMachine` runtime transition APIs.
 pub type FastStateMachineResult = Result<usize, FastStateMachineError>;
+
+/// Converts a compact CAS error into the runtime error used by fast state machines.
+#[doc(hidden)]
+pub fn fast_state_machine_error_from_fast_cas_error(
+    error: FastCasError<FastStateMachineError>,
+) -> FastStateMachineError {
+    match error {
+        FastCasError::Abort { error, .. } => error,
+        FastCasError::Conflict { attempts, .. } => FastStateMachineError::CasConflict { attempts },
+    }
+}
