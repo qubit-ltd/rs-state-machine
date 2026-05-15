@@ -13,13 +13,13 @@
 use qubit_cas::{
     FastCas,
     FastCasDecision,
-    FastCasError,
     FastCasState,
 };
 
 use super::{
     FastStateMachineError,
     FastStateMachineResult,
+    fast_state_machine_error_from_fast_cas_error,
 };
 
 const UNSET_TRANSITION: usize = usize::MAX;
@@ -260,7 +260,7 @@ impl FastStateMachine {
                 }
             }) {
             Ok(success) => Ok((success.previous(), success.current())),
-            Err(error) => Err(Self::state_error_from_cas_error(error)),
+            Err(error) => Err(fast_state_machine_error_from_fast_cas_error(error)),
         }
     }
 
@@ -275,17 +275,5 @@ impl FastStateMachine {
                 source_state: state,
                 event,
             })
-    }
-
-    /// Converts [`FastCasError`] into [`FastStateMachineError`] for public APIs.
-    fn state_error_from_cas_error(
-        error: FastCasError<FastStateMachineError>,
-    ) -> FastStateMachineError {
-        match error {
-            FastCasError::Abort { error, .. } => error,
-            FastCasError::Conflict { attempts, .. } => {
-                FastStateMachineError::CasConflict { attempts }
-            }
-        }
     }
 }
