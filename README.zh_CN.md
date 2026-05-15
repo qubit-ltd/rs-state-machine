@@ -38,7 +38,7 @@ CAS 支持 `AtomicRef`。
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.3.4"
+qubit-state-machine = "0.3.5"
 ```
 
 ## 快速开始：任务处理

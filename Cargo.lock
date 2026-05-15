@@ -582,9 +582,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-atomic"
-version = "0.11.1"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33d68a50d78ab3da351a5b600dbbf7aa022068e1809d9e5e32b92fd9dc0a46a2"
+checksum = "362cd5e89ec359fd4d5985cd5372af7f22847c489ae533064fc6c9252ecddbd5"
 dependencies = [
  "arc-swap",
  "portable-atomic",
@@ -592,9 +592,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-cas"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a22121104b2062d7a94a3c3a3e95771c7ccb9087242662f7d6baa8dd3fdb3787"
+checksum = "a02d530d2c2207716d19e62ed4c613a168c8a949d9f5aac43fb1fb9cb880d7f2"
 dependencies = [
  "konst",
  "qubit-atomic",
@@ -662,7 +662,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-state-machine"
-version = "0.3.4"
+version = "0.3.5"
 dependencies = [
  "qubit-atomic",
  "qubit-cas",
