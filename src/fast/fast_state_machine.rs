@@ -208,12 +208,7 @@ impl FastStateMachine {
     ///
     /// # Errors
     /// Same as [`Self::trigger`].
-    pub fn trigger_with<F>(
-        &self,
-        state: &FastCasState,
-        event: usize,
-        on_success: F,
-    ) -> FastStateMachineResult
+    pub fn trigger_with<F>(&self, state: &FastCasState, event: usize, on_success: F) -> FastStateMachineResult
     where
         F: Fn(usize, usize),
     {
@@ -246,19 +241,13 @@ impl FastStateMachine {
 
     /// Runs one CAS-backed transition: validates `event` against the loaded current code and
     /// installs the next code or aborts with [`FastStateMachineError`].
-    fn change_state(
-        &self,
-        state: &FastCasState,
-        event: usize,
-    ) -> Result<(usize, usize), FastStateMachineError> {
-        match self
-            .cas
-            .execute::<usize, FastStateMachineError, _>(state, |current| {
-                match self.next_state(current, event) {
-                    Ok(new_state) => FastCasDecision::update(new_state, new_state),
-                    Err(error) => FastCasDecision::abort(error),
-                }
-            }) {
+    fn change_state(&self, state: &FastCasState, event: usize) -> Result<(usize, usize), FastStateMachineError> {
+        match self.cas.execute::<usize, FastStateMachineError, _>(state, |current| {
+            match self.next_state(current, event) {
+                Ok(new_state) => FastCasDecision::update(new_state, new_state),
+                Err(error) => FastCasDecision::abort(error),
+            }
+        }) {
             Ok(success) => Ok((success.previous(), success.current())),
             Err(error) => Err(fast_state_machine_error_from_fast_cas_error(error)),
         }

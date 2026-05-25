@@ -29,9 +29,7 @@ enum TestEvent {
 }
 
 fn create_unknown_state_result() -> StateMachineResult<TestState, TestEvent> {
-    Err(StateMachineError::UnknownState {
-        state: TestState::New,
-    })
+    Err(StateMachineError::UnknownState { state: TestState::New })
 }
 
 #[test]
@@ -82,9 +80,7 @@ fn test_state_machine_result_alias_uses_runtime_error() {
 
     assert_eq!(
         result.expect_err("result should carry the runtime state machine error"),
-        StateMachineError::UnknownState {
-            state: TestState::New,
-        }
+        StateMachineError::UnknownState { state: TestState::New }
     );
 }
 

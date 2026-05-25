@@ -93,9 +93,7 @@ fn test_trigger_returns_error_for_unknown_state() {
     let machine = create_machine();
     let state = FastCasState::new(9);
 
-    let error = machine
-        .trigger(&state, START)
-        .expect_err("unknown state should fail");
+    let error = machine.trigger(&state, START).expect_err("unknown state should fail");
 
     assert_eq!(error, FastStateMachineError::UnknownState { state: 9 });
     assert_eq!(state.load(), 9);
@@ -119,10 +117,7 @@ fn test_trigger_with_calls_callback_after_success() {
 
     assert_eq!(next, RUNNING);
     assert_eq!(
-        callback_states
-            .lock()
-            .expect("callback state should lock")
-            .as_slice(),
+        callback_states.lock().expect("callback state should lock").as_slice(),
         &[(QUEUED, RUNNING)],
     );
     assert_eq!(state.load(), RUNNING);
@@ -179,10 +174,7 @@ fn test_cas_policy_is_readable_from_machine() {
         .build()
         .expect("single-state machine should build");
 
-    assert_eq!(
-        default_machine.cas_policy(),
-        FAST_STATE_MACHINE_DEFAULT_CAS_POLICY
-    );
+    assert_eq!(default_machine.cas_policy(), FAST_STATE_MACHINE_DEFAULT_CAS_POLICY);
 
     let custom_policy = FastCasPolicy::spin(8);
     let custom_machine = FastStateMachine::builder()

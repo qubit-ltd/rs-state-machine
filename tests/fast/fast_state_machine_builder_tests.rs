@@ -49,10 +49,7 @@ fn test_builder_build_accepts_valid_definition() {
     assert!(machine.is_final_state(SUCCEEDED));
     assert!(machine.is_final_state(FAILED));
     assert_eq!(machine.transition_target(QUEUED, START), Some(RUNNING));
-    assert_eq!(
-        machine.transition_target(RUNNING, COMPLETE),
-        Some(SUCCEEDED)
-    );
+    assert_eq!(machine.transition_target(RUNNING, COMPLETE), Some(SUCCEEDED));
     assert_eq!(machine.transition_target(RUNNING, FAIL), Some(FAILED));
 }
 
@@ -77,10 +74,7 @@ fn test_builder_cas_policy_has_default_and_can_be_overridden() {
         .transition(QUEUED, START, QUEUED)
         .build()
         .expect("single-state machine should build with custom policy");
-    assert_eq!(
-        custom_machine.transition_target(QUEUED, START),
-        Some(QUEUED)
-    );
+    assert_eq!(custom_machine.transition_target(QUEUED, START), Some(QUEUED));
 }
 
 #[test]
@@ -149,10 +143,7 @@ fn test_builder_rejects_zero_state_count() {
 
     let error = builder.build().expect_err("state_count must be positive");
 
-    assert_eq!(
-        error,
-        FastStateMachineBuildError::InvalidStateCount { count: 0 }
-    );
+    assert_eq!(error, FastStateMachineBuildError::InvalidStateCount { count: 0 });
 }
 
 #[test]

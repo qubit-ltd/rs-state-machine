@@ -93,9 +93,7 @@ pub enum FastStateMachineBuildError {
     },
 
     /// Same `(source, event)` maps to two different targets.
-    #[error(
-        "duplicate transition: {source_state} --{event}--> {existing_target} conflicts with {new_target}"
-    )]
+    #[error("duplicate transition: {source_state} --{event}--> {existing_target} conflicts with {new_target}")]
     DuplicateTransition {
         /// Source state.
         source_state: usize,

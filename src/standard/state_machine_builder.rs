@@ -221,10 +221,7 @@ where
     ///
     /// # Errors
     /// Returns the missing source or target as a build error.
-    fn validate_transition(
-        &self,
-        transition: Transition<S, E>,
-    ) -> Result<(), StateMachineBuildError<S, E>> {
+    fn validate_transition(&self, transition: Transition<S, E>) -> Result<(), StateMachineBuildError<S, E>> {
         if !self.states.contains(&transition.source()) {
             return Err(StateMachineBuildError::TransitionSourceNotRegistered {
                 source_state: transition.source(),
