@@ -79,8 +79,7 @@ fn test_trigger_updates_state_and_returns_new_state() {
     let machine = create_job_machine();
     let state = AtomicRef::from_value(JobState::New);
 
-    let new_state =
-        trigger_start(&machine, &state).expect("start event should transition to running");
+    let new_state = trigger_start(&machine, &state).expect("start event should transition to running");
 
     assert_eq!(new_state, JobState::Running);
     assert_eq!(*state.load(), JobState::Running);
@@ -154,20 +153,16 @@ fn test_trigger_with_invokes_callback_after_successful_transition() {
 
     let new_state = machine
         .trigger_with(&state, JobEvent::Start, |old_state, new_state| {
-            observed.lock().expect("callback log should lock").push((
-                old_state,
-                new_state,
-                *state.load(),
-            ));
+            observed
+                .lock()
+                .expect("callback log should lock")
+                .push((old_state, new_state, *state.load()));
         })
         .expect("start event should succeed");
 
     assert_eq!(new_state, JobState::Running);
     assert_eq!(
-        observed
-            .lock()
-            .expect("callback log should lock")
-            .as_slice(),
+        observed.lock().expect("callback log should lock").as_slice(),
         &[(JobState::New, JobState::Running, JobState::Running)]
     );
 }

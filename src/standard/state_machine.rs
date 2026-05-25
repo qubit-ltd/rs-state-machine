@@ -489,12 +489,7 @@ where
     /// assert_eq!(next, State::Running);
     /// assert_eq!(observed, Some((State::New, State::Running)));
     /// ```
-    pub fn trigger_with<F>(
-        &self,
-        state: &AtomicRef<S>,
-        event: E,
-        on_success: F,
-    ) -> StateMachineResult<S, E>
+    pub fn trigger_with<F>(&self, state: &AtomicRef<S>, event: E, on_success: F) -> StateMachineResult<S, E>
     where
         F: FnOnce(S, S),
     {
@@ -609,11 +604,7 @@ where
     ///
     /// # Errors
     /// Returns a runtime state machine error when no valid next state exists.
-    fn change_state(
-        &self,
-        state: &AtomicRef<S>,
-        event: E,
-    ) -> Result<(S, S), StateMachineError<S, E>> {
+    fn change_state(&self, state: &AtomicRef<S>, event: E) -> Result<(S, S), StateMachineError<S, E>> {
         let outcome = self.cas_executor.execute(state, |current_state: &S| {
             match self.next_state(*current_state, event) {
                 Ok(new_state) => CasDecision::update(new_state, new_state),
@@ -641,9 +632,7 @@ where
     /// exists for the `(current_state, event)` pair.
     fn next_state(&self, current_state: S, event: E) -> Result<S, StateMachineError<S, E>> {
         if !self.contains_state(current_state) {
-            return Err(StateMachineError::UnknownState {
-                state: current_state,
-            });
+            return Err(StateMachineError::UnknownState { state: current_state });
         }
         self.transition_target(current_state, event)
             .ok_or(StateMachineError::UnknownTransition {
@@ -661,9 +650,7 @@ where
     /// The old state and current state after CAS completion.
     fn state_change_from_success(success: CasSuccess<S, S>) -> (S, S) {
         match success {
-            CasSuccess::Updated {
-                previous, current, ..
-            } => (*previous, *current),
+            CasSuccess::Updated { previous, current, .. } => (*previous, *current),
             CasSuccess::Finished { current, .. } => (*current, *current),
         }
     }
@@ -677,9 +664,7 @@ where
     /// The business state machine error when the operation aborted, or a CAS
     /// conflict error when retry limits were exhausted by compare-and-swap
     /// conflicts.
-    fn state_error_from_cas_error(
-        error: CasError<S, StateMachineError<S, E>>,
-    ) -> StateMachineError<S, E> {
+    fn state_error_from_cas_error(error: CasError<S, StateMachineError<S, E>>) -> StateMachineError<S, E> {
         match error.error() {
             Some(error) => *error,
             None => StateMachineError::CasConflict {

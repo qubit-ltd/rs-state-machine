@@ -112,20 +112,18 @@ impl FastStateMachineBuilder {
             return Err(FastStateMachineBuildError::InvalidEventCount { count: event_count });
         }
 
-        let transition_count = state_count.checked_mul(event_count).ok_or(
-            FastStateMachineBuildError::TransitionTableOverflow {
-                state_count,
-                event_count,
-            },
-        )?;
+        let transition_count =
+            state_count
+                .checked_mul(event_count)
+                .ok_or(FastStateMachineBuildError::TransitionTableOverflow {
+                    state_count,
+                    event_count,
+                })?;
 
         let mut initial_states = vec![false; state_count];
         for state in self.initial_states {
             if state >= state_count {
-                return Err(FastStateMachineBuildError::InitialStateOutOfRange {
-                    state,
-                    state_count,
-                });
+                return Err(FastStateMachineBuildError::InitialStateOutOfRange { state, state_count });
             }
             initial_states[state] = true;
         }
@@ -133,10 +131,7 @@ impl FastStateMachineBuilder {
         let mut final_states = vec![false; state_count];
         for state in self.final_states {
             if state >= state_count {
-                return Err(FastStateMachineBuildError::FinalStateOutOfRange {
-                    state,
-                    state_count,
-                });
+                return Err(FastStateMachineBuildError::FinalStateOutOfRange { state, state_count });
             }
             final_states[state] = true;
         }
@@ -150,16 +145,10 @@ impl FastStateMachineBuilder {
                 });
             }
             if event >= event_count {
-                return Err(FastStateMachineBuildError::TransitionEventOutOfRange {
-                    event,
-                    event_count,
-                });
+                return Err(FastStateMachineBuildError::TransitionEventOutOfRange { event, event_count });
             }
             if target >= state_count {
-                return Err(FastStateMachineBuildError::TransitionTargetOutOfRange {
-                    target,
-                    state_count,
-                });
+                return Err(FastStateMachineBuildError::TransitionTargetOutOfRange { target, state_count });
             }
 
             let index = source
