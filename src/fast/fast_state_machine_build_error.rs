@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 //! Validation errors returned while building a fast state machine.
 
@@ -66,7 +64,9 @@ pub enum FastStateMachineBuildError {
     },
 
     /// A transition source code exceeds the configured state count.
-    #[error("transition source is out of range: {source_state} >= {state_count}")]
+    #[error(
+        "transition source is out of range: {source_state} >= {state_count}"
+    )]
     TransitionSourceOutOfRange {
         /// The invalid source state.
         source_state: usize,
@@ -93,7 +93,9 @@ pub enum FastStateMachineBuildError {
     },
 
     /// Same `(source, event)` maps to two different targets.
-    #[error("duplicate transition: {source_state} --{event}--> {existing_target} conflicts with {new_target}")]
+    #[error(
+        "duplicate transition: {source_state} --{event}--> {existing_target} conflicts with {new_target}"
+    )]
     DuplicateTransition {
         /// Source state.
         source_state: usize,

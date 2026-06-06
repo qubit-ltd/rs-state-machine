@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Immutable finite state machine rules and CAS-backed event triggering.
 
 use std::collections::{
@@ -405,9 +403,10 @@ where
     /// The new state after a successful transition.
     ///
     /// # Errors
-    /// Returns [`StateMachineError::UnknownState`] when the current state is not
-    /// registered. Returns [`StateMachineError::UnknownTransition`] when the
-    /// current state is registered but has no transition for `event`.
+    /// Returns [`StateMachineError::UnknownState`] when the current state is
+    /// not registered. Returns [`StateMachineError::UnknownTransition`]
+    /// when the current state is registered but has no transition for
+    /// `event`.
     ///
     /// # Examples
     ///
@@ -435,12 +434,17 @@ where
     /// assert_eq!(machine.trigger(&state, Event::Start).unwrap(), State::Running);
     /// assert_eq!(*state.load(), State::Running);
     /// ```
-    pub fn trigger(&self, state: &AtomicRef<S>, event: E) -> StateMachineResult<S, E> {
+    pub fn trigger(
+        &self,
+        state: &AtomicRef<S>,
+        event: E,
+    ) -> StateMachineResult<S, E> {
         let (_, new_state) = self.change_state(state, event)?;
         Ok(new_state)
     }
 
-    /// Triggers an event, updates the atomic state, and invokes a success callback.
+    /// Triggers an event, updates the atomic state, and invokes a success
+    /// callback.
     ///
     /// The callback runs after the CAS update has succeeded.
     ///
@@ -453,8 +457,8 @@ where
     /// The new state after a successful transition.
     ///
     /// # Errors
-    /// Returns the same errors as [`StateMachine::trigger`]. The callback is not
-    /// invoked when the transition fails.
+    /// Returns the same errors as [`StateMachine::trigger`]. The callback is
+    /// not invoked when the transition fails.
     ///
     /// # Examples
     ///
@@ -489,7 +493,12 @@ where
     /// assert_eq!(next, State::Running);
     /// assert_eq!(observed, Some((State::New, State::Running)));
     /// ```
-    pub fn trigger_with<F>(&self, state: &AtomicRef<S>, event: E, on_success: F) -> StateMachineResult<S, E>
+    pub fn trigger_with<F>(
+        &self,
+        state: &AtomicRef<S>,
+        event: E,
+        on_success: F,
+    ) -> StateMachineResult<S, E>
     where
         F: FnOnce(S, S),
     {
@@ -586,7 +595,12 @@ where
     /// }));
     /// assert_eq!(callback_count, 1);
     /// ```
-    pub fn try_trigger_with<F>(&self, state: &AtomicRef<S>, event: E, on_success: F) -> bool
+    pub fn try_trigger_with<F>(
+        &self,
+        state: &AtomicRef<S>,
+        event: E,
+        on_success: F,
+    ) -> bool
     where
         F: FnOnce(S, S),
     {
@@ -604,7 +618,11 @@ where
     ///
     /// # Errors
     /// Returns a runtime state machine error when no valid next state exists.
-    fn change_state(&self, state: &AtomicRef<S>, event: E) -> Result<(S, S), StateMachineError<S, E>> {
+    fn change_state(
+        &self,
+        state: &AtomicRef<S>,
+        event: E,
+    ) -> Result<(S, S), StateMachineError<S, E>> {
         let outcome = self.cas_executor.execute(state, |current_state: &S| {
             match self.next_state(*current_state, event) {
                 Ok(new_state) => CasDecision::update(new_state, new_state),
@@ -627,18 +645,25 @@ where
     /// The target state when a transition exists.
     ///
     /// # Errors
-    /// Returns an unknown-state error before checking transitions if the current
-    /// state is not registered. Returns an unknown-transition error if no rule
-    /// exists for the `(current_state, event)` pair.
-    fn next_state(&self, current_state: S, event: E) -> Result<S, StateMachineError<S, E>> {
+    /// Returns an unknown-state error before checking transitions if the
+    /// current state is not registered. Returns an unknown-transition error
+    /// if no rule exists for the `(current_state, event)` pair.
+    fn next_state(
+        &self,
+        current_state: S,
+        event: E,
+    ) -> Result<S, StateMachineError<S, E>> {
         if !self.contains_state(current_state) {
-            return Err(StateMachineError::UnknownState { state: current_state });
+            return Err(StateMachineError::UnknownState {
+                state: current_state,
+            });
         }
-        self.transition_target(current_state, event)
-            .ok_or(StateMachineError::UnknownTransition {
+        self.transition_target(current_state, event).ok_or(
+            StateMachineError::UnknownTransition {
                 source_state: current_state,
                 event,
-            })
+            },
+        )
     }
 
     /// Extracts old and new states from a successful CAS transition.
@@ -650,7 +675,9 @@ where
     /// The old state and current state after CAS completion.
     fn state_change_from_success(success: CasSuccess<S, S>) -> (S, S) {
         match success {
-            CasSuccess::Updated { previous, current, .. } => (*previous, *current),
+            CasSuccess::Updated {
+                previous, current, ..
+            } => (*previous, *current),
             CasSuccess::Finished { current, .. } => (*current, *current),
         }
     }
@@ -664,7 +691,9 @@ where
     /// The business state machine error when the operation aborted, or a CAS
     /// conflict error when retry limits were exhausted by compare-and-swap
     /// conflicts.
-    fn state_error_from_cas_error(error: CasError<S, StateMachineError<S, E>>) -> StateMachineError<S, E> {
+    fn state_error_from_cas_error(
+        error: CasError<S, StateMachineError<S, E>>,
+    ) -> StateMachineError<S, E> {
         match error.error() {
             Some(error) => *error,
             None => StateMachineError::CasConflict {

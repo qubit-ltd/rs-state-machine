@@ -1,20 +1,18 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 //! High-performance state machine implementation based on compact `usize` state
 //! codes.
 //!
 //! `FastStateMachine` is designed for hot paths where state and event are
-//! represented as dense integer codes and transition lookup must be constant-time.
-//! It stores transition rules in a flat table and applies updates with
-//! [`qubit_cas::FastCas`].
+//! represented as dense integer codes and transition lookup must be
+//! constant-time. It stores transition rules in a flat table and applies
+//! updates with [`qubit_cas::FastCas`].
 
 mod fast_state_machine;
 mod fast_state_machine_build_error;
