@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 //! Runtime errors returned by `FastStateMachine` transitions.
 
@@ -44,13 +42,16 @@ pub enum FastStateMachineError {
 /// Result returned by `FastStateMachine` runtime transition APIs.
 pub type FastStateMachineResult = Result<usize, FastStateMachineError>;
 
-/// Converts a compact CAS error into the runtime error used by fast state machines.
+/// Converts a compact CAS error into the runtime error used by fast state
+/// machines.
 #[doc(hidden)]
 pub fn fast_state_machine_error_from_fast_cas_error(
     error: FastCasError<FastStateMachineError>,
 ) -> FastStateMachineError {
     match error {
         FastCasError::Abort { error, .. } => error,
-        FastCasError::Conflict { attempts, .. } => FastStateMachineError::CasConflict { attempts },
+        FastCasError::Conflict { attempts, .. } => {
+            FastStateMachineError::CasConflict { attempts }
+        }
     }
 }

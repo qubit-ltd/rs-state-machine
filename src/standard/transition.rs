@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Immutable transition value.
 
 /// A directed transition in a finite state machine.
@@ -35,7 +33,11 @@ where
     /// # Returns
     /// A new immutable transition value.
     pub const fn new(source: S, event: E, target: S) -> Self {
-        Self { source, event, target }
+        Self {
+            source,
+            event,
+            target,
+        }
     }
 
     /// Returns the source state of this transition.

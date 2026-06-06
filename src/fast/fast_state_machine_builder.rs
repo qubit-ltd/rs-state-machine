@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 
 //! Builder for fast state machine rules.
 
@@ -22,7 +20,8 @@ use qubit_cas::FastCas;
 ///
 /// The default keeps construction lightweight and gives a reasonably balanced
 /// fast-path retry budget for hot transition loops.
-pub const FAST_STATE_MACHINE_DEFAULT_CAS_POLICY: FastCasPolicy = FastCasPolicy::spin(16);
+pub const FAST_STATE_MACHINE_DEFAULT_CAS_POLICY: FastCasPolicy =
+    FastCasPolicy::spin(16);
 
 /// Builder for dense, integer-coded state machine rules.
 #[derive(Debug, Clone)]
@@ -85,7 +84,12 @@ impl FastStateMachineBuilder {
     }
 
     /// Adds one transition by source state code, event code, and target state.
-    pub fn transition(mut self, source: usize, event: usize, target: usize) -> Self {
+    pub fn transition(
+        mut self,
+        source: usize,
+        event: usize,
+        target: usize,
+    ) -> Self {
         self.transitions.push((source, event, target));
         self
     }
@@ -106,24 +110,32 @@ impl FastStateMachineBuilder {
             .ok_or(FastStateMachineBuildError::EventCountNotConfigured)?;
 
         if state_count == 0 {
-            return Err(FastStateMachineBuildError::InvalidStateCount { count: state_count });
+            return Err(FastStateMachineBuildError::InvalidStateCount {
+                count: state_count,
+            });
         }
         if event_count == 0 {
-            return Err(FastStateMachineBuildError::InvalidEventCount { count: event_count });
+            return Err(FastStateMachineBuildError::InvalidEventCount {
+                count: event_count,
+            });
         }
 
-        let transition_count =
-            state_count
-                .checked_mul(event_count)
-                .ok_or(FastStateMachineBuildError::TransitionTableOverflow {
-                    state_count,
-                    event_count,
-                })?;
+        let transition_count = state_count.checked_mul(event_count).ok_or(
+            FastStateMachineBuildError::TransitionTableOverflow {
+                state_count,
+                event_count,
+            },
+        )?;
 
         let mut initial_states = vec![false; state_count];
         for state in self.initial_states {
             if state >= state_count {
-                return Err(FastStateMachineBuildError::InitialStateOutOfRange { state, state_count });
+                return Err(
+                    FastStateMachineBuildError::InitialStateOutOfRange {
+                        state,
+                        state_count,
+                    },
+                );
             }
             initial_states[state] = true;
         }
@@ -131,7 +143,10 @@ impl FastStateMachineBuilder {
         let mut final_states = vec![false; state_count];
         for state in self.final_states {
             if state >= state_count {
-                return Err(FastStateMachineBuildError::FinalStateOutOfRange { state, state_count });
+                return Err(FastStateMachineBuildError::FinalStateOutOfRange {
+                    state,
+                    state_count,
+                });
             }
             final_states[state] = true;
         }
@@ -139,16 +154,28 @@ impl FastStateMachineBuilder {
         let mut transitions = vec![usize::MAX; transition_count];
         for (source, event, target) in self.transitions {
             if source >= state_count {
-                return Err(FastStateMachineBuildError::TransitionSourceOutOfRange {
-                    source_state: source,
-                    state_count,
-                });
+                return Err(
+                    FastStateMachineBuildError::TransitionSourceOutOfRange {
+                        source_state: source,
+                        state_count,
+                    },
+                );
             }
             if event >= event_count {
-                return Err(FastStateMachineBuildError::TransitionEventOutOfRange { event, event_count });
+                return Err(
+                    FastStateMachineBuildError::TransitionEventOutOfRange {
+                        event,
+                        event_count,
+                    },
+                );
             }
             if target >= state_count {
-                return Err(FastStateMachineBuildError::TransitionTargetOutOfRange { target, state_count });
+                return Err(
+                    FastStateMachineBuildError::TransitionTargetOutOfRange {
+                        target,
+                        state_count,
+                    },
+                );
             }
 
             let index = source
@@ -160,12 +187,14 @@ impl FastStateMachineBuilder {
                 usize::MAX => transitions[index] = target,
                 existing if existing == target => {}
                 existing => {
-                    return Err(FastStateMachineBuildError::DuplicateTransition {
-                        source_state: source,
-                        event,
-                        existing_target: existing,
-                        new_target: target,
-                    });
+                    return Err(
+                        FastStateMachineBuildError::DuplicateTransition {
+                            source_state: source,
+                            event,
+                            existing_target: existing,
+                            new_target: target,
+                        },
+                    );
                 }
             }
         }

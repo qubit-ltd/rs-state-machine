@@ -1,12 +1,10 @@
-/*******************************************************************************
- *
- *    Copyright (c) 2026 Haixing Hu.
- *
- *    SPDX-License-Identifier: Apache-2.0
- *
- *    Licensed under the Apache License, Version 2.0.
- *
- ******************************************************************************/
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
 //! Validation errors returned when building a state machine.
 
 use std::fmt::Debug;
@@ -35,7 +33,9 @@ where
         state: S,
     },
     /// A transition source was not registered as a state.
-    #[error("transition source is not registered: {source_state:?} --{event:?}--> {target:?}")]
+    #[error(
+        "transition source is not registered: {source_state:?} --{event:?}--> {target:?}"
+    )]
     TransitionSourceNotRegistered {
         /// Source state of the invalid transition.
         source_state: S,
@@ -45,7 +45,9 @@ where
         target: S,
     },
     /// A transition target was not registered as a state.
-    #[error("transition target is not registered: {source_state:?} --{event:?}--> {target:?}")]
+    #[error(
+        "transition target is not registered: {source_state:?} --{event:?}--> {target:?}"
+    )]
     TransitionTargetNotRegistered {
         /// Source state of the invalid transition.
         source_state: S,
