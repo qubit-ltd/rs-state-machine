@@ -287,12 +287,17 @@ impl FastStateMachine {
     ) -> Result<(usize, usize), FastStateMachineError> {
         match self.cas.execute::<usize, FastStateMachineError, _>(
             state,
-            |current| match self.next_state(current, event) {
-                Ok(new_state) => FastCasDecision::update(new_state, new_state),
+            |current| match self.next_state(current as usize, event) {
+                Ok(new_state) => {
+                    FastCasDecision::update(new_state as u64, new_state)
+                }
                 Err(error) => FastCasDecision::abort(error),
             },
         ) {
-            Ok(success) => Ok((success.previous(), success.current())),
+            Ok(success) => Ok((
+                success.previous() as usize,
+                success.current() as usize,
+            )),
             Err(error) => {
                 Err(fast_state_machine_error_from_fast_cas_error(error))
             }
