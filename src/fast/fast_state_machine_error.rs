@@ -8,7 +8,7 @@
 
 //! Runtime errors returned by `FastStateMachine` transitions.
 
-use qubit_cas::FastCasError;
+use qubit_fast_cas::FastCasError;
 use thiserror::Error;
 
 /// Error returned when applying an event through a [`crate::FastStateMachine`].

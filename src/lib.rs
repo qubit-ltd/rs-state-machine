@@ -59,9 +59,6 @@
 mod fast;
 mod standard;
 
-pub use qubit_atomic::AtomicRef;
-pub use qubit_cas::FastCasPolicy;
-
 #[doc(hidden)]
 pub use fast::fast_state_machine_error_from_fast_cas_error;
 pub use fast::{
@@ -72,6 +69,7 @@ pub use fast::{
     FastStateMachineError,
     FastStateMachineResult,
 };
+pub use qubit_atomic::AtomicRef;
 
 pub use standard::{
     StateMachine,

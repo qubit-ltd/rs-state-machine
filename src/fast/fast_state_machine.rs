@@ -8,9 +8,10 @@
 
 //! Integer-coded state machine implementation.
 
-use qubit_cas::{
+use qubit_fast_cas::{
     FastCas,
     FastCasDecision,
+    FastCasPolicy,
     FastCasState,
 };
 
@@ -86,7 +87,7 @@ impl FastStateMachine {
     /// [`crate::FastStateMachineBuilder::cas_policy`], or
     /// [`crate::FAST_STATE_MACHINE_DEFAULT_CAS_POLICY`] when no override is
     /// supplied.
-    pub fn cas_policy(&self) -> qubit_cas::FastCasPolicy {
+    pub fn cas_policy(&self) -> FastCasPolicy {
         self.cas.policy()
     }
 
@@ -294,10 +295,9 @@ impl FastStateMachine {
                 Err(error) => FastCasDecision::abort(error),
             },
         ) {
-            Ok(success) => Ok((
-                success.previous() as usize,
-                success.current() as usize,
-            )),
+            Ok(success) => {
+                Ok((success.previous() as usize, success.current() as usize))
+            }
             Err(error) => {
                 Err(fast_state_machine_error_from_fast_cas_error(error))
             }

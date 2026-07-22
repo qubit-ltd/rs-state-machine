@@ -35,6 +35,7 @@ thiserror = "2.0"
 
 qubit-atomic = "0.13"
 qubit-cas = { version = "0.9", path = "../rs-cas" }
+qubit-fast-cas = { version = "0.1", path = "../rs-fast-cas" }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }

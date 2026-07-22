@@ -225,7 +225,6 @@ version = "0.9.0"
 dependencies = [
  "qubit-atomic",
  "qubit-error",
- "qubit-fast-cas",
  "qubit-function",
  "qubit-retry",
 ]
@@ -290,6 +289,7 @@ version = "0.6.0"
 dependencies = [
  "qubit-atomic",
  "qubit-cas",
+ "qubit-fast-cas",
  "thiserror",
 ]
 

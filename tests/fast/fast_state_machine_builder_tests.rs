@@ -7,9 +7,9 @@
 // =============================================================================
 //! Tests for fast state machine builder validation.
 
+use qubit_fast_cas::FastCasPolicy;
 use qubit_state_machine::{
     FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
-    FastCasPolicy,
     FastStateMachine,
     FastStateMachineBuildError,
     FastStateMachineBuilder,
