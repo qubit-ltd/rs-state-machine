@@ -8,13 +8,14 @@
 
 //! Builder for fast state machine rules.
 
-use crate::FastCasPolicy;
-
 use super::{
     FastStateMachine,
     FastStateMachineBuildError,
 };
-use qubit_cas::FastCas;
+use qubit_fast_cas::{
+    FastCas,
+    FastCasPolicy,
+};
 
 /// Default retry policy used by [`FastStateMachineBuilder`].
 ///

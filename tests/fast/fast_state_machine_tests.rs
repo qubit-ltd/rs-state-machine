@@ -18,13 +18,13 @@ use std::sync::{
 };
 use std::thread;
 
-use qubit_cas::{
+use qubit_fast_cas::{
     FastCasError,
+    FastCasPolicy,
     FastCasState,
 };
 use qubit_state_machine::{
     FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
-    FastCasPolicy,
     FastStateMachine,
     FastStateMachineError,
     fast_state_machine_error_from_fast_cas_error,

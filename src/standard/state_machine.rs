@@ -623,13 +623,17 @@ where
         state: &AtomicRef<S>,
         event: E,
     ) -> Result<(S, S), StateMachineError<S, E>> {
-        let outcome = self.cas_executor.execute(state, |current_state: &S| {
-            match self.next_state(*current_state, event) {
-                Ok(new_state) => CasDecision::update(new_state, new_state),
-                Err(error) => CasDecision::abort(error),
-            }
-        });
-        match outcome.into_result() {
+        let result =
+            self.cas_executor
+                .execute_result(state, |current_state: &S| {
+                    match self.next_state(*current_state, event) {
+                        Ok(new_state) => {
+                            CasDecision::update(new_state, new_state)
+                        }
+                        Err(error) => CasDecision::abort(error),
+                    }
+                });
+        match result {
             Ok(success) => Ok(Self::state_change_from_success(success)),
             Err(error) => Err(Self::state_error_from_cas_error(error)),
         }

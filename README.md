@@ -127,9 +127,9 @@ It validates the full transition table at build time and keeps runtime transitio
 lookup O(1) with a row-major flat array (`index = state * event_count + event`).
 
 ```rust
+use qubit_fast_cas::{FastCasPolicy, FastCasState};
 use qubit_state_machine::{
     FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
-    FastCasPolicy,
     FastStateMachine,
 };
 
@@ -162,9 +162,9 @@ let tuned = FastStateMachine::builder()
     .cas_policy(FastCasPolicy::spin(8))
     .build()?;
 
-let state = qubit_cas::FastCasState::new(QUEUED);
+let state = FastCasState::new(QUEUED);
 assert_eq!(machine.trigger(&state, START)?, RUNNING);
-let tuned_state = qubit_cas::FastCasState::new(RUNNING);
+let tuned_state = FastCasState::new(RUNNING);
 assert_eq!(tuned.trigger(&tuned_state, COMPLETE)?, SUCCEEDED);
 assert_eq!(machine.transition_target(QUEUED, START), Some(RUNNING));
 assert_eq!(machine.state_count(), 4);

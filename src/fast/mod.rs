@@ -12,7 +12,7 @@
 //! `FastStateMachine` is designed for hot paths where state and event are
 //! represented as dense integer codes and transition lookup must be
 //! constant-time. It stores transition rules in a flat table and applies
-//! updates with [`qubit_cas::FastCas`].
+//! updates with [`qubit_fast_cas::FastCas`].
 
 mod fast_state_machine;
 mod fast_state_machine_build_error;
