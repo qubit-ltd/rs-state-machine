@@ -57,20 +57,20 @@ fn create_machine() -> FastStateMachine {
 #[test]
 fn test_trigger_updates_fast_state_and_returns_next_state() {
     let machine = create_machine();
-    let state = FastCasState::new(QUEUED);
+    let state = FastCasState::new(QUEUED as u64);
 
     let next = machine
         .trigger(&state, START)
         .expect("start transition should be valid");
 
     assert_eq!(next, RUNNING);
-    assert_eq!(state.load(), RUNNING);
+    assert_eq!(state.load(), RUNNING as u64);
 }
 
 #[test]
 fn test_trigger_returns_error_for_unknown_transition_and_keeps_state() {
     let machine = create_machine();
-    let state = FastCasState::new(QUEUED);
+    let state = FastCasState::new(QUEUED as u64);
 
     let error = machine
         .trigger(&state, COMPLETE)
@@ -83,7 +83,7 @@ fn test_trigger_returns_error_for_unknown_transition_and_keeps_state() {
             event: COMPLETE,
         }
     );
-    assert_eq!(state.load(), QUEUED);
+    assert_eq!(state.load(), QUEUED as u64);
 }
 
 #[test]
@@ -102,7 +102,7 @@ fn test_trigger_returns_error_for_unknown_state() {
 #[test]
 fn test_trigger_with_calls_callback_after_success() {
     let machine = create_machine();
-    let state = FastCasState::new(QUEUED);
+    let state = FastCasState::new(QUEUED as u64);
     let callback_states = Arc::new(Mutex::new(Vec::new()));
     let callback_states_for_capture = Arc::clone(&callback_states);
 
@@ -123,24 +123,24 @@ fn test_trigger_with_calls_callback_after_success() {
             .as_slice(),
         &[(QUEUED, RUNNING)],
     );
-    assert_eq!(state.load(), RUNNING);
+    assert_eq!(state.load(), RUNNING as u64);
 }
 
 #[test]
 fn test_try_trigger_is_boolean_result_without_error() {
     let machine = create_machine();
-    let state = FastCasState::new(QUEUED);
+    let state = FastCasState::new(QUEUED as u64);
 
     assert!(machine.try_trigger(&state, START));
-    assert_eq!(state.load(), RUNNING);
+    assert_eq!(state.load(), RUNNING as u64);
     assert!(!machine.try_trigger(&state, START));
-    assert_eq!(state.load(), RUNNING);
+    assert_eq!(state.load(), RUNNING as u64);
 }
 
 #[test]
 fn test_try_trigger_with_calls_callback_only_on_success() {
     let machine = create_machine();
-    let state = FastCasState::new(QUEUED);
+    let state = FastCasState::new(QUEUED as u64);
     let callback_count = AtomicUsize::new(0);
 
     let matched = machine.try_trigger_with(&state, COMPLETE, |_, _| {
@@ -148,14 +148,14 @@ fn test_try_trigger_with_calls_callback_only_on_success() {
     });
     assert!(!matched);
     assert_eq!(callback_count.load(Ordering::SeqCst), 0);
-    assert_eq!(state.load(), QUEUED);
+    assert_eq!(state.load(), QUEUED as u64);
 
     let matched = machine.try_trigger_with(&state, START, |_, _| {
         callback_count.fetch_add(1, Ordering::SeqCst);
     });
     assert!(matched);
     assert_eq!(callback_count.load(Ordering::SeqCst), 1);
-    assert_eq!(state.load(), RUNNING);
+    assert_eq!(state.load(), RUNNING as u64);
 }
 
 #[test]
@@ -207,7 +207,7 @@ fn test_transition_target_returns_none_for_out_of_range_input() {
 fn test_fast_cas_conflict_maps_to_fast_state_machine_error() {
     let error =
         fast_state_machine_error_from_fast_cas_error(FastCasError::Conflict {
-            current: RUNNING,
+            current: RUNNING as u64,
             attempts: 1,
         });
 
@@ -217,7 +217,7 @@ fn test_fast_cas_conflict_maps_to_fast_state_machine_error() {
 #[test]
 fn test_machine_handles_concurrent_self_transitions() {
     let machine = Arc::new(create_machine());
-    let state = Arc::new(FastCasState::new(RUNNING));
+    let state = Arc::new(FastCasState::new(RUNNING as u64));
     let callback_count = Arc::new(AtomicUsize::new(0));
     let barrier = Arc::new(Barrier::new(8));
     let mut handles = Vec::new();
@@ -241,7 +241,7 @@ fn test_machine_handles_concurrent_self_transitions() {
         handle.join().expect("worker should join");
     }
 
-    assert_eq!(state.load(), RUNNING);
+    assert_eq!(state.load(), RUNNING as u64);
     assert_eq!(callback_count.load(Ordering::SeqCst), 8);
 }
 
