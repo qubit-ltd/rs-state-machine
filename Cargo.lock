@@ -233,12 +233,17 @@ dependencies = [
 name = "qubit-clock"
 version = "0.10.0"
 dependencies = [
+ "qubit-collections",
  "thiserror",
 ]
 
 [[package]]
+name = "qubit-collections"
+version = "0.1.0"
+
+[[package]]
 name = "qubit-datatype"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "serde",
  "strum",
@@ -253,7 +258,7 @@ checksum = "da626589381bfcb778362b1a33268b471a40812c7d796f036a8864c1d43a4de2"
 
 [[package]]
 name = "qubit-fast-cas"
-version = "0.1.0"
+version = "0.2.0"
 
 [[package]]
 name = "qubit-function"
@@ -268,18 +273,10 @@ dependencies = [
  "parse-display",
  "qubit-argument",
  "qubit-clock",
+ "qubit-datatype",
  "qubit-error",
  "qubit-function",
- "qubit-serde",
  "rand",
- "serde",
-]
-
-[[package]]
-name = "qubit-serde"
-version = "0.4.0"
-dependencies = [
- "qubit-datatype",
  "serde",
 ]
 
