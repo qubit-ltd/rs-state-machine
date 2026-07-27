@@ -1,0 +1,43 @@
+[package]
+name = "qubit-state-machine-fuzz"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.94"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[features]
+default = ["fast", "standard"]
+fast = ["dep:qubit-fast-cas", "qubit-state-machine/fast"]
+standard = ["qubit-state-machine/standard"]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+qubit-fast-cas = { version = "0.3", path = "../../rs-fast-cas", optional = true }
+qubit-state-machine = { path = "..", default-features = false }
+
+[[bin]]
+name = "fast_builder"
+path = "fuzz_targets/fast_builder.rs"
+test = false
+doc = false
+bench = false
+required-features = ["fast"]
+
+[[bin]]
+name = "fast_runtime"
+path = "fuzz_targets/fast_runtime.rs"
+test = false
+doc = false
+bench = false
+required-features = ["fast"]
+
+[[bin]]
+name = "standard_builder"
+path = "fuzz_targets/standard_builder.rs"
+test = false
+doc = false
+bench = false
+required-features = ["standard"]
