@@ -3,7 +3,6 @@
 [![Rust CI](https://github.com/qubit-ltd/rs-state-machine/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-state-machine/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-state-machine/coverage-badge.json)](https://qubit-ltd.github.io/rs-state-machine/coverage/)
 [![Crates.io](https://img.shields.io/crates/v/qubit-state-machine.svg?color=blue)](https://crates.io/crates/qubit-state-machine)
-[![Docs.rs](https://docs.rs/qubit-state-machine/badge.svg)](https://docs.rs/qubit-state-machine)
 [![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
@@ -12,8 +11,9 @@
 
 `qubit-state-machine` 是一个小型 Rust 有限状态机库，适用于生命周期、工作流和任务状态跟踪代码。
 
-它提供不可变的状态转换规则、构建阶段校验，以及用于对共享状态应用事件的
-CAS 支持 `AtomicRef`。
+它提供不可变的状态转换规则和构建阶段校验。标准版通过 `qubit-cas` 更新
+`qubit_atomic::AtomicRef`，Fast 版则直接更新
+`qubit_fast_cas::FastCasState`。
 
 库内同时提供两种实现方式：
 
@@ -36,15 +36,37 @@ CAS 支持 `AtomicRef`。
 
 ## 安装
 
+默认 feature 集同时包含标准版和 Fast 版。原子状态类型必须从其所属 crate
+直接导入：
+
 ```toml
 [dependencies]
 qubit-state-machine = "0.6"
+qubit-atomic = "0.13"
+qubit-fast-cas = "0.3"
+```
+
+仅使用标准版：
+
+```toml
+[dependencies]
+qubit-state-machine = { version = "0.6", default-features = false, features = ["standard"] }
+qubit-atomic = "0.13"
+```
+
+仅使用 Fast 版，并避免引入 `qubit-cas`：
+
+```toml
+[dependencies]
+qubit-state-machine = { version = "0.6", default-features = false, features = ["fast"] }
+qubit-fast-cas = "0.3"
 ```
 
 ## 快速开始：任务处理
 
 ```rust
-use qubit_state_machine::{AtomicRef, StateMachine};
+use qubit_atomic::AtomicRef;
+use qubit_state_machine::StateMachine;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum JobState {
@@ -112,7 +134,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 如果你的模型天然适合枚举表达，且优先考虑代码可读性和业务语义清晰度，
 优先使用 `StateMachine`。
 
-如果你面对的是高频触发路径、并且状态和事件可以表达为稠密 `usize` 编码，
+如果你面对的是高频触发路径、并且状态和事件可以表达为稠密 `u64` 编码，
 优先使用 `FastStateMachine`。它通过可计算下标的扁平转移表换取更稳定的热点路径
 性能。
 
@@ -130,13 +152,13 @@ use qubit_state_machine::{
     FastStateMachine,
 };
 
-const QUEUED: usize = 0;
-const RUNNING: usize = 1;
-const SUCCEEDED: usize = 2;
-const FAILED: usize = 3;
-const START: usize = 0;
-const COMPLETE: usize = 1;
-const FAIL: usize = 2;
+const QUEUED: u64 = 0;
+const RUNNING: u64 = 1;
+const SUCCEEDED: u64 = 2;
+const FAILED: u64 = 3;
+const START: u64 = 0;
+const COMPLETE: u64 = 1;
+const FAIL: u64 = 2;
 
 let machine = FastStateMachine::builder()
     .state_count(4)
@@ -215,7 +237,8 @@ assert_eq!(
 `try_trigger_with`。
 
 ```rust
-use qubit_state_machine::{AtomicRef, StateMachine};
+use qubit_atomic::AtomicRef;
+use qubit_state_machine::StateMachine;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum DoorState {
@@ -257,7 +280,7 @@ assert_eq!(*state.load(), DoorState::Closed);
 | 只查询转换目标，不修改当前状态 | `transition_target` |
 | 应用事件并获取详细错误 | `trigger`、`trigger_with`、`StateMachineError` |
 | 应用事件但不处理错误详情 | `try_trigger`、`try_trigger_with` |
-| 存储共享可变状态 | `AtomicRef` |
+| 存储共享可变状态 | `qubit_atomic::AtomicRef` 或 `qubit_fast_cas::FastCasState` |
 
 ## 核心 API 概览
 
@@ -268,10 +291,8 @@ assert_eq!(*state.load(), DoorState::Closed);
 | `FastStateMachineBuilder` | 用于声明状态数、事件数、转移表和 CAS 策略。 |
 | `FastStateMachineError` | `FastStateMachine` 的运行时错误。 |
 | `FastStateMachineBuildError` | 构建 `FastStateMachine` 时的配置校验错误。 |
-| `FastCasPolicy` | 控制 `FastStateMachine` 并发冲突时重试行为的策略。 |
 | `StateMachineBuilder` | 用于定义状态、初始状态、最终状态和转换规则的可变构建器。 |
 | `StateMachine` | 已校验的不可变转换表，用于查询和触发事件。 |
-| `AtomicRef` | 重新导出的原子引用，用作 CAS 支持的当前状态存储。 |
 | `StateMachineBuildError` | 构建无效规则集时返回的校验错误。 |
 | `StateMachineError` | 事件无法应用到当前状态时返回的运行时错误。 |
 
@@ -279,7 +300,7 @@ assert_eq!(*state.load(), DoorState::Closed);
 
 - `qubit-state-machine` 面向简单有限状态机，不是完整工作流引擎。
 - 状态和事件类型应是小型枚举风格值，并实现 `Copy + Eq + Hash + Debug`。
-- Fast 版本要求状态码/事件码是连续的 `usize`，且位于
+- Fast 版本要求状态码/事件码是连续的 `u64`，且位于
   `[0, state_count)`、`[0, event_count)`，转移表容量固定为
   `state_count * event_count`。
 - 规则定义在 `StateMachineBuilder::build` 之后变为不可变。
@@ -291,68 +312,46 @@ assert_eq!(*state.load(), DoorState::Closed);
 
 本 crate 使用 Rust 2024 edition，要求 Rust 1.94 或更新版本。
 
-## 测试与代码覆盖率
-
-本项目测试统一放在 `tests/` 目录下，覆盖标准版与 Fast 版构建器、转移表、触发语义、
-CAS 更新，以及构建期与运行期错误的格式化输出。
-
-### 运行测试
-
-```bash
-# 运行所有测试
-cargo test
-
-# 生成覆盖率报告
-./coverage.sh
-
-# 生成文本格式覆盖率报告
-./coverage.sh text
-
-# 对齐 CI 格式化要求
-./align-ci.sh
-
-# 运行 CI 检查（格式化、clippy、测试、文档、覆盖率、audit）
-./ci-check.sh
-```
-
 ## 依赖项
 
-运行时依赖保持简洁且聚焦：
+运行时依赖按 feature 隔离：
 
 - `thiserror` 用于实现具体错误类型。
-- `qubit-atomic` 提供用于共享当前状态存储的 `AtomicRef`。
-- `qubit-cas` 提供事件触发阶段使用的 CAS 执行工具。
+- `standard` 启用 `qubit-atomic` 和 `qubit-cas`。
+- `fast` 仅启用 `qubit-fast-cas`。
+
+默认 feature 集同时启用 `standard` 和 `fast`。
+
+## 测试
+
+```bash
+# 使用默认 feature 集运行测试
+cargo test
+
+# 使用项目声明的全部 feature 运行测试
+cargo test --all-features
+
+# 运行项目 CI 检查
+./ci-check.sh
+
+# 检查代码覆盖率
+./coverage.sh
+```
 
 ## 许可证
 
-Copyright (c) 2026. Haixing Hu.
+Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 
-根据 Apache 许可证 2.0 版（"许可证"）授权；
-除非遵守许可证，否则您不得使用此文件。
-您可以在以下位置获取许可证副本：
-
-<http://www.apache.org/licenses/LICENSE-2.0>
-
-除非适用法律要求或书面同意，否则根据许可证分发的软件
-按"原样"分发，不附带任何明示或暗示的担保或条件。
-有关许可证下的特定语言管理权限和限制，请参阅许可证。
-
-完整的许可证文本请参阅 [LICENSE](LICENSE)。
+本项目基于 Apache License 2.0 授权。完整许可证文本请参阅
+[LICENSE](LICENSE)。
 
 ## 贡献
 
-欢迎贡献。请保持改动与现有 Rust 项目结构一致，并在提交 Pull Request 前运行
-`./ci-check.sh`。
+欢迎贡献。请遵循 Rust API 指南，及时更新公共 API 文档与测试，并在提交
+Pull Request 前运行 `./align-ci.sh`格式化代码，运行`./ci-check.sh`对齐CI要求。
 
 ## 作者
 
-**Haixing Hu**
-
-## 相关项目
-
-Qubit 旗下的更多 Rust 库发布在 GitHub 组织
-[qubit-ltd](https://github.com/qubit-ltd)。
-
----
+**Haixing Hu** - *Qubit Co. Ltd.*
 
 仓库地址：[https://github.com/qubit-ltd/rs-state-machine](https://github.com/qubit-ltd/rs-state-machine)

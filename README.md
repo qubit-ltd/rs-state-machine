@@ -3,7 +3,6 @@
 [![Rust CI](https://github.com/qubit-ltd/rs-state-machine/actions/workflows/ci.yml/badge.svg)](https://github.com/qubit-ltd/rs-state-machine/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://qubit-ltd.github.io/rs-state-machine/coverage-badge.json)](https://qubit-ltd.github.io/rs-state-machine/coverage/)
 [![Crates.io](https://img.shields.io/crates/v/qubit-state-machine.svg?color=blue)](https://crates.io/crates/qubit-state-machine)
-[![Docs.rs](https://docs.rs/qubit-state-machine/badge.svg)](https://docs.rs/qubit-state-machine)
 [![Rust](https://img.shields.io/badge/rust-1.94+-blue.svg?logo=rust)](https://www.rust-lang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
@@ -13,8 +12,9 @@ Documentation: [API Reference](https://docs.rs/qubit-state-machine)
 `qubit-state-machine` is a small Rust finite state machine crate for lifecycle,
 workflow, and task-state tracking code.
 
-It provides immutable transition rules, build-time validation, and a
-CAS-backed `AtomicRef` for shared-state transitions.
+It provides immutable transition rules and build-time validation. The standard
+machine updates `qubit_atomic::AtomicRef` values through `qubit-cas`; the Fast
+machine updates `qubit_fast_cas::FastCasState` values directly.
 
 There are two variants:
 
@@ -39,15 +39,37 @@ Use `qubit-state-machine` when you need:
 
 ## Installation
 
+The default feature set includes both implementations. Import atomic state
+types from their owning crates:
+
 ```toml
 [dependencies]
 qubit-state-machine = "0.6"
+qubit-atomic = "0.13"
+qubit-fast-cas = "0.3"
+```
+
+Use only the standard implementation:
+
+```toml
+[dependencies]
+qubit-state-machine = { version = "0.6", default-features = false, features = ["standard"] }
+qubit-atomic = "0.13"
+```
+
+Use only the Fast implementation without pulling in `qubit-cas`:
+
+```toml
+[dependencies]
+qubit-state-machine = { version = "0.6", default-features = false, features = ["fast"] }
+qubit-fast-cas = "0.3"
 ```
 
 ## Quick Start: Job Processing
 
 ```rust
-use qubit_state_machine::{AtomicRef, StateMachine};
+use qubit_atomic::AtomicRef;
+use qubit_state_machine::StateMachine;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum JobState {
@@ -133,13 +155,13 @@ use qubit_state_machine::{
     FastStateMachine,
 };
 
-const QUEUED: usize = 0;
-const RUNNING: usize = 1;
-const SUCCEEDED: usize = 2;
-const FAILED: usize = 3;
-const START: usize = 0;
-const COMPLETE: usize = 1;
-const FAIL: usize = 2;
+const QUEUED: u64 = 0;
+const RUNNING: u64 = 1;
+const SUCCEEDED: u64 = 2;
+const FAILED: u64 = 3;
+const START: u64 = 0;
+const COMPLETE: u64 = 1;
+const FAIL: u64 = 2;
 
 let machine = FastStateMachine::builder()
     .state_count(4)
@@ -219,7 +241,8 @@ Use `try_trigger` or `try_trigger_with` when an invalid transition should be a
 simple `false` result.
 
 ```rust
-use qubit_state_machine::{AtomicRef, StateMachine};
+use qubit_atomic::AtomicRef;
+use qubit_state_machine::StateMachine;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum DoorState {
@@ -261,7 +284,7 @@ assert_eq!(*state.load(), DoorState::Closed);
 | Query transition targets without changing state | `transition_target` |
 | Apply events and get detailed errors | `trigger`, `trigger_with`, `StateMachineError` |
 | Apply events without handling errors | `try_trigger`, `try_trigger_with` |
-| Store shared mutable state | `AtomicRef` |
+| Store shared mutable state | `qubit_atomic::AtomicRef` or `qubit_fast_cas::FastCasState` |
 
 ## Core API At A Glance
 
@@ -272,10 +295,8 @@ assert_eq!(*state.load(), DoorState::Closed);
 | `FastStateMachineBuilder` | Builder for state/event code counts, transition table, and CAS policy. |
 | `FastStateMachineError` | Runtime error from fast transition execution. |
 | `FastStateMachineBuildError` | Build-time validation error for fast transition table configuration. |
-| `FastCasPolicy` | Optional CAS retry policy to control contention behavior. |
 | `StateMachineBuilder` | Mutable builder for states, initial states, final states, and transitions. |
 | `StateMachine` | Immutable, validated transition table used to query and trigger events. |
-| `AtomicRef` | Re-exported atomic reference used for CAS-backed current state. |
 | `StateMachineBuildError` | Validation error returned while building invalid rule sets. |
 | `StateMachineError` | Runtime error returned when an event cannot be applied. |
 
@@ -285,7 +306,7 @@ assert_eq!(*state.load(), DoorState::Closed);
   workflow engine.
 - State and event types should be small enum-like values implementing
   `Copy + Eq + Hash + Debug`.
-- Fast state machines require dense `usize` state/event codes in `[0, state_count)` and
+- Fast state machines require dense `u64` state/event codes in `[0, state_count)` and
   `[0, event_count)` and a complete table budget of `state_count * event_count`.
 - Rule definitions become immutable after `StateMachineBuilder::build`.
 - Standard event triggering uses `AtomicRef<S>` with CAS execution via `qubit-cas`.
@@ -297,71 +318,47 @@ assert_eq!(*state.load(), DoorState::Closed);
 
 This crate uses Rust 2024 edition and requires Rust 1.94 or newer.
 
-## Testing & Code Coverage
-
-This project keeps tests under `tests/` and validates standard and fast state
-machine builders, transition tables, trigger semantics, CAS-backed updates, and
-error formatting for build-time and runtime failures.
-
-### Running Tests
-
-```bash
-# Run all tests
-cargo test
-
-# Generate a coverage report
-./coverage.sh
-
-# Generate a text format coverage report
-./coverage.sh text
-
-# Align formatting with CI
-./align-ci.sh
-
-# Run CI checks (format, clippy, tests, docs, coverage, audit)
-./ci-check.sh
-```
-
 ## Dependencies
 
-Runtime dependencies are intentionally focused:
+Runtime dependencies are feature-scoped:
 
 - `thiserror` provides concrete error implementations.
-- `qubit-atomic` provides `AtomicRef` for shared current state storage.
-- `qubit-cas` provides CAS execution utilities used during event triggering.
+- `standard` enables `qubit-atomic` and `qubit-cas`.
+- `fast` enables only `qubit-fast-cas`.
+
+The default feature set enables `standard` and `fast`.
+
+## Testing
+
+```bash
+# Run tests with the default feature set
+cargo test
+
+# Run tests with all declared features
+cargo test --all-features
+
+# Project CI checks
+./ci-check.sh
+
+# Check code coverage
+./coverage.sh
+```
 
 ## License
 
-Copyright (c) 2026. Haixing Hu.
+Copyright (c) 2025 - 2026. Haixing Hu. All rights reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-<http://www.apache.org/licenses/LICENSE-2.0>
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
-See [LICENSE](LICENSE) for the full license text.
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the
+full license text.
 
 ## Contributing
 
-Contributions are welcome. Please keep changes aligned with the existing Rust
-project structure and run `./ci-check.sh` before opening a pull request.
+Contributions are welcome. Please follow the Rust API guidelines, keep public
+API documentation and tests current, and run `./align-ci.sh` to format code and
+`./ci-check.sh` to satisfy CI requirements before submitting a pull request.
 
 ## Author
 
-**Haixing Hu**
-
-## Related Projects
-
-More Rust libraries from Qubit are published under the
-[qubit-ltd](https://github.com/qubit-ltd) GitHub organization.
-
----
+**Haixing Hu** - *Qubit Co. Ltd.*
 
 Repository: [https://github.com/qubit-ltd/rs-state-machine](https://github.com/qubit-ltd/rs-state-machine)
