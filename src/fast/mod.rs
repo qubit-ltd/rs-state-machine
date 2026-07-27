@@ -6,7 +6,7 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
-//! High-performance state machine implementation based on compact `usize` state
+//! High-performance state machine implementation based on compact `u64` state
 //! codes.
 //!
 //! `FastStateMachine` is designed for hot paths where state and event are
@@ -24,8 +24,6 @@ pub use fast_state_machine_build_error::FastStateMachineBuildError;
 #[allow(unused_imports)]
 pub use fast_state_machine_builder::FAST_STATE_MACHINE_DEFAULT_CAS_POLICY;
 pub use fast_state_machine_builder::FastStateMachineBuilder;
-#[doc(hidden)]
-pub use fast_state_machine_error::fast_state_machine_error_from_fast_cas_error;
 pub use fast_state_machine_error::{
     FastStateMachineError,
     FastStateMachineResult,

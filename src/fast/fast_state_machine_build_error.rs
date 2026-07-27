@@ -25,42 +25,56 @@ pub enum FastStateMachineBuildError {
     #[error("state count must be positive: {count}")]
     InvalidStateCount {
         /// Requested state count.
-        count: usize,
+        count: u64,
     },
 
     /// Event count must be greater than zero.
     #[error("event count must be positive: {count}")]
     InvalidEventCount {
         /// Requested event count.
-        count: usize,
+        count: u64,
     },
 
-    /// Transition transition-table size overflowed `usize`.
-    #[error("transition table overflowed usize: {state_count} * {event_count}")]
+    /// Transition-table size overflowed `u64`.
+    #[error(
+        "transition table size overflowed u64: {state_count} * {event_count}"
+    )]
     TransitionTableOverflow {
         /// The number of states.
-        state_count: usize,
+        state_count: u64,
 
         /// The number of events.
-        event_count: usize,
+        event_count: u64,
+    },
+
+    /// Transition-table storage cannot be represented or allocated.
+    #[error(
+        "transition table capacity is unavailable: {state_count} * {event_count}"
+    )]
+    TransitionTableCapacityExceeded {
+        /// The number of states.
+        state_count: u64,
+
+        /// The number of events.
+        event_count: u64,
     },
 
     /// An initial state code exceeds the configured state count.
     #[error("initial state is out of range: {state} >= {state_count}")]
     InitialStateOutOfRange {
         /// The invalid initial state.
-        state: usize,
+        state: u64,
         /// Configured state count.
-        state_count: usize,
+        state_count: u64,
     },
 
     /// A final state code exceeds the configured state count.
     #[error("final state is out of range: {state} >= {state_count}")]
     FinalStateOutOfRange {
         /// The invalid final state.
-        state: usize,
+        state: u64,
         /// Configured state count.
-        state_count: usize,
+        state_count: u64,
     },
 
     /// A transition source code exceeds the configured state count.
@@ -69,27 +83,27 @@ pub enum FastStateMachineBuildError {
     )]
     TransitionSourceOutOfRange {
         /// The invalid source state.
-        source_state: usize,
+        source_state: u64,
         /// Configured state count.
-        state_count: usize,
+        state_count: u64,
     },
 
     /// A transition event code exceeds the configured event count.
     #[error("transition event is out of range: {event} >= {event_count}")]
     TransitionEventOutOfRange {
         /// The invalid event code.
-        event: usize,
+        event: u64,
         /// Configured event count.
-        event_count: usize,
+        event_count: u64,
     },
 
     /// A transition target code exceeds the configured state count.
     #[error("transition target is out of range: {target} >= {state_count}")]
     TransitionTargetOutOfRange {
         /// The invalid target state.
-        target: usize,
+        target: u64,
         /// Configured state count.
-        state_count: usize,
+        state_count: u64,
     },
 
     /// Same `(source, event)` maps to two different targets.
@@ -98,12 +112,12 @@ pub enum FastStateMachineBuildError {
     )]
     DuplicateTransition {
         /// Source state.
-        source_state: usize,
+        source_state: u64,
         /// Event code.
-        event: usize,
+        event: u64,
         /// Existing target.
-        existing_target: usize,
+        existing_target: u64,
         /// Conflicting target.
-        new_target: usize,
+        new_target: u64,
     },
 }

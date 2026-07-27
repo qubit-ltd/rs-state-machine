@@ -15,13 +15,14 @@ use qubit_fast_cas::{
     FastCasState,
 };
 
+use super::fast_state_machine_error::fast_state_machine_error_from_fast_cas_error;
 use super::{
     FastStateMachineError,
     FastStateMachineResult,
-    fast_state_machine_error_from_fast_cas_error,
 };
 
-const UNSET_TRANSITION: usize = usize::MAX;
+/// Sentinel stored in dense table cells without a configured transition.
+const UNSET_TRANSITION: u64 = u64::MAX;
 
 /// A compact, high-performance state machine backed by [`FastCas`].
 ///
@@ -32,13 +33,21 @@ const UNSET_TRANSITION: usize = usize::MAX;
 ///
 /// Transition resolution is a single table index lookup:
 /// `index = source * event_count + event`.
+#[must_use = "a fast state machine contains the configured transition rules"]
 #[derive(Debug, Clone)]
 pub struct FastStateMachine {
-    pub(super) state_count: usize,
-    pub(super) event_count: usize,
+    /// Number of valid state codes.
+    pub(super) state_count: u64,
+    /// Number of valid event codes.
+    pub(super) event_count: u64,
+    /// Dense flags indexed by validated state code.
     pub(super) initial_states: Vec<bool>,
+    /// Dense flags indexed by validated state code.
     pub(super) final_states: Vec<bool>,
-    pub(super) transitions: Vec<usize>,
+    /// Row-major transition targets, using [`UNSET_TRANSITION`] for empty
+    /// cells.
+    pub(super) transitions: Vec<u64>,
+    /// Policy-driven CAS executor used by runtime transitions.
     pub(super) cas: FastCas,
 }
 
@@ -49,6 +58,7 @@ impl FastStateMachine {
     ///
     /// # Returns
     /// A new, empty [`super::FastStateMachineBuilder`].
+    #[inline(always)]
     pub fn builder() -> super::FastStateMachineBuilder {
         super::FastStateMachineBuilder::new()
     }
@@ -59,7 +69,8 @@ impl FastStateMachine {
     ///
     /// # Returns
     /// The configured state-space size (length of the transition table rows).
-    pub const fn state_count(&self) -> usize {
+    #[inline(always)]
+    pub const fn state_count(&self) -> u64 {
         self.state_count
     }
 
@@ -70,14 +81,21 @@ impl FastStateMachine {
     /// # Returns
     /// The configured event-space size (length of each row in the transition
     /// table).
-    pub const fn event_count(&self) -> usize {
+    #[inline(always)]
+    pub const fn event_count(&self) -> u64 {
         self.event_count
     }
 
     /// Returns the dense transition table.
     ///
     /// The table is laid out row-major: source index first, then event index.
-    pub fn transitions(&self) -> &[usize] {
+    /// Cells without a configured transition contain `u64::MAX`; prefer
+    /// [`Self::transition_target`] when the sentinel is not needed.
+    ///
+    /// # Returns
+    /// The immutable row-major transition cells.
+    #[inline(always)]
+    pub fn transitions(&self) -> &[u64] {
         &self.transitions
     }
 
@@ -87,6 +105,10 @@ impl FastStateMachine {
     /// [`crate::FastStateMachineBuilder::cas_policy`], or
     /// [`crate::FAST_STATE_MACHINE_DEFAULT_CAS_POLICY`] when no override is
     /// supplied.
+    ///
+    /// # Returns
+    /// The configured Fast CAS policy.
+    #[inline(always)]
     pub fn cas_policy(&self) -> FastCasPolicy {
         self.cas.policy()
     }
@@ -96,6 +118,10 @@ impl FastStateMachine {
     /// The slice has length [`Self::state_count`]; index `s` corresponds to
     /// state code `s`, and is `true` if that state was registered as
     /// initial in the builder.
+    ///
+    /// # Returns
+    /// Dense initial-state flags in state-code order.
+    #[inline(always)]
     pub fn initial_states(&self) -> &[bool] {
         &self.initial_states
     }
@@ -106,85 +132,95 @@ impl FastStateMachine {
     /// The slice has length [`Self::state_count`]; index `s` corresponds to
     /// state code `s`, and is `true` if that state was registered as final
     /// in the builder.
+    ///
+    /// # Returns
+    /// Dense final-state flags in state-code order.
+    #[inline(always)]
     pub fn final_states(&self) -> &[bool] {
         &self.final_states
     }
 
     /// Returns whether `state` is a valid code for this machine.
     ///
-    /// # Arguments
-    /// * `state` — Candidate state code.
+    /// # Parameters
+    /// - `state`: Candidate state code.
     ///
     /// # Returns
     /// `true` if `state < state_count()`, otherwise `false`.
-    pub const fn contains_state(&self, state: usize) -> bool {
+    #[inline(always)]
+    pub const fn contains_state(&self, state: u64) -> bool {
         state < self.state_count
     }
 
     /// Returns whether `state` was configured as an initial state.
     ///
-    /// # Arguments
-    /// * `state` — State code to test.
+    /// # Parameters
+    /// - `state`: State code to test.
     ///
     /// # Returns
     /// `true` if `state` is in range and marked initial; `false` if out of
     /// range or not initial.
-    pub fn is_initial_state(&self, state: usize) -> bool {
-        self.initial_states.get(state).copied().unwrap_or(false)
+    #[inline]
+    pub fn is_initial_state(&self, state: u64) -> bool {
+        self.state_index(state)
+            .and_then(|index| self.initial_states.get(index))
+            .copied()
+            .unwrap_or(false)
     }
 
     /// Returns whether `state` was configured as a final state.
     ///
-    /// # Arguments
-    /// * `state` — State code to test.
+    /// # Parameters
+    /// - `state`: State code to test.
     ///
     /// # Returns
     /// `true` if `state` is in range and marked final; `false` if out of range
     /// or not final.
-    pub fn is_final_state(&self, state: usize) -> bool {
-        self.final_states.get(state).copied().unwrap_or(false)
+    #[inline]
+    pub fn is_final_state(&self, state: u64) -> bool {
+        self.state_index(state)
+            .and_then(|index| self.final_states.get(index))
+            .copied()
+            .unwrap_or(false)
     }
 
     /// Looks up the next state for a specific `(source, event)` pair.
     ///
-    /// # Arguments
-    /// * `source` — Current state code.
-    /// * `event` — Event code.
+    /// # Parameters
+    /// - `source`: Current state code.
+    /// - `event`: Event code.
     ///
     /// # Returns
     /// `Some(target)` when a transition is configured; `None` if `source` or
     /// `event` is out of range, or if no transition exists for that pair.
-    pub fn transition_target(
-        &self,
-        source: usize,
-        event: usize,
-    ) -> Option<usize> {
-        self.get_transition_target(source, event)
-            .filter(|&target| target != UNSET_TRANSITION)
-    }
-
-    /// Returns the raw table cell for `(source, event)` without treating the
-    /// unset sentinel.
-    ///
-    /// Unlike [`Self::transition_target`], this does not map the internal “no
-    /// transition” sentinel to `None`; callers that need a public
-    /// [`Option`] should use [`Self::transition_target`].
-    ///
-    /// # Returns
-    /// `None` when `source` or `event` is out of range; otherwise `Some(cell)`
-    /// where `cell` may still denote “unset” in the packed table.
-    fn get_transition_target(
-        &self,
-        source: usize,
-        event: usize,
-    ) -> Option<usize> {
-        if !self.contains_state(source) || event >= self.event_count {
+    #[inline]
+    pub fn transition_target(&self, source: u64, event: u64) -> Option<u64> {
+        if !self.contains_state(source) {
             return None;
         }
-        let index = source
-            .checked_mul(self.event_count)
-            .and_then(|base| base.checked_add(event));
-        index.map(|index| self.transitions[index])
+        self.transition_target_for_valid_state(source, event)
+    }
+
+    /// Resolves a transition after the caller has validated the source state.
+    ///
+    /// # Parameters
+    /// - `source`: Source state known to be less than [`Self::state_count`].
+    /// - `event`: Event code to resolve.
+    ///
+    /// # Returns
+    /// The configured target, or `None` when `event` is out of range or the
+    /// transition cell is unset.
+    #[inline]
+    fn transition_target_for_valid_state(
+        &self,
+        source: u64,
+        event: u64,
+    ) -> Option<u64> {
+        let index = self.transition_index(source, event)?;
+        self.transitions
+            .get(index)
+            .copied()
+            .filter(|&target| target != UNSET_TRANSITION)
     }
 
     /// Applies one event atomically on `state` using the configured [`FastCas`]
@@ -193,9 +229,9 @@ impl FastStateMachine {
     /// Reads the current code from `state`, resolves the transition for
     /// `event`, and stores the new code back if the transition is valid.
     ///
-    /// # Arguments
-    /// * `state` — Shared compact state updated by compare-and-swap.
-    /// * `event` — Event code to apply.
+    /// # Parameters
+    /// - `state`: Shared compact state updated by compare-and-swap.
+    /// - `event`: Event code to apply.
     ///
     /// # Returns
     /// `Ok(new_state)` after a successful transition and CAS store.
@@ -206,10 +242,11 @@ impl FastStateMachine {
     /// * [`FastStateMachineError::UnknownTransition`] — no transition for
     ///   `(current, event)`.
     /// * [`FastStateMachineError::CasConflict`] — CAS retries exhausted.
+    #[inline(always)]
     pub fn trigger(
         &self,
         state: &FastCasState,
-        event: usize,
+        event: u64,
     ) -> FastStateMachineResult {
         let (_old_state, new_state) = self.change_state(state, event)?;
         Ok(new_state)
@@ -222,10 +259,13 @@ impl FastStateMachine {
     /// successful transition. It is not called when [`Self::trigger`] would
     /// return an error.
     ///
-    /// # Arguments
-    /// * `state` — Shared compact state updated by compare-and-swap.
-    /// * `event` — Event code to apply.
-    /// * `on_success` — Called with previous and new state codes only on
+    /// # Type Parameters
+    /// - `F`: One-shot callback type.
+    ///
+    /// # Parameters
+    /// - `state`: Shared compact state updated by compare-and-swap.
+    /// - `event`: Event code to apply.
+    /// - `on_success`: Called with previous and new state codes only on
     ///   success.
     ///
     /// # Returns
@@ -233,14 +273,19 @@ impl FastStateMachine {
     ///
     /// # Errors
     /// Same as [`Self::trigger`].
+    ///
+    /// # Panics
+    /// A panic from `on_success` propagates after the state transition has
+    /// already been committed.
+    #[inline]
     pub fn trigger_with<F>(
         &self,
         state: &FastCasState,
-        event: usize,
+        event: u64,
         on_success: F,
     ) -> FastStateMachineResult
     where
-        F: Fn(usize, usize),
+        F: FnOnce(u64, u64),
     {
         let (old_state, new_state) = self.change_state(state, event)?;
         on_success(old_state, new_state);
@@ -250,10 +295,17 @@ impl FastStateMachine {
     /// Attempts the same transition as [`Self::trigger`], discarding error
     /// details.
     ///
+    /// # Parameters
+    /// - `state`: Shared compact state updated by compare-and-swap.
+    /// - `event`: Event code to apply.
+    ///
     /// # Returns
-    /// `true` if the transition and CAS update succeeded; `false` if validation
-    /// failed or CAS retries were exhausted.
-    pub fn try_trigger(&self, state: &FastCasState, event: usize) -> bool {
+    /// `true` if the transition was committed; `false` if validation failed or
+    /// CAS retries were exhausted. A successful self-transition also returns
+    /// `true`.
+    #[must_use = "the boolean result reports whether the transition committed"]
+    #[inline(always)]
+    pub fn try_trigger(&self, state: &FastCasState, event: u64) -> bool {
         self.trigger(state, event).is_ok()
     }
 
@@ -263,17 +315,32 @@ impl FastStateMachine {
     /// `on_success` runs only when the CAS update succeeds, matching
     /// [`Self::trigger_with`].
     ///
+    /// # Type Parameters
+    /// - `F`: One-shot callback type.
+    ///
+    /// # Parameters
+    /// - `state`: Shared compact state updated by compare-and-swap.
+    /// - `event`: Event code to apply.
+    /// - `on_success`: Called with previous and new state codes only on
+    ///   success.
+    ///
     /// # Returns
-    /// `true` on success; `false` on any error that [`Self::trigger_with`]
-    /// would surface.
+    /// `true` when the transition commits; `false` on any error that
+    /// [`Self::trigger_with`] would surface.
+    ///
+    /// # Panics
+    /// A panic from `on_success` propagates after the state transition has
+    /// already been committed.
+    #[must_use = "the boolean result reports whether the transition committed"]
+    #[inline(always)]
     pub fn try_trigger_with<F>(
         &self,
         state: &FastCasState,
-        event: usize,
+        event: u64,
         on_success: F,
     ) -> bool
     where
-        F: Fn(usize, usize),
+        F: FnOnce(u64, u64),
     {
         self.trigger_with(state, event, on_success).is_ok()
     }
@@ -281,23 +348,30 @@ impl FastStateMachine {
     /// Runs one CAS-backed transition: validates `event` against the loaded
     /// current code and installs the next code or aborts with
     /// [`FastStateMachineError`].
+    ///
+    /// # Parameters
+    /// - `state`: Shared compact state updated by compare-and-swap.
+    /// - `event`: Event code to apply.
+    ///
+    /// # Returns
+    /// The previous and committed state codes.
+    ///
+    /// # Errors
+    /// Returns an unknown-state, unknown-transition, or exhausted-conflict
+    /// error.
     fn change_state(
         &self,
         state: &FastCasState,
-        event: usize,
-    ) -> Result<(usize, usize), FastStateMachineError> {
-        match self.cas.execute::<usize, FastStateMachineError, _>(
+        event: u64,
+    ) -> Result<(u64, u64), FastStateMachineError> {
+        match self.cas.execute::<u64, FastStateMachineError, _>(
             state,
-            |current| match self.next_state(current as usize, event) {
-                Ok(new_state) => {
-                    FastCasDecision::update(new_state as u64, new_state)
-                }
+            |current| match self.next_state(current, event) {
+                Ok(new_state) => FastCasDecision::update(new_state, new_state),
                 Err(error) => FastCasDecision::abort(error),
             },
         ) {
-            Ok(success) => {
-                Ok((success.previous() as usize, success.current() as usize))
-            }
+            Ok(success) => Ok((success.previous(), success.current())),
             Err(error) => {
                 Err(fast_state_machine_error_from_fast_cas_error(error))
             }
@@ -306,20 +380,66 @@ impl FastStateMachine {
 
     /// Validates `state` and resolves the successor for `event` using the
     /// transition table.
+    ///
+    /// # Parameters
+    /// - `state`: Current state code.
+    /// - `event`: Event code to resolve.
+    ///
+    /// # Returns
+    /// The configured target state.
+    ///
+    /// # Errors
+    /// Returns [`FastStateMachineError::UnknownState`] for an out-of-range
+    /// state, or [`FastStateMachineError::UnknownTransition`] when no target is
+    /// configured for the pair.
+    #[inline]
     fn next_state(
         &self,
-        state: usize,
-        event: usize,
-    ) -> Result<usize, FastStateMachineError> {
+        state: u64,
+        event: u64,
+    ) -> Result<u64, FastStateMachineError> {
         if !self.contains_state(state) {
             return Err(FastStateMachineError::UnknownState { state });
         }
 
-        self.transition_target(state, event).ok_or(
+        self.transition_target_for_valid_state(state, event).ok_or(
             FastStateMachineError::UnknownTransition {
                 source_state: state,
                 event,
             },
         )
+    }
+
+    /// Converts an in-range state code into a slice index.
+    ///
+    /// # Parameters
+    /// - `state`: Candidate state code.
+    ///
+    /// # Returns
+    /// The platform index for an in-range code, or `None` otherwise.
+    #[inline]
+    fn state_index(&self, state: u64) -> Option<usize> {
+        if !self.contains_state(state) {
+            return None;
+        }
+        usize::try_from(state).ok()
+    }
+
+    /// Computes the row-major table index for a validated state and event pair.
+    ///
+    /// # Parameters
+    /// - `source`: Source state already known to be in range.
+    /// - `event`: Candidate event code.
+    ///
+    /// # Returns
+    /// The platform table index, or `None` when `event` or the computed index
+    /// is not representable.
+    #[inline]
+    fn transition_index(&self, source: u64, event: u64) -> Option<usize> {
+        if event >= self.event_count {
+            return None;
+        }
+        let index = source.checked_mul(self.event_count)?.checked_add(event)?;
+        usize::try_from(index).ok()
     }
 }

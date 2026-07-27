@@ -18,17 +18,17 @@ pub enum FastStateMachineError {
     #[error("unknown state: {state}")]
     UnknownState {
         /// The unregistered current state code.
-        state: usize,
+        state: u64,
     },
 
     /// No transition is configured for the `(state, event)` pair.
     #[error("unknown transition: {source_state} --{event}--> ?")]
     UnknownTransition {
         /// The source state code.
-        source_state: usize,
+        source_state: u64,
 
         /// The triggering event code.
-        event: usize,
+        event: u64,
     },
 
     /// CAS conflicts were exhausted before the update could be installed.
@@ -39,13 +39,20 @@ pub enum FastStateMachineError {
     },
 }
 
-/// Result returned by `FastStateMachine` runtime transition APIs.
-pub type FastStateMachineResult = Result<usize, FastStateMachineError>;
+/// Result returned by [`crate::FastStateMachine`] runtime transition APIs.
+pub type FastStateMachineResult = Result<u64, FastStateMachineError>;
 
 /// Converts a compact CAS error into the runtime error used by fast state
 /// machines.
-#[doc(hidden)]
-pub fn fast_state_machine_error_from_fast_cas_error(
+///
+/// # Parameters
+/// - `error`: Terminal error returned by `qubit-fast-cas`.
+///
+/// # Returns
+/// The original business error for an aborted transition, or a conflict error
+/// carrying the exhausted attempt count.
+#[inline]
+pub(super) fn fast_state_machine_error_from_fast_cas_error(
     error: FastCasError<FastStateMachineError>,
 ) -> FastStateMachineError {
     match error {

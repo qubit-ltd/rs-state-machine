@@ -22,18 +22,26 @@ use super::{
 
 /// Builder used to define and validate finite state machine rules.
 ///
-/// `S` is the state type and `E` is the event type. Configuration methods
-/// consume and return the builder so rule definitions can be chained. The built
-/// [`StateMachine`] is immutable.
+/// Configuration methods consume and return the builder so rule definitions
+/// can be chained. The built [`StateMachine`] is immutable.
+///
+/// # Type Parameters
+/// - `S`: Copyable, hashable state type.
+/// - `E`: Copyable, hashable event type.
+#[must_use = "a state machine builder must be configured and built"]
 #[derive(Debug, Clone)]
 pub struct StateMachineBuilder<S, E>
 where
     S: Copy + Eq + Hash + Debug,
     E: Copy + Eq + Hash + Debug,
 {
+    /// Registered states accepted by the machine.
     pub(crate) states: HashSet<S>,
+    /// Registered states marked as initial.
     pub(crate) initial_states: HashSet<S>,
+    /// Registered states marked as final.
     pub(crate) final_states: HashSet<S>,
+    /// Transition definitions in builder insertion order.
     pub(crate) transitions: Vec<Transition<S, E>>,
 }
 
@@ -46,6 +54,7 @@ where
     ///
     /// # Returns
     /// A builder with no states or transitions.
+    #[inline]
     pub fn new() -> Self {
         Self {
             states: HashSet::new(),
@@ -62,6 +71,7 @@ where
     ///
     /// # Returns
     /// The updated builder.
+    #[inline]
     pub fn add_state(mut self, state: S) -> Self {
         self.states.insert(state);
         self
@@ -74,6 +84,7 @@ where
     ///
     /// # Returns
     /// The updated builder.
+    #[inline]
     pub fn add_states(mut self, states: &[S]) -> Self {
         self.states.extend(states.iter().copied());
         self
@@ -90,6 +101,7 @@ where
     ///
     /// # Returns
     /// The updated builder.
+    #[inline]
     pub fn initial_state(mut self, state: S) -> Self {
         self.initial_states.insert(state);
         self
@@ -102,6 +114,7 @@ where
     ///
     /// # Returns
     /// The updated builder.
+    #[inline]
     pub fn initial_states(mut self, states: &[S]) -> Self {
         self.initial_states.extend(states.iter().copied());
         self
@@ -118,6 +131,7 @@ where
     ///
     /// # Returns
     /// The updated builder.
+    #[inline]
     pub fn final_state(mut self, state: S) -> Self {
         self.final_states.insert(state);
         self
@@ -130,6 +144,7 @@ where
     ///
     /// # Returns
     /// The updated builder.
+    #[inline]
     pub fn final_states(mut self, states: &[S]) -> Self {
         self.final_states.extend(states.iter().copied());
         self
@@ -149,6 +164,7 @@ where
     ///
     /// # Returns
     /// The updated builder.
+    #[inline(always)]
     pub fn transition(self, source: S, event: E, target: S) -> Self {
         self.transition_value(Transition::new(source, event, target))
     }
@@ -160,6 +176,7 @@ where
     ///
     /// # Returns
     /// The updated builder.
+    #[inline]
     pub fn transition_value(mut self, transition: Transition<S, E>) -> Self {
         self.transitions.push(transition);
         self
@@ -300,7 +317,8 @@ where
     S: Copy + Eq + Hash + Debug + 'static,
     E: Copy + Eq + Hash + Debug + 'static,
 {
-    /// Creates an empty state machine builder.
+    /// Creates the same empty builder as [`Self::new`].
+    #[inline(always)]
     fn default() -> Self {
         Self::new()
     }

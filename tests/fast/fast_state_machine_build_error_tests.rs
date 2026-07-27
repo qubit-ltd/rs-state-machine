@@ -29,11 +29,19 @@ fn test_build_error_display_reports_all_variants() {
     );
     assert_eq!(
         FastStateMachineBuildError::TransitionTableOverflow {
-            state_count: usize::MAX,
+            state_count: u64::MAX,
             event_count: 2
         }
         .to_string(),
-        "transition table overflowed usize: 18446744073709551615 * 2",
+        "transition table size overflowed u64: 18446744073709551615 * 2",
+    );
+    assert_eq!(
+        FastStateMachineBuildError::TransitionTableCapacityExceeded {
+            state_count: u64::MAX,
+            event_count: 1,
+        }
+        .to_string(),
+        "transition table capacity is unavailable: 18446744073709551615 * 1",
     );
     assert_eq!(
         FastStateMachineBuildError::InitialStateOutOfRange {

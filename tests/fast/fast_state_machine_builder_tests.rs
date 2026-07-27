@@ -15,14 +15,14 @@ use qubit_state_machine::{
     FastStateMachineBuilder,
 };
 
-const QUEUED: usize = 0;
-const RUNNING: usize = 1;
-const SUCCEEDED: usize = 2;
-const FAILED: usize = 3;
+const QUEUED: u64 = 0;
+const RUNNING: u64 = 1;
+const SUCCEEDED: u64 = 2;
+const FAILED: u64 = 3;
 
-const START: usize = 0;
-const COMPLETE: usize = 1;
-const FAIL: usize = 2;
+const START: u64 = 0;
+const COMPLETE: u64 = 1;
+const FAIL: u64 = 2;
 
 fn create_valid_builder() -> FastStateMachineBuilder {
     FastStateMachine::builder()
@@ -52,6 +52,28 @@ fn test_builder_build_accepts_valid_definition() {
         Some(SUCCEEDED)
     );
     assert_eq!(machine.transition_target(RUNNING, FAIL), Some(FAILED));
+}
+
+#[test]
+fn test_builder_accepts_u64_state_and_event_codes() {
+    let state_count = 2_u64;
+    let event_count = 1_u64;
+    let source = 0_u64;
+    let event = 0_u64;
+    let target = 1_u64;
+
+    let machine = FastStateMachine::builder()
+        .state_count(state_count)
+        .event_count(event_count)
+        .initial_state(source)
+        .final_state(target)
+        .transition(source, event, target)
+        .build()
+        .expect("u64-coded state machine should build");
+
+    assert_eq!(machine.state_count(), state_count);
+    assert_eq!(machine.event_count(), event_count);
+    assert_eq!(machine.transition_target(source, event), Some(target));
 }
 
 #[test]
@@ -95,11 +117,11 @@ fn test_builder_supports_initial_states_and_final_state() {
             "builder should accept multi-state initial setup and final state",
         );
 
-    assert!(machine.initial_states()[QUEUED]);
-    assert!(machine.initial_states()[RUNNING]);
-    assert!(!machine.initial_states()[SUCCEEDED]);
-    assert!(machine.final_states()[SUCCEEDED]);
-    assert!(!machine.final_states()[RUNNING]);
+    assert!(machine.is_initial_state(QUEUED));
+    assert!(machine.is_initial_state(RUNNING));
+    assert!(!machine.is_initial_state(SUCCEEDED));
+    assert!(machine.is_final_state(SUCCEEDED));
+    assert!(!machine.is_final_state(RUNNING));
 }
 
 #[test]
@@ -170,16 +192,69 @@ fn test_builder_rejects_zero_event_count() {
 #[test]
 fn test_builder_rejects_transition_table_overflow() {
     let error = FastStateMachine::builder()
-        .state_count(usize::MAX)
+        .state_count(u64::MAX)
         .event_count(2)
         .build()
-        .expect_err("transition table size must fit usize");
+        .expect_err("transition table size must fit u64");
 
     assert_eq!(
         error,
         FastStateMachineBuildError::TransitionTableOverflow {
-            state_count: usize::MAX,
+            state_count: u64::MAX,
             event_count: 2,
+        }
+    );
+}
+
+#[test]
+fn test_builder_rejects_unallocatable_transition_table() {
+    let error = FastStateMachine::builder()
+        .state_count(u64::MAX)
+        .event_count(1)
+        .build()
+        .expect_err("unallocatable transition table must be rejected");
+
+    assert_eq!(
+        error,
+        FastStateMachineBuildError::TransitionTableCapacityExceeded {
+            state_count: u64::MAX,
+            event_count: 1,
+        }
+    );
+}
+
+#[test]
+fn test_builder_validates_configuration_before_allocating_transition_table() {
+    let invalid_initial_state = FastStateMachine::builder()
+        .state_count(u64::MAX)
+        .event_count(1)
+        .initial_state(u64::MAX)
+        .build()
+        .expect_err("invalid initial state must be reported before allocation");
+    assert_eq!(
+        invalid_initial_state,
+        FastStateMachineBuildError::InitialStateOutOfRange {
+            state: u64::MAX,
+            state_count: u64::MAX,
+        }
+    );
+
+    let conflicting_transition = FastStateMachine::builder()
+        .state_count(u64::MAX)
+        .event_count(1)
+        .transition(0, 0, 0)
+        .transition(0, 0, 1)
+        .build()
+        .expect_err(
+            "conflicting transition must be reported before allocation",
+        );
+    assert_eq!(
+        conflicting_transition,
+        FastStateMachineBuildError::DuplicateTransition {
+            source_state: 0,
+            event: 0,
+            existing_target: 0,
+            new_target: 1,
         }
     );
 }
@@ -288,6 +363,19 @@ fn test_builder_rejects_duplicate_transitions_with_different_targets() {
             new_target: FAILED,
         }
     );
+}
+
+#[test]
+fn test_builder_accepts_exact_duplicate_transition() {
+    let machine = FastStateMachine::builder()
+        .state_count(2)
+        .event_count(1)
+        .transition(QUEUED, START, RUNNING)
+        .transition(QUEUED, START, RUNNING)
+        .build()
+        .expect("repeating an identical transition should be idempotent");
+
+    assert_eq!(machine.transition_target(QUEUED, START), Some(RUNNING));
 }
 
 #[test]

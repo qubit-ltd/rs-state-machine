@@ -4,28 +4,34 @@
 //    SPDX-License-Identifier: Apache-2.0
 //
 //    Licensed under the Apache License, Version 2.0.
-//    You may obtain a copy of the License at
-//
-//        http://www.apache.org/licenses/LICENSE-2.0
-//
-//    Unless required by applicable law or agreed to in writing, software
-//    distributed under the License is distributed on an "AS IS" BASIS,
-//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//    See the License for the specific language governing permissions and
-//    limitations under the License.
 // =============================================================================
 //! # Qubit State Machine
 //!
 //! A small, thread-safe finite state machine for Rust.
 //!
-//! This crate provides a generic state machine (`StateMachine`) and a compact
-//! fast state machine (`FastStateMachine`) built on compact `usize` codes and
-//! `FastCas`.
+//! With the default feature set, this crate provides a generic state machine
+//! (`StateMachine`) and a compact fast state machine (`FastStateMachine`)
+//! built on dense `u64` codes and `FastCas`.
+//!
+//! # Cargo features
+//!
+//! - `standard` enables the generic `StateMachine` implementation and its
+//!   `qubit-atomic`/`qubit-cas` dependencies.
+//! - `fast` enables the `FastStateMachine` implementation and only its
+//!   `qubit-fast-cas` dependency.
+//! - The default feature set enables both implementations.
+//!
+//! Atomic state types remain owned by their respective crates. Import
+//! `qubit_atomic::AtomicRef` or `qubit_fast_cas::FastCasState` directly
+//! instead of through this crate.
 //!
 //! # Examples
 //!
 //! ```
-//! use qubit_state_machine::{AtomicRef, StateMachine};
+//! # #[cfg(feature = "standard")]
+//! # {
+//! use qubit_atomic::AtomicRef;
+//! use qubit_state_machine::StateMachine;
 //!
 //! #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 //! enum State {
@@ -52,15 +58,17 @@
 //! let state = AtomicRef::from_value(State::New);
 //! assert_eq!(machine.trigger(&state, Event::Start).unwrap(), State::Running);
 //! assert_eq!(*state.load(), State::Running);
+//! # }
 //! ```
 
 #![deny(missing_docs)]
 
+#[cfg(feature = "fast")]
 mod fast;
+#[cfg(feature = "standard")]
 mod standard;
 
-#[doc(hidden)]
-pub use fast::fast_state_machine_error_from_fast_cas_error;
+#[cfg(feature = "fast")]
 pub use fast::{
     FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
     FastStateMachine,
@@ -69,8 +77,8 @@ pub use fast::{
     FastStateMachineError,
     FastStateMachineResult,
 };
-pub use qubit_atomic::AtomicRef;
 
+#[cfg(feature = "standard")]
 pub use standard::{
     StateMachine,
     StateMachineBuildError,

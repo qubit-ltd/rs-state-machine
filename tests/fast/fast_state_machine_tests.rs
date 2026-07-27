@@ -1,7 +1,7 @@
 // =============================================================================
 //    Copyright (c) 2026 Haixing Hu.
 //
-//    SPDX-License-Identifier: Apache 2.0
+//    SPDX-License-Identifier: Apache-2.0
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
@@ -19,7 +19,6 @@ use std::sync::{
 use std::thread;
 
 use qubit_fast_cas::{
-    FastCasError,
     FastCasPolicy,
     FastCasState,
 };
@@ -27,18 +26,17 @@ use qubit_state_machine::{
     FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
     FastStateMachine,
     FastStateMachineError,
-    fast_state_machine_error_from_fast_cas_error,
 };
 
-const QUEUED: usize = 0;
-const RUNNING: usize = 1;
-const SUCCEEDED: usize = 2;
-const FAILED: usize = 3;
+const QUEUED: u64 = 0;
+const RUNNING: u64 = 1;
+const SUCCEEDED: u64 = 2;
+const FAILED: u64 = 3;
 
-const START: usize = 0;
-const COMPLETE: usize = 1;
-const FAIL: usize = 2;
-const TICK: usize = 3;
+const START: u64 = 0;
+const COMPLETE: u64 = 1;
+const FAIL: u64 = 2;
+const TICK: u64 = 3;
 
 fn create_machine() -> FastStateMachine {
     FastStateMachine::builder()
@@ -57,20 +55,20 @@ fn create_machine() -> FastStateMachine {
 #[test]
 fn test_trigger_updates_fast_state_and_returns_next_state() {
     let machine = create_machine();
-    let state = FastCasState::new(QUEUED as u64);
+    let state = FastCasState::new(QUEUED);
 
     let next = machine
         .trigger(&state, START)
         .expect("start transition should be valid");
 
     assert_eq!(next, RUNNING);
-    assert_eq!(state.load(), RUNNING as u64);
+    assert_eq!(state.load(), RUNNING);
 }
 
 #[test]
 fn test_trigger_returns_error_for_unknown_transition_and_keeps_state() {
     let machine = create_machine();
-    let state = FastCasState::new(QUEUED as u64);
+    let state = FastCasState::new(QUEUED);
 
     let error = machine
         .trigger(&state, COMPLETE)
@@ -83,7 +81,7 @@ fn test_trigger_returns_error_for_unknown_transition_and_keeps_state() {
             event: COMPLETE,
         }
     );
-    assert_eq!(state.load(), QUEUED as u64);
+    assert_eq!(state.load(), QUEUED);
 }
 
 #[test]
@@ -100,9 +98,26 @@ fn test_trigger_returns_error_for_unknown_state() {
 }
 
 #[test]
+fn test_trigger_preserves_high_u64_unknown_state() {
+    let machine = create_machine();
+    let high_state = 1_u64 << 32;
+    let state = FastCasState::new(high_state);
+
+    let error = machine
+        .trigger(&state, START)
+        .expect_err("high u64 state must not be truncated to a valid code");
+
+    assert_eq!(
+        error,
+        FastStateMachineError::UnknownState { state: high_state }
+    );
+    assert_eq!(state.load(), high_state);
+}
+
+#[test]
 fn test_trigger_with_calls_callback_after_success() {
     let machine = create_machine();
-    let state = FastCasState::new(QUEUED as u64);
+    let state = FastCasState::new(QUEUED);
     let callback_states = Arc::new(Mutex::new(Vec::new()));
     let callback_states_for_capture = Arc::clone(&callback_states);
 
@@ -123,24 +138,40 @@ fn test_trigger_with_calls_callback_after_success() {
             .as_slice(),
         &[(QUEUED, RUNNING)],
     );
-    assert_eq!(state.load(), RUNNING as u64);
+    assert_eq!(state.load(), RUNNING);
+}
+
+#[test]
+fn test_trigger_with_accepts_callback_that_consumes_capture() {
+    let machine = create_machine();
+    let state = FastCasState::new(QUEUED);
+    let captured = String::from("consume once");
+
+    let next = machine
+        .trigger_with(&state, START, move |old_state, new_state| {
+            assert_eq!((old_state, new_state), (QUEUED, RUNNING));
+            drop(captured);
+        })
+        .expect("FnOnce callback should be accepted");
+
+    assert_eq!(next, RUNNING);
 }
 
 #[test]
 fn test_try_trigger_is_boolean_result_without_error() {
     let machine = create_machine();
-    let state = FastCasState::new(QUEUED as u64);
+    let state = FastCasState::new(QUEUED);
 
     assert!(machine.try_trigger(&state, START));
-    assert_eq!(state.load(), RUNNING as u64);
+    assert_eq!(state.load(), RUNNING);
     assert!(!machine.try_trigger(&state, START));
-    assert_eq!(state.load(), RUNNING as u64);
+    assert_eq!(state.load(), RUNNING);
 }
 
 #[test]
 fn test_try_trigger_with_calls_callback_only_on_success() {
     let machine = create_machine();
-    let state = FastCasState::new(QUEUED as u64);
+    let state = FastCasState::new(QUEUED);
     let callback_count = AtomicUsize::new(0);
 
     let matched = machine.try_trigger_with(&state, COMPLETE, |_, _| {
@@ -148,14 +179,14 @@ fn test_try_trigger_with_calls_callback_only_on_success() {
     });
     assert!(!matched);
     assert_eq!(callback_count.load(Ordering::SeqCst), 0);
-    assert_eq!(state.load(), QUEUED as u64);
+    assert_eq!(state.load(), QUEUED);
 
     let matched = machine.try_trigger_with(&state, START, |_, _| {
         callback_count.fetch_add(1, Ordering::SeqCst);
     });
     assert!(matched);
     assert_eq!(callback_count.load(Ordering::SeqCst), 1);
-    assert_eq!(state.load(), RUNNING as u64);
+    assert_eq!(state.load(), RUNNING);
 }
 
 #[test]
@@ -199,41 +230,68 @@ fn test_cas_policy_is_readable_from_machine() {
 fn test_transition_target_returns_none_for_out_of_range_input() {
     let machine = create_machine();
 
-    assert_eq!(machine.transition_target(usize::MAX, START), None);
-    assert_eq!(machine.transition_target(QUEUED, usize::MAX), None);
+    assert_eq!(machine.transition_target(u64::MAX, START), None);
+    assert_eq!(machine.transition_target(QUEUED, u64::MAX), None);
 }
 
 #[test]
-fn test_fast_cas_conflict_maps_to_fast_state_machine_error() {
-    let error =
-        fast_state_machine_error_from_fast_cas_error(FastCasError::Conflict {
-            current: RUNNING as u64,
-            attempts: 1,
-        });
+fn test_machine_handles_competing_alternating_transitions() {
+    const THREAD_COUNT: usize = 8;
+    const TRANSITIONS_PER_THREAD: usize = 128;
+    const MAX_OUTER_ATTEMPTS: usize = 10_000;
 
-    assert_eq!(error, FastStateMachineError::CasConflict { attempts: 1 });
-}
-
-#[test]
-fn test_machine_handles_concurrent_self_transitions() {
-    let machine = Arc::new(create_machine());
-    let state = Arc::new(FastCasState::new(RUNNING as u64));
-    let callback_count = Arc::new(AtomicUsize::new(0));
-    let barrier = Arc::new(Barrier::new(8));
+    let machine = Arc::new(
+        FastStateMachine::builder()
+            .state_count(2)
+            .event_count(1)
+            .initial_state(0)
+            .cas_policy(FastCasPolicy::once())
+            .transition(0, 0, 1)
+            .transition(1, 0, 0)
+            .build()
+            .expect("alternating state machine should build"),
+    );
+    let state = Arc::new(FastCasState::new(0));
+    let zero_targets = Arc::new(AtomicUsize::new(0));
+    let one_targets = Arc::new(AtomicUsize::new(0));
+    let barrier = Arc::new(Barrier::new(THREAD_COUNT));
     let mut handles = Vec::new();
 
-    for _ in 0..8 {
+    for _ in 0..THREAD_COUNT {
         let machine = Arc::clone(&machine);
         let state = Arc::clone(&state);
-        let callback_count = Arc::clone(&callback_count);
+        let zero_targets = Arc::clone(&zero_targets);
+        let one_targets = Arc::clone(&one_targets);
         let barrier = Arc::clone(&barrier);
         handles.push(thread::spawn(move || {
             barrier.wait();
-            machine
-                .trigger_with(&state, TICK, |_, _| {
-                    callback_count.fetch_add(1, Ordering::SeqCst);
-                })
-                .expect("self transition should always remain valid");
+            for _ in 0..TRANSITIONS_PER_THREAD {
+                let mut transitioned = false;
+                for _ in 0..MAX_OUTER_ATTEMPTS {
+                    match machine.trigger_with(&state, 0, |_, target| {
+                        if target == 0 {
+                            zero_targets.fetch_add(1, Ordering::SeqCst);
+                        } else {
+                            one_targets.fetch_add(1, Ordering::SeqCst);
+                        }
+                    }) {
+                        Ok(_) => {
+                            transitioned = true;
+                            break;
+                        }
+                        Err(FastStateMachineError::CasConflict { .. }) => {
+                            thread::yield_now()
+                        }
+                        Err(error) => panic!(
+                            "alternating transition should be valid: {error}"
+                        ),
+                    }
+                }
+                assert!(
+                    transitioned,
+                    "alternating transition should succeed within retry budget"
+                );
+            }
         }));
     }
 
@@ -241,8 +299,10 @@ fn test_machine_handles_concurrent_self_transitions() {
         handle.join().expect("worker should join");
     }
 
-    assert_eq!(state.load(), RUNNING as u64);
-    assert_eq!(callback_count.load(Ordering::SeqCst), 8);
+    let total_transitions = THREAD_COUNT * TRANSITIONS_PER_THREAD;
+    assert_eq!(state.load(), 0);
+    assert_eq!(zero_targets.load(Ordering::SeqCst), total_transitions / 2);
+    assert_eq!(one_targets.load(Ordering::SeqCst), total_transitions / 2);
 }
 
 #[test]
@@ -251,10 +311,12 @@ fn test_state_setters_and_queries() {
     let states = machine.transitions();
 
     assert_eq!(states.len(), 16);
-    assert!(machine.initial_states()[QUEUED]);
-    assert!(!machine.initial_states()[RUNNING]);
-    assert!(machine.final_states()[SUCCEEDED]);
-    assert!(!machine.final_states()[RUNNING]);
+    assert_eq!(machine.initial_states(), &[true, false, false, false]);
+    assert_eq!(machine.final_states(), &[false, false, true, true]);
+    assert!(machine.is_initial_state(QUEUED));
+    assert!(!machine.is_initial_state(RUNNING));
+    assert!(machine.is_final_state(SUCCEEDED));
+    assert!(!machine.is_final_state(RUNNING));
     assert!(!machine.is_initial_state(9));
     assert!(!machine.is_final_state(9));
 }

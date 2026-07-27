@@ -13,7 +13,9 @@ use thiserror::Error;
 
 /// Error returned when an event cannot be applied to the current state.
 ///
-/// `S` is the state type and `E` is the event type.
+/// # Type Parameters
+/// - `S`: State type recorded in the failed transition.
+/// - `E`: Event type recorded in the failed transition.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Error)]
 pub enum StateMachineError<S, E>
 where
@@ -44,5 +46,7 @@ where
 
 /// Result returned by event-triggering state machine operations.
 ///
-/// `S` is the state type and `E` is the event type.
+/// # Type Parameters
+/// - `S`: State returned on success and recorded in runtime errors.
+/// - `E`: Event recorded in unknown-transition errors.
 pub type StateMachineResult<S, E> = Result<S, StateMachineError<S, E>>;

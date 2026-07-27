@@ -13,7 +13,9 @@ use thiserror::Error;
 
 /// Error returned when state machine rules are internally inconsistent.
 ///
-/// `S` is the state type and `E` is the event type.
+/// # Type Parameters
+/// - `S`: State type recorded in the invalid rule.
+/// - `E`: Event type recorded in the invalid transition.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Error)]
 pub enum StateMachineBuildError<S, E>
 where
