@@ -13,12 +13,13 @@ use std::sync::atomic::{
 };
 use std::sync::{
     Arc,
+    Barrier,
     Mutex,
 };
 use std::thread;
 
+use qubit_atomic::AtomicRef;
 use qubit_state_machine::{
-    AtomicRef,
     StateMachine,
     StateMachineError,
     StateMachineResult,
@@ -172,6 +173,25 @@ fn test_trigger_with_invokes_callback_after_successful_transition() {
 }
 
 #[test]
+fn test_trigger_with_accepts_callback_that_consumes_capture() {
+    let machine = create_job_machine();
+    let state = AtomicRef::from_value(JobState::New);
+    let captured = String::from("consume once");
+
+    let next = machine
+        .trigger_with(&state, JobEvent::Start, move |old_state, new_state| {
+            assert_eq!(
+                (old_state, new_state),
+                (JobState::New, JobState::Running)
+            );
+            drop(captured);
+        })
+        .expect("FnOnce callback should be accepted");
+
+    assert_eq!(next, JobState::Running);
+}
+
+#[test]
 fn test_try_trigger_returns_true_and_updates_state_on_success() {
     let machine = create_job_machine();
     let state = AtomicRef::from_value(JobState::New);
@@ -207,22 +227,59 @@ fn test_try_trigger_with_skips_callback_on_failure() {
 }
 
 #[test]
-fn test_trigger_is_thread_safe_for_shared_state() {
-    let machine = Arc::new(create_job_machine());
-    let state = Arc::new(AtomicRef::from_value(JobState::Running));
-    let callback_count = Arc::new(AtomicUsize::new(0));
+fn test_trigger_handles_competing_alternating_transitions() {
+    const THREAD_COUNT: usize = 8;
+    const TRANSITIONS_PER_THREAD: usize = 64;
+    const MAX_OUTER_ATTEMPTS: usize = 10_000;
+
+    let machine = Arc::new(
+        StateMachine::builder()
+            .add_states(&[JobState::New, JobState::Running])
+            .initial_state(JobState::New)
+            .transition(JobState::New, JobEvent::Tick, JobState::Running)
+            .transition(JobState::Running, JobEvent::Tick, JobState::New)
+            .build()
+            .expect("alternating state machine should build"),
+    );
+    let state = Arc::new(AtomicRef::from_value(JobState::New));
+    let new_targets = Arc::new(AtomicUsize::new(0));
+    let running_targets = Arc::new(AtomicUsize::new(0));
+    let barrier = Arc::new(Barrier::new(THREAD_COUNT));
     let mut handles = Vec::new();
 
-    for _ in 0..16 {
+    for _ in 0..THREAD_COUNT {
         let machine = Arc::clone(&machine);
         let state = Arc::clone(&state);
-        let callback_count = Arc::clone(&callback_count);
+        let new_targets = Arc::clone(&new_targets);
+        let running_targets = Arc::clone(&running_targets);
+        let barrier = Arc::clone(&barrier);
         handles.push(thread::spawn(move || {
-            machine
-                .trigger_with(&state, JobEvent::Tick, |_, _| {
-                    callback_count.fetch_add(1, Ordering::SeqCst);
-                })
-                .expect("self transition should be valid");
+            barrier.wait();
+            for _ in 0..TRANSITIONS_PER_THREAD {
+                let mut transitioned = false;
+                for _ in 0..MAX_OUTER_ATTEMPTS {
+                    match machine.trigger_with(&state, JobEvent::Tick, |_, target| match target {
+                        JobState::New => {
+                            new_targets.fetch_add(1, Ordering::SeqCst);
+                        }
+                        JobState::Running => {
+                            running_targets.fetch_add(1, Ordering::SeqCst);
+                        }
+                        _ => panic!("alternating transition produced an unexpected target"),
+                    }) {
+                        Ok(_) => {
+                            transitioned = true;
+                            break;
+                        }
+                        Err(StateMachineError::CasConflict { .. }) => thread::yield_now(),
+                        Err(error) => panic!("alternating transition should be valid: {error}"),
+                    }
+                }
+                assert!(
+                    transitioned,
+                    "alternating transition should succeed within retry budget"
+                );
+            }
         }));
     }
 
@@ -230,6 +287,11 @@ fn test_trigger_is_thread_safe_for_shared_state() {
         handle.join().expect("worker should complete");
     }
 
-    assert_eq!(*state.load(), JobState::Running);
-    assert_eq!(callback_count.load(Ordering::SeqCst), 16);
+    let total_transitions = THREAD_COUNT * TRANSITIONS_PER_THREAD;
+    assert_eq!(*state.load(), JobState::New);
+    assert_eq!(new_targets.load(Ordering::SeqCst), total_transitions / 2);
+    assert_eq!(
+        running_targets.load(Ordering::SeqCst),
+        total_transitions / 2
+    );
 }

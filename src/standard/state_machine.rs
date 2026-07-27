@@ -36,13 +36,18 @@ use super::{
 /// shared across threads; mutable current state is kept in [`AtomicRef`] and
 /// updated through [`qubit_cas::CasExecutor`].
 ///
+/// # Type Parameters
+/// - `S`: Copyable, hashable state type stored in [`AtomicRef`].
+/// - `E`: Copyable, hashable event type used to select transitions.
+///
 /// # Common usage
 ///
 /// Define the valid states and events, build an immutable transition table, and
 /// keep each object's current state in an [`AtomicRef`].
 ///
 /// ```
-/// use qubit_state_machine::{AtomicRef, StateMachine};
+/// use qubit_atomic::AtomicRef;
+/// use qubit_state_machine::StateMachine;
 ///
 /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 /// enum JobState {
@@ -85,17 +90,24 @@ use super::{
 /// assert!(machine.try_trigger(&state, JobEvent::Complete));
 /// assert_eq!(*state.load(), JobState::Succeeded);
 /// ```
+#[must_use = "a state machine contains the configured transition rules"]
 #[derive(Debug, Clone)]
 pub struct StateMachine<S, E>
 where
     S: Copy + Eq + Hash + Debug + 'static,
     E: Copy + Eq + Hash + Debug + 'static,
 {
+    /// Registered states accepted by the machine.
     states: HashSet<S>,
+    /// Registered states marked as initial.
     initial_states: HashSet<S>,
+    /// Registered states marked as final.
     final_states: HashSet<S>,
+    /// Unique transition values exposed by [`Self::transitions`].
     transitions: HashSet<Transition<S, E>>,
+    /// Constant-time transition lookup keyed by `(source, event)`.
     transition_map: HashMap<(S, E), S>,
+    /// CAS executor used to update external current-state references.
     cas_executor: CasExecutor<S, StateMachineError<S, E>>,
 }
 
@@ -131,6 +143,7 @@ where
     ///     .expect("single-state machine should build");
     /// assert!(machine.contains_state(State::New));
     /// ```
+    #[inline(always)]
     pub fn builder() -> StateMachineBuilder<S, E> {
         StateMachineBuilder::new()
     }
@@ -147,6 +160,7 @@ where
     ///
     /// This constructor does not validate input. Rule validation belongs to
     /// [`StateMachineBuilder::build`].
+    #[inline]
     pub(crate) fn new(
         builder: StateMachineBuilder<S, E>,
         transitions: HashSet<Transition<S, E>>,
@@ -183,6 +197,7 @@ where
     /// assert!(machine.states().contains(&State::New));
     /// assert_eq!(machine.states().len(), 2);
     /// ```
+    #[inline(always)]
     pub const fn states(&self) -> &HashSet<S> {
         &self.states
     }
@@ -208,6 +223,7 @@ where
     /// #     .expect("rules should build");
     /// assert!(machine.initial_states().contains(&State::New));
     /// ```
+    #[inline(always)]
     pub const fn initial_states(&self) -> &HashSet<S> {
         &self.initial_states
     }
@@ -233,6 +249,7 @@ where
     /// #     .expect("rules should build");
     /// assert!(machine.final_states().contains(&State::Done));
     /// ```
+    #[inline(always)]
     pub const fn final_states(&self) -> &HashSet<S> {
         &self.final_states
     }
@@ -268,6 +285,7 @@ where
     ///     .transitions()
     ///     .contains(&Transition::new(State::New, Event::Start, State::Running)));
     /// ```
+    #[inline(always)]
     pub const fn transitions(&self) -> &HashSet<Transition<S, E>> {
         &self.transitions
     }
@@ -296,6 +314,7 @@ where
     /// assert!(machine.contains_state(State::Running));
     /// assert!(!machine.contains_state(State::Detached));
     /// ```
+    #[inline(always)]
     pub fn contains_state(&self, state: S) -> bool {
         self.states.contains(&state)
     }
@@ -325,6 +344,7 @@ where
     /// assert!(machine.is_initial_state(State::New));
     /// assert!(!machine.is_initial_state(State::Running));
     /// ```
+    #[inline(always)]
     pub fn is_initial_state(&self, state: S) -> bool {
         self.initial_states.contains(&state)
     }
@@ -354,6 +374,7 @@ where
     /// assert!(machine.is_final_state(State::Done));
     /// assert!(!machine.is_final_state(State::Running));
     /// ```
+    #[inline(always)]
     pub fn is_final_state(&self, state: S) -> bool {
         self.final_states.contains(&state)
     }
@@ -389,6 +410,7 @@ where
     /// );
     /// assert_eq!(machine.transition_target(State::New, Event::Finish), None);
     /// ```
+    #[inline(always)]
     pub fn transition_target(&self, source: S, event: E) -> Option<S> {
         self.transition_map.get(&(source, event)).copied()
     }
@@ -406,12 +428,14 @@ where
     /// Returns [`StateMachineError::UnknownState`] when the current state is
     /// not registered. Returns [`StateMachineError::UnknownTransition`]
     /// when the current state is registered but has no transition for
-    /// `event`.
+    /// `event`. Returns [`StateMachineError::CasConflict`] when
+    /// compare-and-swap conflicts exhaust the configured executor policy.
     ///
     /// # Examples
     ///
     /// ```
-    /// use qubit_state_machine::{AtomicRef, StateMachine};
+    /// use qubit_atomic::AtomicRef;
+    /// use qubit_state_machine::StateMachine;
     ///
     /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     /// enum State {
@@ -434,6 +458,7 @@ where
     /// assert_eq!(machine.trigger(&state, Event::Start).unwrap(), State::Running);
     /// assert_eq!(*state.load(), State::Running);
     /// ```
+    #[inline(always)]
     pub fn trigger(
         &self,
         state: &AtomicRef<S>,
@@ -448,6 +473,9 @@ where
     ///
     /// The callback runs after the CAS update has succeeded.
     ///
+    /// # Type Parameters
+    /// - `F`: One-shot callback type.
+    ///
     /// # Parameters
     /// - `state`: Current state atomic reference.
     /// - `event`: Event to apply.
@@ -460,10 +488,15 @@ where
     /// Returns the same errors as [`StateMachine::trigger`]. The callback is
     /// not invoked when the transition fails.
     ///
+    /// # Panics
+    /// A panic from `on_success` propagates after the state transition has
+    /// already been committed.
+    ///
     /// # Examples
     ///
     /// ```
-    /// use qubit_state_machine::{AtomicRef, StateMachine};
+    /// use qubit_atomic::AtomicRef;
+    /// use qubit_state_machine::StateMachine;
     ///
     /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     /// enum State {
@@ -493,6 +526,7 @@ where
     /// assert_eq!(next, State::Running);
     /// assert_eq!(observed, Some((State::New, State::Running)));
     /// ```
+    #[inline]
     pub fn trigger_with<F>(
         &self,
         state: &AtomicRef<S>,
@@ -514,13 +548,14 @@ where
     /// - `event`: Event to apply.
     ///
     /// # Returns
-    /// `true` if the state changed successfully; `false` if the transition was
-    /// invalid.
+    /// `true` if the transition was committed; `false` if validation or CAS
+    /// execution failed. A successful self-transition also returns `true`.
     ///
     /// # Examples
     ///
     /// ```
-    /// use qubit_state_machine::{AtomicRef, StateMachine};
+    /// use qubit_atomic::AtomicRef;
+    /// use qubit_state_machine::StateMachine;
     ///
     /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     /// enum State {
@@ -545,11 +580,16 @@ where
     /// assert_eq!(*state.load(), State::New);
     /// assert!(machine.try_trigger(&state, Event::Start));
     /// ```
+    #[must_use = "the boolean result reports whether the transition committed"]
+    #[inline(always)]
     pub fn try_trigger(&self, state: &AtomicRef<S>, event: E) -> bool {
         self.trigger(state, event).is_ok()
     }
 
     /// Attempts to trigger an event and invokes a callback only on success.
+    ///
+    /// # Type Parameters
+    /// - `F`: One-shot callback type.
     ///
     /// # Parameters
     /// - `state`: Current state atomic reference.
@@ -557,13 +597,19 @@ where
     /// - `on_success`: Callback receiving `(old_state, new_state)`.
     ///
     /// # Returns
-    /// `true` if the state changed successfully; `false` if the transition was
-    /// invalid. The callback is skipped when this method returns `false`.
+    /// `true` if the transition was committed; `false` if validation or CAS
+    /// execution failed. The callback is skipped when this method returns
+    /// `false`.
+    ///
+    /// # Panics
+    /// A panic from `on_success` propagates after the state transition has
+    /// already been committed.
     ///
     /// # Examples
     ///
     /// ```
-    /// use qubit_state_machine::{AtomicRef, StateMachine};
+    /// use qubit_atomic::AtomicRef;
+    /// use qubit_state_machine::StateMachine;
     ///
     /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     /// enum State {
@@ -595,6 +641,8 @@ where
     /// }));
     /// assert_eq!(callback_count, 1);
     /// ```
+    #[must_use = "the boolean result reports whether the transition committed"]
+    #[inline(always)]
     pub fn try_trigger_with<F>(
         &self,
         state: &AtomicRef<S>,
@@ -652,6 +700,7 @@ where
     /// Returns an unknown-state error before checking transitions if the
     /// current state is not registered. Returns an unknown-transition error
     /// if no rule exists for the `(current_state, event)` pair.
+    #[inline]
     fn next_state(
         &self,
         current_state: S,
@@ -677,6 +726,7 @@ where
     ///
     /// # Returns
     /// The old state and current state after CAS completion.
+    #[inline]
     fn state_change_from_success(success: CasSuccess<S, S>) -> (S, S) {
         match success {
             CasSuccess::Updated {
@@ -695,6 +745,7 @@ where
     /// The business state machine error when the operation aborted, or a CAS
     /// conflict error when retry limits were exhausted by compare-and-swap
     /// conflicts.
+    #[inline]
     fn state_error_from_cas_error(
         error: CasError<S, StateMachineError<S, E>>,
     ) -> StateMachineError<S, E> {

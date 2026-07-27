@@ -7,5 +7,7 @@
 // =============================================================================
 //! Integration tests for `qubit-state-machine`.
 
+#[cfg(feature = "fast")]
 mod fast;
+#[cfg(feature = "standard")]
 mod standard;

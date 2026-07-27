@@ -186,7 +186,10 @@ fn test_builder_build_rejects_unregistered_initial_state() {
 #[test]
 fn test_build_error_display_describes_each_variant() {
     assert_eq!(
-        StateMachineBuildError::<JobState, JobEvent>::InitialStateNotRegistered { state: JobState::New }.to_string(),
+        StateMachineBuildError::<JobState, JobEvent>::InitialStateNotRegistered {
+            state: JobState::New
+        }
+        .to_string(),
         "initial state is not registered: New"
     );
     assert_eq!(
