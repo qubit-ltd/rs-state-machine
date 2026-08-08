@@ -21,5 +21,6 @@ mod transition;
 pub use state_machine::StateMachine;
 pub use state_machine_build_error::StateMachineBuildError;
 pub use state_machine_builder::StateMachineBuilder;
-pub use state_machine_error::{StateMachineError, StateMachineResult};
+pub use state_machine_error::StateMachineError;
+pub use state_machine_error::StateMachineResult;
 pub use transition::Transition;

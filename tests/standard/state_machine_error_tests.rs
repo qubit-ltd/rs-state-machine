@@ -9,7 +9,8 @@
 
 use std::error::Error;
 
-use qubit_state_machine::{StateMachineError, StateMachineResult};
+use qubit_state_machine::StateMachineError;
+use qubit_state_machine::StateMachineResult;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum TestState {
@@ -66,7 +67,8 @@ fn test_state_machine_error_display_reports_runtime_context() {
         "unknown transition: New --Finish--> ?"
     );
     assert_eq!(
-        StateMachineError::<TestState, TestEvent>::CasConflict { attempts: 5 }.to_string(),
+        StateMachineError::<TestState, TestEvent>::CasConflict { attempts: 5 }
+            .to_string(),
         "CAS transition failed after 5 attempt(s)"
     );
 }
@@ -76,7 +78,8 @@ fn test_state_machine_result_alias_uses_runtime_error() {
     let result = create_unknown_state_result();
 
     assert_eq!(
-        result.expect_err("result should carry the runtime state machine error"),
+        result
+            .expect_err("result should carry the runtime state machine error"),
         StateMachineError::UnknownState {
             state: TestState::New
         }
@@ -85,7 +88,8 @@ fn test_state_machine_result_alias_uses_runtime_error() {
 
 #[test]
 fn test_state_machine_error_has_no_nested_source() {
-    let error = StateMachineError::<TestState, TestEvent>::CasConflict { attempts: 2 };
+    let error =
+        StateMachineError::<TestState, TestEvent>::CasConflict { attempts: 2 };
 
     assert!(error.source().is_none());
 }

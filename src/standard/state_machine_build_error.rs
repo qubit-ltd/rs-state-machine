@@ -35,7 +35,9 @@ where
         state: S,
     },
     /// A transition source was not registered as a state.
-    #[error("transition source is not registered: {source_state:?} --{event:?}--> {target:?}")]
+    #[error(
+        "transition source is not registered: {source_state:?} --{event:?}--> {target:?}"
+    )]
     TransitionSourceNotRegistered {
         /// Source state of the invalid transition.
         source_state: S,
@@ -45,7 +47,9 @@ where
         target: S,
     },
     /// A transition target was not registered as a state.
-    #[error("transition target is not registered: {source_state:?} --{event:?}--> {target:?}")]
+    #[error(
+        "transition target is not registered: {source_state:?} --{event:?}--> {target:?}"
+    )]
     TransitionTargetNotRegistered {
         /// Source state of the invalid transition.
         source_state: S,

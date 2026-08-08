@@ -7,7 +7,10 @@
 // =============================================================================
 //! Tests for state machine construction and rule validation.
 
-use qubit_state_machine::{StateMachine, StateMachineBuildError, Transition};
+use qubit_state_machine::StateMachine;
+use qubit_state_machine::StateMachineBuildError;
+use qubit_state_machine::StateMachineBuilder;
+use qubit_state_machine::Transition;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum JobState {
@@ -25,7 +28,7 @@ enum JobEvent {
     Fail,
 }
 
-fn create_valid_builder() -> qubit_state_machine::StateMachineBuilder<JobState, JobEvent> {
+fn create_valid_builder() -> StateMachineBuilder<JobState, JobEvent> {
     StateMachine::builder()
         .add_states(&[
             JobState::New,
@@ -92,8 +95,11 @@ fn test_builder_build_supports_chained_rule_definition() {
 
 #[test]
 fn test_builder_build_accepts_exact_duplicate_transition() {
-    let builder =
-        create_valid_builder().transition(JobState::New, JobEvent::Start, JobState::Running);
+    let builder = create_valid_builder().transition(
+        JobState::New,
+        JobEvent::Start,
+        JobState::Running,
+    );
 
     let machine = builder
         .build()
@@ -130,8 +136,8 @@ fn test_builder_transition_value_accepts_transition_object() {
 
 #[test]
 fn test_builder_default_matches_new_builder() {
-    let builder: qubit_state_machine::StateMachineBuilder<JobState, JobEvent> =
-        qubit_state_machine::StateMachineBuilder::default()
+    let builder: StateMachineBuilder<JobState, JobEvent> =
+        StateMachineBuilder::default()
             .add_state(JobState::New)
             .initial_state(JobState::New);
 
@@ -143,7 +149,7 @@ fn test_builder_default_matches_new_builder() {
 
 #[test]
 fn test_builder_initial_states_registers_multiple_initial_states() {
-    let builder: qubit_state_machine::StateMachineBuilder<JobState, JobEvent> =
+    let builder: StateMachineBuilder<JobState, JobEvent> =
         StateMachine::builder()
             .add_states(&[JobState::New, JobState::Running])
             .initial_states(&[JobState::New, JobState::Running]);
@@ -158,7 +164,7 @@ fn test_builder_initial_states_registers_multiple_initial_states() {
 
 #[test]
 fn test_builder_build_rejects_unregistered_initial_state() {
-    let builder: qubit_state_machine::StateMachineBuilder<JobState, JobEvent> =
+    let builder: StateMachineBuilder<JobState, JobEvent> =
         StateMachine::builder()
             .add_state(JobState::Running)
             .initial_state(JobState::New);
@@ -223,7 +229,7 @@ fn test_build_error_display_describes_each_variant() {
 
 #[test]
 fn test_builder_build_rejects_unregistered_final_state() {
-    let builder: qubit_state_machine::StateMachineBuilder<JobState, JobEvent> =
+    let builder: StateMachineBuilder<JobState, JobEvent> =
         StateMachine::builder()
             .add_state(JobState::Running)
             .final_state(JobState::Done);

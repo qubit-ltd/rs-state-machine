@@ -8,10 +8,10 @@
 //! Tests for fast state machine builder validation.
 
 use qubit_fast_cas::FastCasPolicy;
-use qubit_state_machine::{
-    FAST_STATE_MACHINE_DEFAULT_CAS_POLICY, FastStateMachine, FastStateMachineBuildError,
-    FastStateMachineBuilder,
-};
+use qubit_state_machine::FAST_STATE_MACHINE_DEFAULT_CAS_POLICY;
+use qubit_state_machine::FastStateMachine;
+use qubit_state_machine::FastStateMachineBuildError;
+use qubit_state_machine::FastStateMachineBuilder;
 
 const QUEUED: u64 = 0;
 const RUNNING: u64 = 1;
@@ -111,7 +111,9 @@ fn test_builder_supports_initial_states_and_final_state() {
         .transition(QUEUED, START, RUNNING)
         .transition(RUNNING, COMPLETE, SUCCEEDED)
         .build()
-        .expect("builder should accept multi-state initial setup and final state");
+        .expect(
+            "builder should accept multi-state initial setup and final state",
+        );
 
     assert!(machine.is_initial_state(QUEUED));
     assert!(machine.is_initial_state(RUNNING));
@@ -241,7 +243,9 @@ fn test_builder_validates_configuration_before_allocating_transition_table() {
         .transition(0, 0, 0)
         .transition(0, 0, 1)
         .build()
-        .expect_err("conflicting transition must be reported before allocation");
+        .expect_err(
+            "conflicting transition must be reported before allocation",
+        );
     assert_eq!(
         conflicting_transition,
         FastStateMachineBuildError::DuplicateTransition {

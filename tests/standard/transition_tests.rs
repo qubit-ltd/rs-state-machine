@@ -24,7 +24,8 @@ enum TestEvent {
 
 #[test]
 fn test_transition_new_stores_source_event_and_target() {
-    let transition = Transition::new(TestState::Ready, TestEvent::Start, TestState::Running);
+    let transition =
+        Transition::new(TestState::Ready, TestEvent::Start, TestState::Running);
 
     assert_eq!(transition.source(), TestState::Ready);
     assert_eq!(transition.event(), TestEvent::Start);
@@ -33,9 +34,12 @@ fn test_transition_new_stores_source_event_and_target() {
 
 #[test]
 fn test_transition_hash_and_equality_use_all_fields() {
-    let transition = Transition::new(TestState::Ready, TestEvent::Start, TestState::Running);
-    let same = Transition::new(TestState::Ready, TestEvent::Start, TestState::Running);
-    let different = Transition::new(TestState::Running, TestEvent::Start, TestState::Ready);
+    let transition =
+        Transition::new(TestState::Ready, TestEvent::Start, TestState::Running);
+    let same =
+        Transition::new(TestState::Ready, TestEvent::Start, TestState::Running);
+    let different =
+        Transition::new(TestState::Running, TestEvent::Start, TestState::Ready);
 
     let mut transitions = HashSet::new();
     transitions.insert(transition);
