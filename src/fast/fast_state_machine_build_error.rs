@@ -36,7 +36,9 @@ pub enum FastStateMachineBuildError {
     },
 
     /// Transition-table size overflowed `u64`.
-    #[error("transition table size overflowed u64: {state_count} * {event_count}")]
+    #[error(
+        "transition table size overflowed u64: {state_count} * {event_count}"
+    )]
     TransitionTableOverflow {
         /// The number of states.
         state_count: u64,
@@ -46,7 +48,9 @@ pub enum FastStateMachineBuildError {
     },
 
     /// Transition-table storage cannot be represented or allocated.
-    #[error("transition table capacity is unavailable: {state_count} * {event_count}")]
+    #[error(
+        "transition table capacity is unavailable: {state_count} * {event_count}"
+    )]
     TransitionTableCapacityExceeded {
         /// The number of states.
         state_count: u64,
@@ -74,7 +78,9 @@ pub enum FastStateMachineBuildError {
     },
 
     /// A transition source code exceeds the configured state count.
-    #[error("transition source is out of range: {source_state} >= {state_count}")]
+    #[error(
+        "transition source is out of range: {source_state} >= {state_count}"
+    )]
     TransitionSourceOutOfRange {
         /// The invalid source state.
         source_state: u64,

@@ -7,11 +7,14 @@
 // =============================================================================
 //! Builder for immutable state machine rules.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use super::{StateMachine, StateMachineBuildError, Transition};
+use super::StateMachine;
+use super::StateMachineBuildError;
+use super::Transition;
 
 /// Builder used to define and validate finite state machine rules.
 ///
@@ -184,7 +187,9 @@ where
     /// Returns a [`StateMachineBuildError`] when an initial state, final state,
     /// transition source, or transition target is not registered, or when two
     /// transitions map the same `(source, event)` pair to different targets.
-    pub fn build(self) -> Result<StateMachine<S, E>, StateMachineBuildError<S, E>> {
+    pub fn build(
+        self,
+    ) -> Result<StateMachine<S, E>, StateMachineBuildError<S, E>> {
         self.validate_registered_states()?;
 
         let mut transition_set = HashSet::new();
@@ -192,7 +197,11 @@ where
         for transition in &self.transitions {
             let transition = *transition;
             self.validate_transition(transition)?;
-            Self::insert_transition(transition, &mut transition_set, &mut transition_map)?;
+            Self::insert_transition(
+                transition,
+                &mut transition_set,
+                &mut transition_map,
+            )?;
         }
 
         Ok(StateMachine::new(self, transition_set, transition_map))
@@ -205,15 +214,23 @@ where
     ///
     /// # Errors
     /// Returns the first unregistered initial or final state encountered.
-    fn validate_registered_states(&self) -> Result<(), StateMachineBuildError<S, E>> {
+    fn validate_registered_states(
+        &self,
+    ) -> Result<(), StateMachineBuildError<S, E>> {
         for state in &self.initial_states {
             if !self.states.contains(state) {
-                return Err(StateMachineBuildError::InitialStateNotRegistered { state: *state });
+                return Err(
+                    StateMachineBuildError::InitialStateNotRegistered {
+                        state: *state,
+                    },
+                );
             }
         }
         for state in &self.final_states {
             if !self.states.contains(state) {
-                return Err(StateMachineBuildError::FinalStateNotRegistered { state: *state });
+                return Err(StateMachineBuildError::FinalStateNotRegistered {
+                    state: *state,
+                });
             }
         }
         Ok(())
@@ -234,18 +251,22 @@ where
         transition: Transition<S, E>,
     ) -> Result<(), StateMachineBuildError<S, E>> {
         if !self.states.contains(&transition.source()) {
-            return Err(StateMachineBuildError::TransitionSourceNotRegistered {
-                source_state: transition.source(),
-                event: transition.event(),
-                target: transition.target(),
-            });
+            return Err(
+                StateMachineBuildError::TransitionSourceNotRegistered {
+                    source_state: transition.source(),
+                    event: transition.event(),
+                    target: transition.target(),
+                },
+            );
         }
         if !self.states.contains(&transition.target()) {
-            return Err(StateMachineBuildError::TransitionTargetNotRegistered {
-                source_state: transition.source(),
-                event: transition.event(),
-                target: transition.target(),
-            });
+            return Err(
+                StateMachineBuildError::TransitionTargetNotRegistered {
+                    source_state: transition.source(),
+                    event: transition.event(),
+                    target: transition.target(),
+                },
+            );
         }
         Ok(())
     }

@@ -12,7 +12,8 @@
 
 use libfuzzer_sys::fuzz_target;
 use qubit_fast_cas::FastCasState;
-use qubit_state_machine::{FastStateMachine, FastStateMachineError};
+use qubit_state_machine::FastStateMachine;
+use qubit_state_machine::FastStateMachineError;
 
 /// A runtime input contains exactly one state code and one event code.
 const INPUT_BYTES: usize = 16;

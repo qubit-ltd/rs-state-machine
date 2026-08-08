@@ -69,13 +69,26 @@ mod fast;
 mod standard;
 
 #[cfg(feature = "fast")]
-pub use fast::{
-    FAST_STATE_MACHINE_DEFAULT_CAS_POLICY, FastStateMachine, FastStateMachineBuildError,
-    FastStateMachineBuilder, FastStateMachineError, FastStateMachineResult,
-};
-
+pub use fast::FAST_STATE_MACHINE_DEFAULT_CAS_POLICY;
+#[cfg(feature = "fast")]
+pub use fast::FastStateMachine;
+#[cfg(feature = "fast")]
+pub use fast::FastStateMachineBuildError;
+#[cfg(feature = "fast")]
+pub use fast::FastStateMachineBuilder;
+#[cfg(feature = "fast")]
+pub use fast::FastStateMachineError;
+#[cfg(feature = "fast")]
+pub use fast::FastStateMachineResult;
 #[cfg(feature = "standard")]
-pub use standard::{
-    StateMachine, StateMachineBuildError, StateMachineBuilder, StateMachineError,
-    StateMachineResult, Transition,
-};
+pub use standard::StateMachine;
+#[cfg(feature = "standard")]
+pub use standard::StateMachineBuildError;
+#[cfg(feature = "standard")]
+pub use standard::StateMachineBuilder;
+#[cfg(feature = "standard")]
+pub use standard::StateMachineError;
+#[cfg(feature = "standard")]
+pub use standard::StateMachineResult;
+#[cfg(feature = "standard")]
+pub use standard::Transition;
