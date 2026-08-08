@@ -7,25 +7,13 @@
 // =============================================================================
 //! Tests for fast state machine runtime behavior.
 
-use std::sync::atomic::{
-    AtomicUsize,
-    Ordering,
-};
-use std::sync::{
-    Arc,
-    Barrier,
-    Mutex,
-};
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 
-use qubit_fast_cas::{
-    FastCasPolicy,
-    FastCasState,
-};
+use qubit_fast_cas::{FastCasPolicy, FastCasState};
 use qubit_state_machine::{
-    FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
-    FastStateMachine,
-    FastStateMachineError,
+    FAST_STATE_MACHINE_DEFAULT_CAS_POLICY, FastStateMachine, FastStateMachineError,
 };
 
 const QUEUED: u64 = 0;
@@ -279,12 +267,8 @@ fn test_machine_handles_competing_alternating_transitions() {
                             transitioned = true;
                             break;
                         }
-                        Err(FastStateMachineError::CasConflict { .. }) => {
-                            thread::yield_now()
-                        }
-                        Err(error) => panic!(
-                            "alternating transition should be valid: {error}"
-                        ),
+                        Err(FastStateMachineError::CasConflict { .. }) => thread::yield_now(),
+                        Err(error) => panic!("alternating transition should be valid: {error}"),
                     }
                 }
                 assert!(
