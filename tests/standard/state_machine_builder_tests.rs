@@ -7,11 +7,7 @@
 // =============================================================================
 //! Tests for state machine construction and rule validation.
 
-use qubit_state_machine::{
-    StateMachine,
-    StateMachineBuildError,
-    Transition,
-};
+use qubit_state_machine::{StateMachine, StateMachineBuildError, Transition};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 enum JobState {
@@ -29,8 +25,7 @@ enum JobEvent {
     Fail,
 }
 
-fn create_valid_builder()
--> qubit_state_machine::StateMachineBuilder<JobState, JobEvent> {
+fn create_valid_builder() -> qubit_state_machine::StateMachineBuilder<JobState, JobEvent> {
     StateMachine::builder()
         .add_states(&[
             JobState::New,
@@ -97,11 +92,8 @@ fn test_builder_build_supports_chained_rule_definition() {
 
 #[test]
 fn test_builder_build_accepts_exact_duplicate_transition() {
-    let builder = create_valid_builder().transition(
-        JobState::New,
-        JobEvent::Start,
-        JobState::Running,
-    );
+    let builder =
+        create_valid_builder().transition(JobState::New, JobEvent::Start, JobState::Running);
 
     let machine = builder
         .build()

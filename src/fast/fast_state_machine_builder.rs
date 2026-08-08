@@ -10,21 +10,14 @@
 
 use std::collections::HashMap;
 
-use super::{
-    FastStateMachine,
-    FastStateMachineBuildError,
-};
-use qubit_fast_cas::{
-    FastCas,
-    FastCasPolicy,
-};
+use super::{FastStateMachine, FastStateMachineBuildError};
+use qubit_fast_cas::{FastCas, FastCasPolicy};
 
 /// Default retry policy used by [`FastStateMachineBuilder`].
 ///
 /// The default keeps construction lightweight and gives a reasonably balanced
 /// fast-path retry budget for hot transition loops.
-pub const FAST_STATE_MACHINE_DEFAULT_CAS_POLICY: FastCasPolicy =
-    FastCasPolicy::spin(16);
+pub const FAST_STATE_MACHINE_DEFAULT_CAS_POLICY: FastCasPolicy = FastCasPolicy::spin(16);
 
 /// Builder for dense, `u64`-coded state machine rules.
 ///
@@ -202,14 +195,10 @@ impl FastStateMachineBuilder {
             .ok_or(FastStateMachineBuildError::EventCountNotConfigured)?;
 
         if state_count == 0 {
-            return Err(FastStateMachineBuildError::InvalidStateCount {
-                count: state_count,
-            });
+            return Err(FastStateMachineBuildError::InvalidStateCount { count: state_count });
         }
         if event_count == 0 {
-            return Err(FastStateMachineBuildError::InvalidEventCount {
-                count: event_count,
-            });
+            return Err(FastStateMachineBuildError::InvalidEventCount { count: event_count });
         }
 
         self.validate_state_sets(state_count)?;
@@ -223,43 +212,27 @@ impl FastStateMachineBuilder {
         )?;
         let transition_capacity =
             Self::storage_capacity(transition_count, state_count, event_count)?;
-        let state_capacity =
-            Self::storage_capacity(state_count, state_count, event_count)?;
+        let state_capacity = Self::storage_capacity(state_count, state_count, event_count)?;
 
-        let mut transitions = Self::allocate_filled(
-            transition_capacity,
-            u64::MAX,
-            state_count,
-            event_count,
-        )?;
+        let mut transitions =
+            Self::allocate_filled(transition_capacity, u64::MAX, state_count, event_count)?;
         for &(source, event, target) in &self.transitions {
             let index = source * event_count + event;
-            let index =
-                Self::storage_capacity(index, state_count, event_count)?;
+            let index = Self::storage_capacity(index, state_count, event_count)?;
             transitions[index] = target;
         }
 
-        let mut initial_states = Self::allocate_filled(
-            state_capacity,
-            false,
-            state_count,
-            event_count,
-        )?;
+        let mut initial_states =
+            Self::allocate_filled(state_capacity, false, state_count, event_count)?;
         for state in self.initial_states {
-            let index =
-                Self::storage_capacity(state, state_count, event_count)?;
+            let index = Self::storage_capacity(state, state_count, event_count)?;
             initial_states[index] = true;
         }
 
-        let mut final_states = Self::allocate_filled(
-            state_capacity,
-            false,
-            state_count,
-            event_count,
-        )?;
+        let mut final_states =
+            Self::allocate_filled(state_capacity, false, state_count, event_count)?;
         for state in self.final_states {
-            let index =
-                Self::storage_capacity(state, state_count, event_count)?;
+            let index = Self::storage_capacity(state, state_count, event_count)?;
             final_states[index] = true;
         }
 
@@ -285,18 +258,13 @@ impl FastStateMachineBuilder {
     /// # Errors
     /// Returns the corresponding initial- or final-state range error for the
     /// first invalid code.
-    fn validate_state_sets(
-        &self,
-        state_count: u64,
-    ) -> Result<(), FastStateMachineBuildError> {
+    fn validate_state_sets(&self, state_count: u64) -> Result<(), FastStateMachineBuildError> {
         for &state in &self.initial_states {
             if state >= state_count {
-                return Err(
-                    FastStateMachineBuildError::InitialStateOutOfRange {
-                        state,
-                        state_count,
-                    },
-                );
+                return Err(FastStateMachineBuildError::InitialStateOutOfRange {
+                    state,
+                    state_count,
+                });
             }
         }
         for &state in &self.final_states {
@@ -336,40 +304,32 @@ impl FastStateMachineBuilder {
 
         for &(source, event, target) in &self.transitions {
             if source >= state_count {
-                return Err(
-                    FastStateMachineBuildError::TransitionSourceOutOfRange {
-                        source_state: source,
-                        state_count,
-                    },
-                );
+                return Err(FastStateMachineBuildError::TransitionSourceOutOfRange {
+                    source_state: source,
+                    state_count,
+                });
             }
             if event >= event_count {
-                return Err(
-                    FastStateMachineBuildError::TransitionEventOutOfRange {
-                        event,
-                        event_count,
-                    },
-                );
+                return Err(FastStateMachineBuildError::TransitionEventOutOfRange {
+                    event,
+                    event_count,
+                });
             }
             if target >= state_count {
-                return Err(
-                    FastStateMachineBuildError::TransitionTargetOutOfRange {
-                        target,
-                        state_count,
-                    },
-                );
+                return Err(FastStateMachineBuildError::TransitionTargetOutOfRange {
+                    target,
+                    state_count,
+                });
             }
 
             if let Some(&existing_target) = targets.get(&(source, event)) {
                 if existing_target != target {
-                    return Err(
-                        FastStateMachineBuildError::DuplicateTransition {
-                            source_state: source,
-                            event,
-                            existing_target,
-                            new_target: target,
-                        },
-                    );
+                    return Err(FastStateMachineBuildError::DuplicateTransition {
+                        source_state: source,
+                        event,
+                        existing_target,
+                        new_target: target,
+                    });
                 }
             } else {
                 targets.insert((source, event), target);
@@ -387,10 +347,7 @@ impl FastStateMachineBuilder {
     /// # Returns
     /// A capacity error for the configured dense table.
     #[inline(always)]
-    const fn capacity_error(
-        state_count: u64,
-        event_count: u64,
-    ) -> FastStateMachineBuildError {
+    const fn capacity_error(state_count: u64, event_count: u64) -> FastStateMachineBuildError {
         FastStateMachineBuildError::TransitionTableCapacityExceeded {
             state_count,
             event_count,

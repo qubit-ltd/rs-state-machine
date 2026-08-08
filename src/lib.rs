@@ -70,20 +70,12 @@ mod standard;
 
 #[cfg(feature = "fast")]
 pub use fast::{
-    FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
-    FastStateMachine,
-    FastStateMachineBuildError,
-    FastStateMachineBuilder,
-    FastStateMachineError,
-    FastStateMachineResult,
+    FAST_STATE_MACHINE_DEFAULT_CAS_POLICY, FastStateMachine, FastStateMachineBuildError,
+    FastStateMachineBuilder, FastStateMachineError, FastStateMachineResult,
 };
 
 #[cfg(feature = "standard")]
 pub use standard::{
-    StateMachine,
-    StateMachineBuildError,
-    StateMachineBuilder,
-    StateMachineError,
-    StateMachineResult,
-    Transition,
+    StateMachine, StateMachineBuildError, StateMachineBuilder, StateMachineError,
+    StateMachineResult, Transition,
 };

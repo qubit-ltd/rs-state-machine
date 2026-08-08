@@ -7,27 +7,14 @@
 // =============================================================================
 //! Immutable finite state machine rules and CAS-backed event triggering.
 
-use std::collections::{
-    HashMap,
-    HashSet,
-};
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 
 use qubit_atomic::AtomicRef;
-use qubit_cas::{
-    CasDecision,
-    CasError,
-    CasExecutor,
-    CasSuccess,
-};
+use qubit_cas::{CasDecision, CasError, CasExecutor, CasSuccess};
 
-use super::{
-    StateMachineBuilder,
-    StateMachineError,
-    StateMachineResult,
-    Transition,
-};
+use super::{StateMachineBuilder, StateMachineError, StateMachineResult, Transition};
 
 /// Immutable finite state machine rules.
 ///
@@ -459,11 +446,7 @@ where
     /// assert_eq!(*state.load(), State::Running);
     /// ```
     #[inline(always)]
-    pub fn trigger(
-        &self,
-        state: &AtomicRef<S>,
-        event: E,
-    ) -> StateMachineResult<S, E> {
+    pub fn trigger(&self, state: &AtomicRef<S>, event: E) -> StateMachineResult<S, E> {
         let (_, new_state) = self.change_state(state, event)?;
         Ok(new_state)
     }
@@ -643,12 +626,7 @@ where
     /// ```
     #[must_use = "the boolean result reports whether the transition committed"]
     #[inline(always)]
-    pub fn try_trigger_with<F>(
-        &self,
-        state: &AtomicRef<S>,
-        event: E,
-        on_success: F,
-    ) -> bool
+    pub fn try_trigger_with<F>(&self, state: &AtomicRef<S>, event: E, on_success: F) -> bool
     where
         F: FnOnce(S, S),
     {
@@ -671,16 +649,14 @@ where
         state: &AtomicRef<S>,
         event: E,
     ) -> Result<(S, S), StateMachineError<S, E>> {
-        let result =
-            self.cas_executor
-                .execute_result(state, |current_state: &S| {
-                    match self.next_state(*current_state, event) {
-                        Ok(new_state) => {
-                            CasDecision::update(new_state, new_state)
-                        }
-                        Err(error) => CasDecision::abort(error),
-                    }
-                });
+        let result = self
+            .cas_executor
+            .execute_result(state, |current_state: &S| {
+                match self.next_state(*current_state, event) {
+                    Ok(new_state) => CasDecision::update(new_state, new_state),
+                    Err(error) => CasDecision::abort(error),
+                }
+            });
         match result {
             Ok(success) => Ok(Self::state_change_from_success(success)),
             Err(error) => Err(Self::state_error_from_cas_error(error)),
@@ -701,22 +677,17 @@ where
     /// current state is not registered. Returns an unknown-transition error
     /// if no rule exists for the `(current_state, event)` pair.
     #[inline]
-    fn next_state(
-        &self,
-        current_state: S,
-        event: E,
-    ) -> Result<S, StateMachineError<S, E>> {
+    fn next_state(&self, current_state: S, event: E) -> Result<S, StateMachineError<S, E>> {
         if !self.contains_state(current_state) {
             return Err(StateMachineError::UnknownState {
                 state: current_state,
             });
         }
-        self.transition_target(current_state, event).ok_or(
-            StateMachineError::UnknownTransition {
+        self.transition_target(current_state, event)
+            .ok_or(StateMachineError::UnknownTransition {
                 source_state: current_state,
                 event,
-            },
-        )
+            })
     }
 
     /// Extracts old and new states from a successful CAS transition.
