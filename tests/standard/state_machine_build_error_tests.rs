@@ -68,7 +68,7 @@ fn test_state_machine_build_error_display_reports_validation_context() {
 
 #[test]
 fn test_state_machine_build_error_has_no_nested_source() {
-    let error = StateMachineBuildError::<TestState, TestEvent>::FinalStateNotRegistered { state: TestState::Done };
+    let error = StateMachineBuildError::<TestState, TestEvent>::TerminalStateNotRegistered { state: TestState::Done };
 
     assert!(error.source().is_none());
 }

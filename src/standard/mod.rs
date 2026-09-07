@@ -16,11 +16,9 @@ mod state_machine;
 mod state_machine_build_error;
 mod state_machine_builder;
 mod state_machine_error;
-mod transition;
 
 pub use state_machine::StateMachine;
 pub use state_machine_build_error::StateMachineBuildError;
 pub use state_machine_builder::StateMachineBuilder;
 pub use state_machine_error::StateMachineError;
 pub use state_machine_error::StateMachineResult;
-pub use transition::Transition;

@@ -35,9 +35,9 @@ pub struct FastStateMachineBuilder {
     /// Configured number of event codes.
     event_count: Option<u64>,
     /// State codes marked as initial.
-    initial_states: Vec<u64>,
+    initial_state: Option<u64>,
     /// State codes marked as final.
-    final_states: Vec<u64>,
+    terminal_states: Vec<u64>,
     /// Configured `(source, event, target)` transition definitions.
     transitions: Vec<(u64, u64, u64)>,
     /// Retry policy used for runtime CAS conflicts.
@@ -55,8 +55,8 @@ impl FastStateMachineBuilder {
         Self {
             state_count: None,
             event_count: None,
-            initial_states: Vec::new(),
-            final_states: Vec::new(),
+            initial_state: None,
+            terminal_states: Vec::new(),
             transitions: Vec::new(),
             cas_policy: FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
         }
@@ -97,21 +97,7 @@ impl FastStateMachineBuilder {
     /// The updated builder.
     #[inline]
     pub fn initial_state(mut self, state: u64) -> Self {
-        self.initial_states.push(state);
-        self
-    }
-
-    /// Registers multiple initial state codes.
-    ///
-    /// # Parameters
-    /// - `states`: Initial state codes, each of which must be less than
-    ///   `state_count`.
-    ///
-    /// # Returns
-    /// The updated builder.
-    #[inline]
-    pub fn initial_states(mut self, states: &[u64]) -> Self {
-        self.initial_states.extend(states.iter().copied());
+        self.initial_state = Some(state);
         self
     }
 
@@ -123,8 +109,8 @@ impl FastStateMachineBuilder {
     /// # Returns
     /// The updated builder.
     #[inline]
-    pub fn final_state(mut self, state: u64) -> Self {
-        self.final_states.push(state);
+    pub fn terminal_state(mut self, state: u64) -> Self {
+        self.terminal_states.push(state);
         self
     }
 
@@ -137,8 +123,8 @@ impl FastStateMachineBuilder {
     /// # Returns
     /// The updated builder.
     #[inline]
-    pub fn final_states(mut self, states: &[u64]) -> Self {
-        self.final_states.extend(states.iter().copied());
+    pub fn terminal_states(mut self, states: &[u64]) -> Self {
+        self.terminal_states.extend(states.iter().copied());
         self
     }
 
@@ -204,8 +190,11 @@ impl FastStateMachineBuilder {
             return Err(FastStateMachineBuildError::InvalidEventCount { count: event_count });
         }
 
-        self.validate_state_sets(state_count)?;
-        self.validate_transitions(state_count, event_count)?;
+        let initial_state = self
+            .initial_state
+            .ok_or(FastStateMachineBuildError::InitialStateNotConfigured)?;
+        self.validate_state_sets(state_count, initial_state)?;
+        let configured_transition_count = self.validate_transitions(state_count, event_count)?;
 
         let transition_count =
             state_count
@@ -224,24 +213,19 @@ impl FastStateMachineBuilder {
             transitions[index] = target;
         }
 
-        let mut initial_states = Self::allocate_filled(state_capacity, false, state_count, event_count)?;
-        for state in self.initial_states {
+        let mut terminal_states = Self::allocate_filled(state_capacity, false, state_count, event_count)?;
+        for state in self.terminal_states {
             let index = Self::storage_capacity(state, state_count, event_count)?;
-            initial_states[index] = true;
-        }
-
-        let mut final_states = Self::allocate_filled(state_capacity, false, state_count, event_count)?;
-        for state in self.final_states {
-            let index = Self::storage_capacity(state, state_count, event_count)?;
-            final_states[index] = true;
+            terminal_states[index] = true;
         }
 
         Ok(FastStateMachine {
             state_count,
             event_count,
-            initial_states,
-            final_states,
+            initial_state,
+            terminal_states,
             transitions,
+            transition_count: configured_transition_count,
             cas: FastCas::with_policy(self.cas_policy),
         })
     }
@@ -258,15 +242,16 @@ impl FastStateMachineBuilder {
     /// # Errors
     /// Returns the corresponding initial- or final-state range error for the
     /// first invalid code.
-    fn validate_state_sets(&self, state_count: u64) -> Result<(), FastStateMachineBuildError> {
-        for &state in &self.initial_states {
-            if state >= state_count {
-                return Err(FastStateMachineBuildError::InitialStateOutOfRange { state, state_count });
-            }
+    fn validate_state_sets(&self, state_count: u64, initial_state: u64) -> Result<(), FastStateMachineBuildError> {
+        if initial_state >= state_count {
+            return Err(FastStateMachineBuildError::InitialStateOutOfRange {
+                state: initial_state,
+                state_count,
+            });
         }
-        for &state in &self.final_states {
+        for &state in &self.terminal_states {
             if state >= state_count {
-                return Err(FastStateMachineBuildError::FinalStateOutOfRange { state, state_count });
+                return Err(FastStateMachineBuildError::TerminalStateOutOfRange { state, state_count });
             }
         }
         Ok(())
@@ -286,7 +271,7 @@ impl FastStateMachineBuilder {
     /// # Errors
     /// Returns a range error, duplicate-transition error, or capacity error if
     /// the temporary duplicate-detection map cannot reserve storage.
-    fn validate_transitions(&self, state_count: u64, event_count: u64) -> Result<(), FastStateMachineBuildError> {
+    fn validate_transitions(&self, state_count: u64, event_count: u64) -> Result<usize, FastStateMachineBuildError> {
         let mut targets = HashMap::new();
         if targets.try_reserve(self.transitions.len()).is_err() {
             return Err(Self::capacity_error(state_count, event_count));
@@ -305,6 +290,13 @@ impl FastStateMachineBuilder {
             if target >= state_count {
                 return Err(FastStateMachineBuildError::TransitionTargetOutOfRange { target, state_count });
             }
+            if self.terminal_states.contains(&source) {
+                return Err(FastStateMachineBuildError::TerminalStateHasOutgoingTransition {
+                    state: source,
+                    event,
+                    target,
+                });
+            }
 
             if let Some(&existing_target) = targets.get(&(source, event)) {
                 if existing_target != target {
@@ -319,7 +311,7 @@ impl FastStateMachineBuilder {
                 targets.insert((source, event), target);
             }
         }
-        Ok(())
+        Ok(targets.len())
     }
 
     /// Creates a capacity error carrying the configured table dimensions.

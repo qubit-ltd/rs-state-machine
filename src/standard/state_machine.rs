@@ -21,7 +21,7 @@ use qubit_cas::CasSuccess;
 use super::StateMachineBuilder;
 use super::StateMachineError;
 use super::StateMachineResult;
-use super::Transition;
+use crate::Transition;
 
 /// Immutable finite state machine rules.
 ///
@@ -67,7 +67,7 @@ use super::Transition;
 ///             JobState::Failed,
 ///         ])
 ///         .initial_state(JobState::Queued)
-///         .final_states(&[JobState::Succeeded, JobState::Failed])
+///         .terminal_states(&[JobState::Succeeded, JobState::Failed])
 ///         .transition(JobState::Queued, JobEvent::Start, JobState::Running)
 ///         .transition(JobState::Running, JobEvent::Complete, JobState::Succeeded)
 ///         .transition(JobState::Running, JobEvent::Fail, JobState::Failed)
@@ -93,12 +93,10 @@ where
 {
     /// Registered states accepted by the machine.
     states: HashSet<S>,
-    /// Registered states marked as initial.
-    initial_states: HashSet<S>,
-    /// Registered states marked as final.
-    final_states: HashSet<S>,
-    /// Unique transition values exposed by [`Self::transitions`].
-    transitions: HashSet<Transition<S, E>>,
+    /// The unique registered initial state.
+    initial_state: S,
+    /// Registered terminal states.
+    terminal_states: HashSet<S>,
     /// Constant-time transition lookup keyed by `(source, event)`.
     transition_map: HashMap<(S, E), S>,
     /// CAS executor used to update external current-state references.
@@ -155,18 +153,13 @@ where
     /// This constructor does not validate input. Rule validation belongs to
     /// [`StateMachineBuilder::build`].
     #[inline]
-    pub(crate) fn new(
-        builder: StateMachineBuilder<S, E>,
-        transitions: HashSet<Transition<S, E>>,
-        transition_map: HashMap<(S, E), S>,
-    ) -> Self {
+    pub(crate) fn new(builder: StateMachineBuilder<S, E>, transition_map: HashMap<(S, E), S>) -> Self {
         Self {
             states: builder.states,
-            initial_states: builder.initial_states,
-            final_states: builder.final_states,
-            transitions,
+            initial_state: builder.initial_state.expect("builder validates initial state"),
+            terminal_states: builder.terminal_states,
             transition_map,
-            cas_executor: CasExecutor::latency_first(),
+            cas_executor: builder.cas_executor,
         }
     }
 
@@ -185,6 +178,7 @@ where
     /// # enum Event { Start }
     /// # let machine = StateMachine::builder()
     /// #     .add_states(&[State::New, State::Running])
+    /// #     .initial_state(State::New)
     /// #     .transition(State::New, Event::Start, State::Running)
     /// #     .build()
     /// #     .expect("rules should build");
@@ -196,7 +190,7 @@ where
         &self.states
     }
 
-    /// Returns all configured initial states.
+    /// Returns the configured initial state.
     ///
     /// # Returns
     /// An immutable view of the initial state set.
@@ -215,14 +209,14 @@ where
     /// #     .transition(State::New, Event::Start, State::Running)
     /// #     .build()
     /// #     .expect("rules should build");
-    /// assert!(machine.initial_states().contains(&State::New));
+    /// assert_eq!(machine.initial_state(), State::New);
     /// ```
     #[inline(always)]
-    pub const fn initial_states(&self) -> &HashSet<S> {
-        &self.initial_states
+    pub const fn initial_state(&self) -> S {
+        self.initial_state
     }
 
-    /// Returns all configured final states.
+    /// Returns all configured terminal states.
     ///
     /// # Returns
     /// An immutable view of the final state set.
@@ -237,15 +231,16 @@ where
     /// # enum Event { Finish }
     /// # let machine = StateMachine::builder()
     /// #     .add_states(&[State::New, State::Done])
-    /// #     .final_state(State::Done)
+    /// #     .initial_state(State::New)
+    /// #     .terminal_state(State::Done)
     /// #     .transition(State::New, Event::Finish, State::Done)
     /// #     .build()
     /// #     .expect("rules should build");
-    /// assert!(machine.final_states().contains(&State::Done));
+    /// assert!(machine.terminal_states().contains(&State::Done));
     /// ```
     #[inline(always)]
-    pub const fn final_states(&self) -> &HashSet<S> {
-        &self.final_states
+    pub const fn terminal_states(&self) -> &HashSet<S> {
+        &self.terminal_states
     }
 
     /// Returns all registered transitions.
@@ -271,17 +266,20 @@ where
     ///
     /// let machine = StateMachine::builder()
     ///     .add_states(&[State::New, State::Running])
+    ///     .initial_state(State::New)
     ///     .transition(State::New, Event::Start, State::Running)
     ///     .build()
     ///     .expect("rules should build");
     ///
-    /// assert!(machine
-    ///     .transitions()
-    ///     .contains(&Transition::new(State::New, Event::Start, State::Running)));
+    /// assert!(machine.transitions().any(|transition| {
+    ///     transition == Transition::new(State::New, Event::Start, State::Running)
+    /// }));
     /// ```
     #[inline(always)]
-    pub const fn transitions(&self) -> &HashSet<Transition<S, E>> {
-        &self.transitions
+    pub fn transitions(&self) -> impl Iterator<Item = Transition<S, E>> + '_ {
+        self.transition_map
+            .iter()
+            .map(|(&(source, event), &target)| Transition::new(source, event, target))
     }
 
     /// Tests whether a state is registered in this state machine.
@@ -302,6 +300,7 @@ where
     /// # enum Event { Start }
     /// # let machine = StateMachine::builder()
     /// #     .add_states(&[State::New, State::Running])
+    /// #     .initial_state(State::New)
     /// #     .transition(State::New, Event::Start, State::Running)
     /// #     .build()
     /// #     .expect("rules should build");
@@ -340,10 +339,10 @@ where
     /// ```
     #[inline(always)]
     pub fn is_initial_state(&self, state: S) -> bool {
-        self.initial_states.contains(&state)
+        self.initial_state == state
     }
 
-    /// Tests whether a state is configured as a final state.
+    /// Tests whether a state is configured as a terminal state.
     ///
     /// # Parameters
     /// - `state`: State to test.
@@ -361,16 +360,39 @@ where
     /// # enum Event { Finish }
     /// # let machine = StateMachine::builder()
     /// #     .add_states(&[State::Running, State::Done])
-    /// #     .final_state(State::Done)
+    /// #     .initial_state(State::Running)
+    /// #     .terminal_state(State::Done)
     /// #     .transition(State::Running, Event::Finish, State::Done)
     /// #     .build()
     /// #     .expect("rules should build");
-    /// assert!(machine.is_final_state(State::Done));
-    /// assert!(!machine.is_final_state(State::Running));
+    /// assert!(machine.is_terminal_state(State::Done));
+    /// assert!(!machine.is_terminal_state(State::Running));
     /// ```
     #[inline(always)]
-    pub fn is_final_state(&self, state: S) -> bool {
-        self.final_states.contains(&state)
+    pub fn is_terminal_state(&self, state: S) -> bool {
+        self.terminal_states.contains(&state)
+    }
+
+    /// Returns the number of registered states.
+    #[must_use]
+    #[inline(always)]
+    pub fn state_count(&self) -> usize {
+        self.states.len()
+    }
+
+    /// Returns the number of unique transitions.
+    #[must_use]
+    #[inline(always)]
+    pub fn transition_count(&self) -> usize {
+        self.transition_map.len()
+    }
+
+    /// Creates an independent current-state cell initialized to the machine's
+    /// initial state.
+    #[must_use = "use the newly initialized state cell"]
+    #[inline]
+    pub fn create_state(&self) -> AtomicRef<S> {
+        AtomicRef::from_value(self.initial_state)
     }
 
     /// Looks up the target state for a source state and event.
@@ -395,6 +417,7 @@ where
     /// # enum Event { Start, Finish }
     /// # let machine = StateMachine::builder()
     /// #     .add_states(&[State::New, State::Running])
+    /// #     .initial_state(State::New)
     /// #     .transition(State::New, Event::Start, State::Running)
     /// #     .build()
     /// #     .expect("rules should build");
@@ -444,6 +467,7 @@ where
     ///
     /// let machine = StateMachine::builder()
     ///     .add_states(&[State::New, State::Running])
+    ///     .initial_state(State::New)
     ///     .transition(State::New, Event::Start, State::Running)
     ///     .build()
     ///     .expect("rules should build");
@@ -501,6 +525,7 @@ where
     ///
     /// let machine = StateMachine::builder()
     ///     .add_states(&[State::New, State::Running])
+    ///     .initial_state(State::New)
     ///     .transition(State::New, Event::Start, State::Running)
     ///     .build()
     ///     .expect("rules should build");
@@ -556,6 +581,7 @@ where
     ///
     /// let machine = StateMachine::builder()
     ///     .add_states(&[State::New, State::Running])
+    ///     .initial_state(State::New)
     ///     .transition(State::New, Event::Start, State::Running)
     ///     .build()
     ///     .expect("rules should build");
@@ -610,6 +636,7 @@ where
     ///
     /// let machine = StateMachine::builder()
     ///     .add_states(&[State::New, State::Running])
+    ///     .initial_state(State::New)
     ///     .transition(State::New, Event::Start, State::Running)
     ///     .build()
     ///     .expect("rules should build");

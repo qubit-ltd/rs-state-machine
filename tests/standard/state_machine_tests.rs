@@ -49,7 +49,7 @@ fn create_job_machine() -> StateMachine<JobState, JobEvent> {
             JobState::Failed,
         ])
         .initial_state(JobState::New)
-        .final_states(&[JobState::Done, JobState::Failed])
+        .terminal_states(&[JobState::Done, JobState::Failed])
         .transition(JobState::New, JobEvent::Start, JobState::Running)
         .transition(JobState::Running, JobEvent::Pause, JobState::Paused)
         .transition(JobState::Paused, JobEvent::Resume, JobState::Running)
