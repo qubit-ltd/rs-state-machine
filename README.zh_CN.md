@@ -13,6 +13,8 @@
 
 `qubit-state-machine` 是一个小型 Rust 有限状态机库，适用于生命周期、工作流和任务状态跟踪代码。
 
+0.7 版本要求恰好配置一个初态，终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
+
 它提供不可变的状态转换规则和构建阶段校验。标准版通过 `qubit-cas` 更新
 `qubit_atomic::AtomicRef`，Fast 版则直接更新
 `qubit_fast_cas::FastCasState`。
@@ -43,7 +45,7 @@
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.6"
+qubit-state-machine = "0.7"
 qubit-atomic = "0.13"
 qubit-fast-cas = "0.3"
 ```
@@ -52,7 +54,7 @@ qubit-fast-cas = "0.3"
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.6", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.7", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
 ```
 
@@ -60,7 +62,7 @@ qubit-atomic = "0.13"
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.6", default-features = false, features = ["fast"] }
+qubit-state-machine = { version = "0.7", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
 ```
 
@@ -94,7 +96,7 @@ fn create_job_machine() -> Result<StateMachine<JobState, JobEvent>, Box<dyn std:
             JobState::Failed,
         ])
         .initial_state(JobState::Queued)
-        .final_states(&[JobState::Succeeded, JobState::Failed])
+        .terminal_states(&[JobState::Succeeded, JobState::Failed])
         .transition(JobState::Queued, JobEvent::Start, JobState::Running)
         .transition(JobState::Running, JobEvent::Complete, JobState::Succeeded)
         .transition(JobState::Running, JobEvent::Fail, JobState::Failed)
@@ -106,7 +108,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     assert!(machine.contains_state(JobState::Running));
     assert!(machine.is_initial_state(JobState::Queued));
-    assert!(machine.is_final_state(JobState::Succeeded));
+    assert!(machine.is_terminal_state(JobState::Succeeded));
     assert_eq!(
         machine.transition_target(JobState::Queued, JobEvent::Start),
         Some(JobState::Running),
@@ -166,7 +168,7 @@ let machine = FastStateMachine::builder()
     .state_count(4)
     .event_count(3)
     .initial_state(QUEUED)
-    .final_states(&[SUCCEEDED, FAILED])
+    .terminal_states(&[SUCCEEDED, FAILED])
     .transition(QUEUED, START, RUNNING)
     .transition(RUNNING, COMPLETE, SUCCEEDED)
     .transition(RUNNING, FAIL, FAILED)
@@ -176,7 +178,7 @@ let tuned = FastStateMachine::builder()
     .state_count(4)
     .event_count(3)
     .initial_state(QUEUED)
-    .final_states(&[SUCCEEDED, FAILED])
+    .terminal_states(&[SUCCEEDED, FAILED])
     .transition(QUEUED, START, RUNNING)
     .transition(RUNNING, COMPLETE, SUCCEEDED)
     .transition(RUNNING, FAIL, FAILED)
@@ -191,7 +193,7 @@ assert_eq!(machine.transition_target(QUEUED, START), Some(RUNNING));
 assert_eq!(machine.state_count(), 4);
 assert_eq!(machine.event_count(), 3);
 assert!(machine.is_initial_state(QUEUED));
-assert!(machine.is_final_state(SUCCEEDED));
+assert!(machine.is_terminal_state(SUCCEEDED));
 assert_eq!(machine.cas_policy(), FAST_STATE_MACHINE_DEFAULT_CAS_POLICY);
 assert_eq!(tuned.cas_policy(), FastCasPolicy::spin(8));
 ```
@@ -277,7 +279,7 @@ assert_eq!(*state.load(), DoorState::Closed);
 | 定义高性能状态机 | `FastStateMachine::builder`、`FastStateMachineBuilder` |
 | 添加一个或多个状态 | `StateMachineBuilder::add_state`、`StateMachineBuilder::add_states` |
 | 配置高性能状态/事件空间 | `FastStateMachineBuilder::state_count`、`FastStateMachineBuilder::event_count` |
-| 标记初始状态和最终状态 | `initial_state`、`initial_states`、`final_state`、`final_states` |
+| 标记唯一初态和终态 | `initial_state`、`terminal_state`、`terminal_states` |
 | 添加状态转换规则 | `transition`、`transition_value`、`Transition` |
 | 只查询转换目标，不修改当前状态 | `transition_target` |
 | 应用事件并获取详细错误 | `trigger`、`trigger_with`、`StateMachineError` |

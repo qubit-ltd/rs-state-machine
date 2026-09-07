@@ -7,6 +7,7 @@
 // =============================================================================
 //! Tests for state machine construction and rule validation.
 
+use qubit_cas::CasStrategy;
 use qubit_state_machine::StateMachine;
 use qubit_state_machine::StateMachineBuildError;
 use qubit_state_machine::StateMachineBuilder;
@@ -32,7 +33,7 @@ fn create_valid_builder() -> StateMachineBuilder<JobState, JobEvent> {
     StateMachine::builder()
         .add_states(&[JobState::New, JobState::Running, JobState::Done, JobState::Failed])
         .initial_state(JobState::New)
-        .final_states(&[JobState::Done, JobState::Failed])
+        .terminal_states(&[JobState::Done, JobState::Failed])
         .transition(JobState::New, JobEvent::Start, JobState::Running)
         .transition(JobState::Running, JobEvent::Finish, JobState::Done)
         .transition(JobState::Running, JobEvent::Fail, JobState::Failed)
@@ -45,18 +46,29 @@ fn test_builder_build_creates_immutable_state_machine() {
         .expect("valid state machine should build");
 
     assert_eq!(machine.states().len(), 4);
-    assert_eq!(machine.initial_states().len(), 1);
-    assert_eq!(machine.final_states().len(), 2);
-    assert_eq!(machine.transitions().len(), 3);
+    assert_eq!(machine.state_count(), 4);
+    assert_eq!(machine.initial_state(), JobState::New);
+    assert_eq!(machine.terminal_states().len(), 2);
+    assert_eq!(machine.transitions().collect::<Vec<_>>().len(), 3);
+    assert_eq!(machine.transition_count(), 3);
     assert!(machine.contains_state(JobState::Running));
     assert!(machine.is_initial_state(JobState::New));
-    assert!(machine.is_final_state(JobState::Done));
-    assert!(!machine.is_final_state(JobState::Running));
+    assert!(machine.is_terminal_state(JobState::Done));
+    assert!(!machine.is_terminal_state(JobState::Running));
     assert_eq!(
         machine.transition_target(JobState::New, JobEvent::Start),
         Some(JobState::Running)
     );
     assert_eq!(machine.transition_target(JobState::New, JobEvent::Finish), None);
+    assert_eq!(*machine.create_state().load(), JobState::New);
+}
+
+#[test]
+fn test_builder_accepts_cas_strategy_configuration() {
+    let _machine = create_valid_builder()
+        .cas_strategy(CasStrategy::ReliabilityFirst)
+        .build()
+        .expect("strategy-configured machine should build");
 }
 
 #[test]
@@ -73,7 +85,7 @@ fn test_builder_build_supports_chained_rule_definition() {
     let machine = StateMachine::builder()
         .add_states(&[JobState::New, JobState::Running, JobState::Done, JobState::Failed])
         .initial_state(JobState::New)
-        .final_states(&[JobState::Done, JobState::Failed])
+        .terminal_states(&[JobState::Done, JobState::Failed])
         .transition(JobState::New, JobEvent::Start, JobState::Running)
         .transition(JobState::Running, JobEvent::Finish, JobState::Done)
         .transition(JobState::Running, JobEvent::Fail, JobState::Failed)
@@ -82,7 +94,7 @@ fn test_builder_build_supports_chained_rule_definition() {
 
     assert_eq!(machine.states().len(), 4);
     assert!(machine.is_initial_state(JobState::New));
-    assert!(machine.is_final_state(JobState::Done));
+    assert!(machine.is_terminal_state(JobState::Done));
     assert_eq!(
         machine.transition_target(JobState::Running, JobEvent::Finish),
         Some(JobState::Done)
@@ -97,8 +109,8 @@ fn test_builder_build_accepts_exact_duplicate_transition() {
 
     assert!(machine.contains_state(JobState::New));
     assert!(machine.is_initial_state(JobState::New));
-    assert!(machine.is_final_state(JobState::Done));
-    assert_eq!(machine.transitions().len(), 3);
+    assert!(machine.is_terminal_state(JobState::Done));
+    assert_eq!(machine.transitions().count(), 3);
     assert_eq!(
         machine.transition_target(JobState::Running, JobEvent::Finish),
         Some(JobState::Done)
@@ -133,14 +145,13 @@ fn test_builder_default_matches_new_builder() {
 }
 
 #[test]
-fn test_builder_initial_states_registers_multiple_initial_states() {
+fn test_builder_initial_state_is_unique() {
     let builder: StateMachineBuilder<JobState, JobEvent> = StateMachine::builder()
         .add_states(&[JobState::New, JobState::Running])
-        .initial_states(&[JobState::New, JobState::Running]);
+        .initial_state(JobState::Running);
 
     let machine = builder.build().expect("multiple initial states should build");
 
-    assert!(machine.is_initial_state(JobState::New));
     assert!(machine.is_initial_state(JobState::Running));
 }
 
@@ -167,8 +178,8 @@ fn test_build_error_display_describes_each_variant() {
         "initial state is not registered: New"
     );
     assert_eq!(
-        StateMachineBuildError::<JobState, JobEvent>::FinalStateNotRegistered { state: JobState::Done }.to_string(),
-        "final state is not registered: Done"
+        StateMachineBuildError::<JobState, JobEvent>::TerminalStateNotRegistered { state: JobState::Done }.to_string(),
+        "terminal state is not registered: Done"
     );
     assert_eq!(
         StateMachineBuildError::TransitionSourceNotRegistered {
@@ -201,10 +212,11 @@ fn test_build_error_display_describes_each_variant() {
 }
 
 #[test]
-fn test_builder_build_rejects_unregistered_final_state() {
+fn test_builder_build_rejects_unregistered_terminal_state() {
     let builder: StateMachineBuilder<JobState, JobEvent> = StateMachine::builder()
         .add_state(JobState::Running)
-        .final_state(JobState::Done);
+        .initial_state(JobState::Running)
+        .terminal_state(JobState::Done);
 
     let error = builder
         .build()
@@ -212,17 +224,16 @@ fn test_builder_build_rejects_unregistered_final_state() {
 
     assert_eq!(
         error,
-        StateMachineBuildError::FinalStateNotRegistered { state: JobState::Done }
+        StateMachineBuildError::TerminalStateNotRegistered { state: JobState::Done }
     );
 }
 
 #[test]
 fn test_builder_build_rejects_transition_with_unknown_source() {
-    let builder = StateMachine::builder().add_state(JobState::Running).transition(
-        JobState::New,
-        JobEvent::Start,
-        JobState::Running,
-    );
+    let builder = StateMachine::builder()
+        .add_state(JobState::Running)
+        .initial_state(JobState::Running)
+        .transition(JobState::New, JobEvent::Start, JobState::Running);
 
     let error = builder
         .build()
@@ -240,10 +251,10 @@ fn test_builder_build_rejects_transition_with_unknown_source() {
 
 #[test]
 fn test_builder_build_rejects_transition_with_unknown_target() {
-    let builder =
-        StateMachine::builder()
-            .add_state(JobState::New)
-            .transition(JobState::New, JobEvent::Start, JobState::Running);
+    let builder = StateMachine::builder()
+        .add_state(JobState::New)
+        .initial_state(JobState::New)
+        .transition(JobState::New, JobEvent::Start, JobState::Running);
 
     let error = builder
         .build()

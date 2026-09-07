@@ -31,6 +31,7 @@ fuzz_target!(|data: &[u8]| {
     let event = u64::from_le_bytes(event_bytes);
 
     let machine = FastStateMachine::builder()
+        .initial_state(0)
         .state_count(2)
         .event_count(1)
         .transition(0, 0, 1)

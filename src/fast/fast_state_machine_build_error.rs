@@ -21,6 +21,10 @@ pub enum FastStateMachineBuildError {
     #[error("event count is not configured")]
     EventCountNotConfigured,
 
+    /// No initial state was configured.
+    #[error("initial state is not configured")]
+    InitialStateNotConfigured,
+
     /// State count must be greater than zero.
     #[error("state count must be positive: {count}")]
     InvalidStateCount {
@@ -64,13 +68,24 @@ pub enum FastStateMachineBuildError {
         state_count: u64,
     },
 
-    /// A final state code exceeds the configured state count.
-    #[error("final state is out of range: {state} >= {state_count}")]
-    FinalStateOutOfRange {
-        /// The invalid final state.
+    /// A terminal state code exceeds the configured state count.
+    #[error("terminal state is out of range: {state} >= {state_count}")]
+    TerminalStateOutOfRange {
+        /// The invalid terminal state.
         state: u64,
         /// Configured state count.
         state_count: u64,
+    },
+
+    /// A terminal state has an outgoing transition.
+    #[error("terminal state has an outgoing transition: {state} --{event}--> {target}")]
+    TerminalStateHasOutgoingTransition {
+        /// Terminal source state.
+        state: u64,
+        /// Event that would leave the terminal state.
+        event: u64,
+        /// Target of the forbidden transition.
+        target: u64,
     },
 
     /// A transition source code exceeds the configured state count.

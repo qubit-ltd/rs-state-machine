@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "checks": [
+    {"name": "no-features", "commands": ["check", "test", "doc"], "defaultFeatures": false, "features": []},
+    {"name": "standard-only", "commands": ["check", "test", "doc"], "defaultFeatures": false, "features": ["standard"]},
+    {"name": "fast-only", "commands": ["check", "test", "doc"], "defaultFeatures": false, "features": ["fast"]}
+  ]
+}

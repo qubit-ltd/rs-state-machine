@@ -22,23 +22,30 @@ where
     S: Debug,
     E: Debug,
 {
-    /// The configured CAS attempt limit is zero.
-    #[error("CAS maximum attempts must be greater than zero: {max_attempts}")]
-    InvalidCasMaxAttempts {
-        /// Invalid attempt limit.
-        max_attempts: u32,
-    },
+    /// No initial state was configured.
+    #[error("initial state is not configured")]
+    InitialStateNotConfigured,
     /// An initial state was configured but not registered as a state.
     #[error("initial state is not registered: {state:?}")]
     InitialStateNotRegistered {
         /// The unregistered initial state.
         state: S,
     },
-    /// A final state was configured but not registered as a state.
-    #[error("final state is not registered: {state:?}")]
-    FinalStateNotRegistered {
-        /// The unregistered final state.
+    /// A terminal state was configured but not registered as a state.
+    #[error("terminal state is not registered: {state:?}")]
+    TerminalStateNotRegistered {
+        /// The unregistered terminal state.
         state: S,
+    },
+    /// A terminal state has an outgoing transition.
+    #[error("terminal state has an outgoing transition: {state:?} --{event:?}--> {target:?}")]
+    TerminalStateHasOutgoingTransition {
+        /// Terminal source state.
+        state: S,
+        /// Event that would leave the terminal state.
+        event: E,
+        /// Target state of the forbidden transition.
+        target: S,
     },
     /// A transition source was not registered as a state.
     #[error("transition source is not registered: {source_state:?} --{event:?}--> {target:?}")]
