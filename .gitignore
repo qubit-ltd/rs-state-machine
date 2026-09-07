@@ -70,6 +70,9 @@ external/
 *.tmp
 *.temp
 
+# Local git worktrees
+.worktrees/
+
 # Backup files
 *.bak
 *.backup
