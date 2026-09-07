@@ -41,10 +41,7 @@ fuzz_target!(|data: &[u8]| {
     let result = machine.trigger(&state, event);
 
     if current >= 2 {
-        assert_eq!(
-            result,
-            Err(FastStateMachineError::UnknownState { state: current })
-        );
+        assert_eq!(result, Err(FastStateMachineError::UnknownState { state: current }));
         assert_eq!(state.load(), current);
     } else if event != 0 {
         assert_eq!(

@@ -1,6 +1,6 @@
 [package]
 name = "qubit-state-machine"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.94"
 authors = ["Haixing Hu <starfish.hu@gmail.com>"]
@@ -40,7 +40,7 @@ fast = ["dep:qubit-fast-cas"]
 thiserror = "2.0"
 
 qubit-atomic = { version = "0.13", optional = true }
-qubit-cas = { version = "0.11", path = "../rs-cas", optional = true }
+qubit-cas = { version = "0.12", path = "../rs-cas", optional = true }
 qubit-fast-cas = { version = "0.3", path = "../rs-fast-cas", optional = true }
 
 [dev-dependencies]

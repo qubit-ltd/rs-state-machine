@@ -12,6 +12,7 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 
+use super::STANDARD_STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS;
 use super::StateMachine;
 use super::StateMachineBuildError;
 use super::Transition;
@@ -39,6 +40,8 @@ where
     pub(crate) final_states: HashSet<S>,
     /// Transition definitions in builder insertion order.
     pub(crate) transitions: Vec<Transition<S, E>>,
+    /// Maximum CAS attempts used for transition installation.
+    pub(crate) cas_max_attempts: u32,
 }
 
 impl<S, E> StateMachineBuilder<S, E>
@@ -57,6 +60,7 @@ where
             initial_states: HashSet::new(),
             final_states: HashSet::new(),
             transitions: Vec::new(),
+            cas_max_attempts: STANDARD_STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS,
         }
     }
 
@@ -178,6 +182,13 @@ where
         self
     }
 
+    /// Sets the maximum CAS attempts used for each transition.
+    #[inline]
+    pub fn cas_max_attempts(mut self, max_attempts: u32) -> Self {
+        self.cas_max_attempts = max_attempts;
+        self
+    }
+
     /// Builds an immutable state machine after validating the rule set.
     ///
     /// # Returns
@@ -189,6 +200,11 @@ where
     /// transitions map the same `(source, event)` pair to different targets.
     pub fn build(self) -> Result<StateMachine<S, E>, StateMachineBuildError<S, E>> {
         self.validate_registered_states()?;
+        if self.cas_max_attempts == 0 {
+            return Err(StateMachineBuildError::InvalidCasMaxAttempts {
+                max_attempts: self.cas_max_attempts,
+            });
+        }
 
         let mut transition_set = HashSet::new();
         let mut transition_map = HashMap::new();
@@ -198,7 +214,14 @@ where
             Self::insert_transition(transition, &mut transition_set, &mut transition_map)?;
         }
 
-        Ok(StateMachine::new(self, transition_set, transition_map))
+        let cas_executor = qubit_cas::CasExecutor::builder()
+            .max_attempts(self.cas_max_attempts)
+            .no_delay()
+            .build()
+            .map_err(|_| StateMachineBuildError::InvalidCasMaxAttempts {
+                max_attempts: self.cas_max_attempts,
+            })?;
+        Ok(StateMachine::new(self, transition_set, transition_map, cas_executor))
     }
 
     /// Validates that initial and final states are registered.

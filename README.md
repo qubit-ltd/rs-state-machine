@@ -7,6 +7,8 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
+The standard state machine uses `qubit-cas` 0.12. Configure `cas_max_attempts` on the builder; terminal CAS kinds are preserved in `StateMachineError::CasFailure`.
+
 Documentation: [API Reference](https://docs.rs/qubit-state-machine)
 
 `qubit-state-machine` is a small Rust finite state machine crate for lifecycle,
