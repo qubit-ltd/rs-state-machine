@@ -57,8 +57,6 @@ pub(super) fn fast_state_machine_error_from_fast_cas_error(
 ) -> FastStateMachineError {
     match error {
         FastCasError::Abort { error, .. } => error,
-        FastCasError::Conflict { attempts, .. } => {
-            FastStateMachineError::CasConflict { attempts }
-        }
+        FastCasError::Conflict { attempts, .. } => FastStateMachineError::CasConflict { attempts },
     }
 }

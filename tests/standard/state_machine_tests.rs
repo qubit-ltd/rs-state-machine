@@ -72,8 +72,7 @@ fn test_trigger_updates_state_and_returns_new_state() {
     let machine = create_job_machine();
     let state = AtomicRef::from_value(JobState::New);
 
-    let new_state = trigger_start(&machine, &state)
-        .expect("start event should transition to running");
+    let new_state = trigger_start(&machine, &state).expect("start event should transition to running");
 
     assert_eq!(new_state, JobState::Running);
     assert_eq!(*state.load(), JobState::Running);
@@ -134,8 +133,7 @@ fn test_state_machine_error_display_describes_failure_context() {
         "unknown transition: New --Finish--> ?"
     );
     assert_eq!(
-        StateMachineError::<JobState, JobEvent>::CasConflict { attempts: 3 }
-            .to_string(),
+        StateMachineError::<JobState, JobEvent>::CasConflict { attempts: 3 }.to_string(),
         "CAS transition failed after 3 attempt(s)"
     );
 }
@@ -148,20 +146,16 @@ fn test_trigger_with_invokes_callback_after_successful_transition() {
 
     let new_state = machine
         .trigger_with(&state, JobEvent::Start, |old_state, new_state| {
-            observed.lock().expect("callback log should lock").push((
-                old_state,
-                new_state,
-                *state.load(),
-            ));
+            observed
+                .lock()
+                .expect("callback log should lock")
+                .push((old_state, new_state, *state.load()));
         })
         .expect("start event should succeed");
 
     assert_eq!(new_state, JobState::Running);
     assert_eq!(
-        observed
-            .lock()
-            .expect("callback log should lock")
-            .as_slice(),
+        observed.lock().expect("callback log should lock").as_slice(),
         &[(JobState::New, JobState::Running, JobState::Running)]
     );
 }
@@ -174,10 +168,7 @@ fn test_trigger_with_accepts_callback_that_consumes_capture() {
 
     let next = machine
         .trigger_with(&state, JobEvent::Start, move |old_state, new_state| {
-            assert_eq!(
-                (old_state, new_state),
-                (JobState::New, JobState::Running)
-            );
+            assert_eq!((old_state, new_state), (JobState::New, JobState::Running));
             drop(captured);
         })
         .expect("FnOnce callback should be accepted");
@@ -211,10 +202,9 @@ fn test_try_trigger_with_skips_callback_on_failure() {
     let state = AtomicRef::from_value(JobState::New);
     let callback_count = AtomicUsize::new(0);
 
-    let triggered =
-        machine.try_trigger_with(&state, JobEvent::Finish, |_, _| {
-            callback_count.fetch_add(1, Ordering::SeqCst);
-        });
+    let triggered = machine.try_trigger_with(&state, JobEvent::Finish, |_, _| {
+        callback_count.fetch_add(1, Ordering::SeqCst);
+    });
 
     assert!(!triggered);
     assert_eq!(callback_count.load(Ordering::SeqCst), 0);
@@ -284,8 +274,5 @@ fn test_trigger_handles_competing_alternating_transitions() {
     let total_transitions = THREAD_COUNT * TRANSITIONS_PER_THREAD;
     assert_eq!(*state.load(), JobState::New);
     assert_eq!(new_targets.load(Ordering::SeqCst), total_transitions / 2);
-    assert_eq!(
-        running_targets.load(Ordering::SeqCst),
-        total_transitions / 2
-    );
+    assert_eq!(running_targets.load(Ordering::SeqCst), total_transitions / 2);
 }

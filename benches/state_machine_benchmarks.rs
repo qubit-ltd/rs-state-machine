@@ -30,22 +30,13 @@ fn benchmark_fast_state_machine(c: &mut Criterion) {
     let mut group = c.benchmark_group("fast_state_machine");
     let lookup_machine = create_fast_state_machine();
     group.bench_function("transition_target", |bencher| {
-        bencher.iter(|| {
-            black_box(
-                lookup_machine.transition_target(black_box(0), black_box(0)),
-            )
-        });
+        bencher.iter(|| black_box(lookup_machine.transition_target(black_box(0), black_box(0))));
     });
 
     let trigger_machine = create_fast_state_machine();
     let trigger_state = FastCasState::new(0);
     group.bench_function("try_trigger_alternating", |bencher| {
-        bencher.iter(|| {
-            black_box(
-                trigger_machine
-                    .try_trigger(black_box(&trigger_state), black_box(0)),
-            )
-        });
+        bencher.iter(|| black_box(trigger_machine.try_trigger(black_box(&trigger_state), black_box(0))));
     });
     group.finish();
 }
@@ -74,9 +65,7 @@ fn benchmark_standard_state_machine(c: &mut Criterion) {
     let machine = create_standard_state_machine();
     let state = AtomicRef::from_value(0_u8);
     group.bench_function("try_trigger_alternating", |bencher| {
-        bencher.iter(|| {
-            black_box(machine.try_trigger(black_box(&state), black_box(0)))
-        });
+        bencher.iter(|| black_box(machine.try_trigger(black_box(&state), black_box(0))));
     });
     group.finish();
 }
@@ -98,9 +87,5 @@ fn create_standard_state_machine() -> StateMachine<u8, u8> {
         .expect("standard benchmark fixture should build")
 }
 
-criterion_group!(
-    benches,
-    benchmark_fast_state_machine,
-    benchmark_standard_state_machine,
-);
+criterion_group!(benches, benchmark_fast_state_machine, benchmark_standard_state_machine,);
 criterion_main!(benches);

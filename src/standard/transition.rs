@@ -41,11 +41,7 @@ where
     /// A new immutable transition value.
     #[inline(always)]
     pub const fn new(source: S, event: E, target: S) -> Self {
-        Self {
-            source,
-            event,
-            target,
-        }
+        Self { source, event, target }
     }
 
     /// Returns the source state of this transition.
