@@ -207,11 +207,7 @@ impl FastStateMachine {
     /// The configured target, or `None` when `event` is out of range or the
     /// transition cell is unset.
     #[inline]
-    fn transition_target_for_valid_state(
-        &self,
-        source: u64,
-        event: u64,
-    ) -> Option<u64> {
+    fn transition_target_for_valid_state(&self, source: u64, event: u64) -> Option<u64> {
         let index = self.transition_index(source, event)?;
         self.transitions
             .get(index)
@@ -239,11 +235,7 @@ impl FastStateMachine {
     ///   `(current, event)`.
     /// * [`FastStateMachineError::CasConflict`] — CAS retries exhausted.
     #[inline(always)]
-    pub fn trigger(
-        &self,
-        state: &FastCasState,
-        event: u64,
-    ) -> FastStateMachineResult {
+    pub fn trigger(&self, state: &FastCasState, event: u64) -> FastStateMachineResult {
         let (_old_state, new_state) = self.change_state(state, event)?;
         Ok(new_state)
     }
@@ -274,12 +266,7 @@ impl FastStateMachine {
     /// A panic from `on_success` propagates after the state transition has
     /// already been committed.
     #[inline]
-    pub fn trigger_with<F>(
-        &self,
-        state: &FastCasState,
-        event: u64,
-        on_success: F,
-    ) -> FastStateMachineResult
+    pub fn trigger_with<F>(&self, state: &FastCasState, event: u64, on_success: F) -> FastStateMachineResult
     where
         F: FnOnce(u64, u64),
     {
@@ -329,12 +316,7 @@ impl FastStateMachine {
     /// already been committed.
     #[must_use = "the boolean result reports whether the transition committed"]
     #[inline(always)]
-    pub fn try_trigger_with<F>(
-        &self,
-        state: &FastCasState,
-        event: u64,
-        on_success: F,
-    ) -> bool
+    pub fn try_trigger_with<F>(&self, state: &FastCasState, event: u64, on_success: F) -> bool
     where
         F: FnOnce(u64, u64),
     {
@@ -355,22 +337,15 @@ impl FastStateMachine {
     /// # Errors
     /// Returns an unknown-state, unknown-transition, or exhausted-conflict
     /// error.
-    fn change_state(
-        &self,
-        state: &FastCasState,
-        event: u64,
-    ) -> Result<(u64, u64), FastStateMachineError> {
-        match self.cas.execute::<u64, FastStateMachineError, _>(
-            state,
-            |current| match self.next_state(current, event) {
+    fn change_state(&self, state: &FastCasState, event: u64) -> Result<(u64, u64), FastStateMachineError> {
+        match self.cas.execute::<u64, FastStateMachineError, _>(state, |current| {
+            match self.next_state(current, event) {
                 Ok(new_state) => FastCasDecision::update(new_state, new_state),
                 Err(error) => FastCasDecision::abort(error),
-            },
-        ) {
-            Ok(success) => Ok((success.previous(), success.current())),
-            Err(error) => {
-                Err(fast_state_machine_error_from_fast_cas_error(error))
             }
+        }) {
+            Ok(success) => Ok((success.previous(), success.current())),
+            Err(error) => Err(fast_state_machine_error_from_fast_cas_error(error)),
         }
     }
 
@@ -389,21 +364,16 @@ impl FastStateMachine {
     /// state, or [`FastStateMachineError::UnknownTransition`] when no target is
     /// configured for the pair.
     #[inline]
-    fn next_state(
-        &self,
-        state: u64,
-        event: u64,
-    ) -> Result<u64, FastStateMachineError> {
+    fn next_state(&self, state: u64, event: u64) -> Result<u64, FastStateMachineError> {
         if !self.contains_state(state) {
             return Err(FastStateMachineError::UnknownState { state });
         }
 
-        self.transition_target_for_valid_state(state, event).ok_or(
-            FastStateMachineError::UnknownTransition {
+        self.transition_target_for_valid_state(state, event)
+            .ok_or(FastStateMachineError::UnknownTransition {
                 source_state: state,
                 event,
-            },
-        )
+            })
     }
 
     /// Converts an in-range state code into a slice index.
