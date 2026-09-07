@@ -739,7 +739,8 @@ where
     fn state_error_from_cas_error(error: CasError<S, StateMachineError<S, E>>) -> StateMachineError<S, E> {
         match error.error() {
             Some(error) => *error,
-            None => StateMachineError::CasConflict {
+            None => StateMachineError::CasFailure {
+                kind: error.kind(),
                 attempts: error.attempts(),
             },
         }
