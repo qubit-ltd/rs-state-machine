@@ -52,12 +52,12 @@ fn test_build_error_display_reports_all_variants() {
         "initial state is out of range: 2 >= 2",
     );
     assert_eq!(
-        FastStateMachineBuildError::FinalStateOutOfRange {
+        FastStateMachineBuildError::TerminalStateOutOfRange {
             state: 2,
             state_count: 2,
         }
         .to_string(),
-        "final state is out of range: 2 >= 2",
+        "terminal state is out of range: 2 >= 2",
     );
     assert_eq!(
         FastStateMachineBuildError::TransitionSourceOutOfRange {

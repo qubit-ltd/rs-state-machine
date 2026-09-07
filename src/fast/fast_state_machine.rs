@@ -37,12 +37,14 @@ pub struct FastStateMachine {
     /// Number of valid event codes.
     pub(super) event_count: u64,
     /// Dense flags indexed by validated state code.
-    pub(super) initial_states: Vec<bool>,
+    pub(super) initial_state: u64,
     /// Dense flags indexed by validated state code.
-    pub(super) final_states: Vec<bool>,
+    pub(super) terminal_states: Vec<bool>,
     /// Row-major transition targets, using [`UNSET_TRANSITION`] for empty
     /// cells.
     pub(super) transitions: Vec<u64>,
+    /// Number of unique configured transition rules.
+    pub(super) transition_count: usize,
     /// Policy-driven CAS executor used by runtime transitions.
     pub(super) cas: FastCas,
 }
@@ -91,8 +93,13 @@ impl FastStateMachine {
     /// # Returns
     /// The immutable row-major transition cells.
     #[inline(always)]
-    pub fn transitions(&self) -> &[u64] {
-        &self.transitions
+    pub fn transitions(&self) -> impl Iterator<Item = crate::Transition<u64, u64>> + '_ {
+        (0..self.state_count).flat_map(move |source| {
+            (0..self.event_count).filter_map(move |event| {
+                self.transition_target(source, event)
+                    .map(|target| crate::Transition::new(source, event, target))
+            })
+        })
     }
 
     /// Returns the CAS retry policy used for all transitions.
@@ -118,8 +125,8 @@ impl FastStateMachine {
     /// # Returns
     /// Dense initial-state flags in state-code order.
     #[inline(always)]
-    pub fn initial_states(&self) -> &[bool] {
-        &self.initial_states
+    pub fn initial_state(&self) -> u64 {
+        self.initial_state
     }
 
     /// Returns a read-only slice marking which state codes are final
@@ -132,8 +139,11 @@ impl FastStateMachine {
     /// # Returns
     /// Dense final-state flags in state-code order.
     #[inline(always)]
-    pub fn final_states(&self) -> &[bool] {
-        &self.final_states
+    pub fn terminal_states(&self) -> impl Iterator<Item = u64> + '_ {
+        self.terminal_states
+            .iter()
+            .enumerate()
+            .filter_map(|(state, terminal)| terminal.then_some(state as u64))
     }
 
     /// Returns whether `state` is a valid code for this machine.
@@ -158,10 +168,7 @@ impl FastStateMachine {
     /// range or not initial.
     #[inline]
     pub fn is_initial_state(&self, state: u64) -> bool {
-        self.state_index(state)
-            .and_then(|index| self.initial_states.get(index))
-            .copied()
-            .unwrap_or(false)
+        state == self.initial_state
     }
 
     /// Returns whether `state` was configured as a final state.
@@ -173,11 +180,26 @@ impl FastStateMachine {
     /// `true` if `state` is in range and marked final; `false` if out of range
     /// or not final.
     #[inline]
-    pub fn is_final_state(&self, state: u64) -> bool {
+    pub fn is_terminal_state(&self, state: u64) -> bool {
         self.state_index(state)
-            .and_then(|index| self.final_states.get(index))
+            .and_then(|index| self.terminal_states.get(index))
             .copied()
             .unwrap_or(false)
+    }
+
+    /// Returns the number of unique configured transitions.
+    #[must_use]
+    #[inline(always)]
+    pub const fn transition_count(&self) -> usize {
+        self.transition_count
+    }
+
+    /// Creates a new independent fast state cell initialized to the initial
+    /// state.
+    #[must_use]
+    #[inline]
+    pub fn create_state(&self) -> FastCasState {
+        FastCasState::new(self.initial_state)
     }
 
     /// Looks up the next state for a specific `(source, event)` pair.

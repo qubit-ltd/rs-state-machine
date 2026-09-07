@@ -11,4 +11,3 @@ mod state_machine_build_error_tests;
 mod state_machine_builder_tests;
 mod state_machine_error_tests;
 mod state_machine_tests;
-mod transition_tests;

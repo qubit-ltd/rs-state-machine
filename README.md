@@ -14,6 +14,12 @@ Documentation: [API Reference](https://docs.rs/qubit-state-machine)
 `qubit-state-machine` is a small Rust finite state machine crate for lifecycle,
 workflow, and task-state tracking code.
 
+Version 0.7 requires exactly one initial state. Terminal states cannot have
+outgoing transitions. `create_state()` creates an independent current-state
+cell; externally created cells are not bound to a machine. Callbacks run once
+after a successful commit, with concurrent callback order unspecified, and a
+callback may observe a later committed state.
+
 It provides immutable transition rules and build-time validation. The standard
 machine updates `qubit_atomic::AtomicRef` values through `qubit-cas`; the Fast
 machine updates `qubit_fast_cas::FastCasState` values directly.
@@ -46,7 +52,7 @@ types from their owning crates:
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.6"
+qubit-state-machine = "0.7"
 qubit-atomic = "0.13"
 qubit-fast-cas = "0.3"
 ```
@@ -55,7 +61,7 @@ Use only the standard implementation:
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.6", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.7", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
 ```
 
@@ -63,7 +69,7 @@ Use only the Fast implementation without pulling in `qubit-cas`:
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.6", default-features = false, features = ["fast"] }
+qubit-state-machine = { version = "0.7", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
 ```
 
@@ -97,7 +103,7 @@ fn create_job_machine() -> Result<StateMachine<JobState, JobEvent>, Box<dyn std:
             JobState::Failed,
         ])
         .initial_state(JobState::Queued)
-        .final_states(&[JobState::Succeeded, JobState::Failed])
+        .terminal_states(&[JobState::Succeeded, JobState::Failed])
         .transition(JobState::Queued, JobEvent::Start, JobState::Running)
         .transition(JobState::Running, JobEvent::Complete, JobState::Succeeded)
         .transition(JobState::Running, JobEvent::Fail, JobState::Failed)
@@ -109,7 +115,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     assert!(machine.contains_state(JobState::Running));
     assert!(machine.is_initial_state(JobState::Queued));
-    assert!(machine.is_final_state(JobState::Succeeded));
+    assert!(machine.is_terminal_state(JobState::Succeeded));
     assert_eq!(
         machine.transition_target(JobState::Queued, JobEvent::Start),
         Some(JobState::Running),
@@ -169,7 +175,7 @@ let machine = FastStateMachine::builder()
     .state_count(4)
     .event_count(3)
     .initial_state(QUEUED)
-    .final_states(&[SUCCEEDED, FAILED])
+    .terminal_states(&[SUCCEEDED, FAILED])
     .transition(QUEUED, START, RUNNING)
     .transition(RUNNING, COMPLETE, SUCCEEDED)
     .transition(RUNNING, FAIL, FAILED)
@@ -179,7 +185,7 @@ let tuned = FastStateMachine::builder()
     .state_count(4)
     .event_count(3)
     .initial_state(QUEUED)
-    .final_states(&[SUCCEEDED, FAILED])
+    .terminal_states(&[SUCCEEDED, FAILED])
     .transition(QUEUED, START, RUNNING)
     .transition(RUNNING, COMPLETE, SUCCEEDED)
     .transition(RUNNING, FAIL, FAILED)
@@ -194,7 +200,7 @@ assert_eq!(machine.transition_target(QUEUED, START), Some(RUNNING));
 assert_eq!(machine.state_count(), 4);
 assert_eq!(machine.event_count(), 3);
 assert!(machine.is_initial_state(QUEUED));
-assert!(machine.is_final_state(SUCCEEDED));
+assert!(machine.is_terminal_state(SUCCEEDED));
 assert_eq!(machine.cas_policy(), FAST_STATE_MACHINE_DEFAULT_CAS_POLICY);
 assert_eq!(tuned.cas_policy(), FastCasPolicy::spin(8));
 ```
@@ -281,7 +287,7 @@ assert_eq!(*state.load(), DoorState::Closed);
 | Define dense fast machines | `FastStateMachine::builder`, `FastStateMachineBuilder` |
 | Add one or more states | `StateMachineBuilder::add_state`, `StateMachineBuilder::add_states` |
 | Configure fast state/event space | `FastStateMachineBuilder::state_count`, `FastStateMachineBuilder::event_count` |
-| Mark initial and final states | `initial_state`, `initial_states`, `final_state`, `final_states` |
+| Mark the unique initial and terminal states | `initial_state`, `terminal_state`, `terminal_states` |
 | Add transition rules | `transition`, `transition_value`, `Transition` |
 | Query transition targets without changing state | `transition_target` |
 | Apply events and get detailed errors | `trigger`, `trigger_with`, `StateMachineError` |

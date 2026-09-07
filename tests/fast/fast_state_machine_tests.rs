@@ -35,7 +35,7 @@ fn create_machine() -> FastStateMachine {
         .state_count(4)
         .event_count(4)
         .initial_state(QUEUED)
-        .final_states(&[SUCCEEDED, FAILED])
+        .terminal_states(&[SUCCEEDED, FAILED])
         .transition(QUEUED, START, RUNNING)
         .transition(RUNNING, COMPLETE, SUCCEEDED)
         .transition(RUNNING, FAIL, FAILED)
@@ -285,15 +285,13 @@ fn test_machine_handles_competing_alternating_transitions() {
 #[test]
 fn test_state_setters_and_queries() {
     let machine = create_machine();
-    let states = machine.transitions();
-
-    assert_eq!(states.len(), 16);
-    assert_eq!(machine.initial_states(), &[true, false, false, false]);
-    assert_eq!(machine.final_states(), &[false, false, true, true]);
+    assert_eq!(machine.transition_count(), 4);
+    assert_eq!(machine.initial_state(), QUEUED);
+    assert_eq!(machine.terminal_states().collect::<Vec<_>>(), vec![SUCCEEDED, FAILED]);
     assert!(machine.is_initial_state(QUEUED));
     assert!(!machine.is_initial_state(RUNNING));
-    assert!(machine.is_final_state(SUCCEEDED));
-    assert!(!machine.is_final_state(RUNNING));
+    assert!(machine.is_terminal_state(SUCCEEDED));
+    assert!(!machine.is_terminal_state(RUNNING));
     assert!(!machine.is_initial_state(9));
-    assert!(!machine.is_final_state(9));
+    assert!(!machine.is_terminal_state(9));
 }

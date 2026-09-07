@@ -27,7 +27,7 @@ fn create_valid_builder() -> FastStateMachineBuilder {
         .state_count(4)
         .event_count(3)
         .initial_state(QUEUED)
-        .final_states(&[SUCCEEDED, FAILED])
+        .terminal_states(&[SUCCEEDED, FAILED])
         .transition(QUEUED, START, RUNNING)
         .transition(RUNNING, COMPLETE, SUCCEEDED)
         .transition(RUNNING, FAIL, FAILED)
@@ -41,12 +41,19 @@ fn test_builder_build_accepts_valid_definition() {
 
     assert_eq!(machine.state_count(), 4);
     assert_eq!(machine.event_count(), 3);
+    assert_eq!(machine.transition_count(), 3);
+    assert!(machine.contains_state(QUEUED));
+    assert!(!machine.contains_state(4));
+    assert_eq!(machine.initial_state(), QUEUED);
+    assert_eq!(machine.terminal_states().collect::<Vec<_>>(), vec![SUCCEEDED, FAILED]);
+    assert_eq!(machine.transitions().collect::<Vec<_>>().len(), 3);
     assert!(machine.is_initial_state(QUEUED));
-    assert!(machine.is_final_state(SUCCEEDED));
-    assert!(machine.is_final_state(FAILED));
+    assert!(machine.is_terminal_state(SUCCEEDED));
+    assert!(machine.is_terminal_state(FAILED));
     assert_eq!(machine.transition_target(QUEUED, START), Some(RUNNING));
     assert_eq!(machine.transition_target(RUNNING, COMPLETE), Some(SUCCEEDED));
     assert_eq!(machine.transition_target(RUNNING, FAIL), Some(FAILED));
+    assert_eq!(machine.create_state().load(), QUEUED);
 }
 
 #[test]
@@ -61,7 +68,7 @@ fn test_builder_accepts_u64_state_and_event_codes() {
         .state_count(state_count)
         .event_count(event_count)
         .initial_state(source)
-        .final_state(target)
+        .terminal_state(target)
         .transition(source, event, target)
         .build()
         .expect("u64-coded state machine should build");
@@ -96,22 +103,21 @@ fn test_builder_cas_policy_has_default_and_can_be_overridden() {
 }
 
 #[test]
-fn test_builder_supports_initial_states_and_final_state() {
+fn test_builder_supports_unique_initial_state_and_terminal_state() {
     let machine = FastStateMachine::builder()
         .state_count(3)
         .event_count(2)
-        .initial_states(&[QUEUED, RUNNING])
-        .final_state(SUCCEEDED)
+        .initial_state(RUNNING)
+        .terminal_state(SUCCEEDED)
         .transition(QUEUED, START, RUNNING)
         .transition(RUNNING, COMPLETE, SUCCEEDED)
         .build()
         .expect("builder should accept multi-state initial setup and final state");
 
-    assert!(machine.is_initial_state(QUEUED));
     assert!(machine.is_initial_state(RUNNING));
     assert!(!machine.is_initial_state(SUCCEEDED));
-    assert!(machine.is_final_state(SUCCEEDED));
-    assert!(!machine.is_final_state(RUNNING));
+    assert!(machine.is_terminal_state(SUCCEEDED));
+    assert!(!machine.is_terminal_state(RUNNING));
 }
 
 #[test]
@@ -178,6 +184,7 @@ fn test_builder_rejects_transition_table_overflow() {
     let error = FastStateMachine::builder()
         .state_count(u64::MAX)
         .event_count(2)
+        .initial_state(0)
         .build()
         .expect_err("transition table size must fit u64");
 
@@ -195,6 +202,7 @@ fn test_builder_rejects_unallocatable_transition_table() {
     let error = FastStateMachine::builder()
         .state_count(u64::MAX)
         .event_count(1)
+        .initial_state(0)
         .build()
         .expect_err("unallocatable transition table must be rejected");
 
@@ -226,6 +234,7 @@ fn test_builder_validates_configuration_before_allocating_transition_table() {
     let conflicting_transition = FastStateMachine::builder()
         .state_count(u64::MAX)
         .event_count(1)
+        .initial_state(0)
         .transition(0, 0, 0)
         .transition(0, 0, 1)
         .build()
@@ -261,17 +270,18 @@ fn test_builder_rejects_invalid_initial_state() {
 }
 
 #[test]
-fn test_builder_rejects_invalid_final_state() {
+fn test_builder_rejects_invalid_terminal_state() {
     let error = FastStateMachine::builder()
         .state_count(4)
         .event_count(1)
-        .final_state(4)
+        .initial_state(0)
+        .terminal_state(4)
         .build()
         .expect_err("final state must be within range");
 
     assert_eq!(
         error,
-        FastStateMachineBuildError::FinalStateOutOfRange {
+        FastStateMachineBuildError::TerminalStateOutOfRange {
             state: 4,
             state_count: 4,
         }
@@ -352,6 +362,7 @@ fn test_builder_accepts_exact_duplicate_transition() {
     let machine = FastStateMachine::builder()
         .state_count(2)
         .event_count(1)
+        .initial_state(QUEUED)
         .transition(QUEUED, START, RUNNING)
         .transition(QUEUED, START, RUNNING)
         .build()
