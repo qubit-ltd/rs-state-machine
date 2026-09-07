@@ -22,6 +22,12 @@ where
     S: Debug,
     E: Debug,
 {
+    /// The configured CAS attempt limit is zero.
+    #[error("CAS maximum attempts must be greater than zero: {max_attempts}")]
+    InvalidCasMaxAttempts {
+        /// Invalid attempt limit.
+        max_attempts: u32,
+    },
     /// An initial state was configured but not registered as a state.
     #[error("initial state is not registered: {state:?}")]
     InitialStateNotRegistered {

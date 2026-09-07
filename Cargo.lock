@@ -418,7 +418,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-cas"
-version = "0.11.0"
+version = "0.12.0"
 dependencies = [
  "qubit-atomic",
  "qubit-error",
@@ -463,7 +463,7 @@ checksum = "59f10e916324739b811520fbfb24746f4822ad9ea1adb53c79fc04b7c090e5ed"
 
 [[package]]
 name = "qubit-retry"
-version = "0.22.0"
+version = "0.23.0"
 dependencies = [
  "qubit-budget",
  "qubit-clock",
@@ -473,7 +473,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-state-machine"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "criterion",
  "qubit-atomic",

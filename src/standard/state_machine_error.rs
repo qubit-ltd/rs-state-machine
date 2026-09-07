@@ -36,9 +36,11 @@ where
         /// The event that was triggered.
         event: E,
     },
-    /// CAS retry limits were exhausted before a transition could be installed.
-    #[error("CAS transition failed after {attempts} attempt(s)")]
-    CasConflict {
+    /// CAS execution terminated before a transition could be installed.
+    #[error("CAS transition failed ({kind:?}) after {attempts} attempt(s)")]
+    CasFailure {
+        /// Terminal CAS error kind.
+        kind: qubit_cas::CasErrorKind,
         /// Number of attempts executed by the CAS executor.
         attempts: u32,
     },

@@ -133,8 +133,12 @@ fn test_state_machine_error_display_describes_failure_context() {
         "unknown transition: New --Finish--> ?"
     );
     assert_eq!(
-        StateMachineError::<JobState, JobEvent>::CasConflict { attempts: 3 }.to_string(),
-        "CAS transition failed after 3 attempt(s)"
+        StateMachineError::<JobState, JobEvent>::CasFailure {
+            kind: qubit_cas::CasErrorKind::RetryExhausted,
+            attempts: 3,
+        }
+        .to_string(),
+        "CAS transition failed (RetryExhausted) after 3 attempt(s)"
     );
 }
 
@@ -255,7 +259,7 @@ fn test_trigger_handles_competing_alternating_transitions() {
                             transitioned = true;
                             break;
                         }
-                        Err(StateMachineError::CasConflict { .. }) => thread::yield_now(),
+                        Err(StateMachineError::CasFailure { .. }) => thread::yield_now(),
                         Err(error) => panic!("alternating transition should be valid: {error}"),
                     }
                 }

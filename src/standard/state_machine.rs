@@ -159,6 +159,7 @@ where
         builder: StateMachineBuilder<S, E>,
         transitions: HashSet<Transition<S, E>>,
         transition_map: HashMap<(S, E), S>,
+        cas_executor: CasExecutor<S, StateMachineError<S, E>>,
     ) -> Self {
         Self {
             states: builder.states,
@@ -166,7 +167,7 @@ where
             final_states: builder.final_states,
             transitions,
             transition_map,
-            cas_executor: CasExecutor::latency_first(),
+            cas_executor,
         }
     }
 
@@ -422,7 +423,7 @@ where
     /// Returns [`StateMachineError::UnknownState`] when the current state is
     /// not registered. Returns [`StateMachineError::UnknownTransition`]
     /// when the current state is registered but has no transition for
-    /// `event`. Returns [`StateMachineError::CasConflict`] when
+    /// `event`. Returns [`StateMachineError::CasFailure`] when
     /// compare-and-swap conflicts exhaust the configured executor policy.
     ///
     /// # Examples
@@ -712,7 +713,8 @@ where
     fn state_error_from_cas_error(error: CasError<S, StateMachineError<S, E>>) -> StateMachineError<S, E> {
         match error.error() {
             Some(error) => *error,
-            None => StateMachineError::CasConflict {
+            None => StateMachineError::CasFailure {
+                kind: error.kind(),
                 attempts: error.attempts(),
             },
         }

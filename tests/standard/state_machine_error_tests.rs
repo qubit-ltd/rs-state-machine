@@ -65,8 +65,12 @@ fn test_state_machine_error_display_reports_runtime_context() {
         "unknown transition: New --Finish--> ?"
     );
     assert_eq!(
-        StateMachineError::<TestState, TestEvent>::CasConflict { attempts: 5 }.to_string(),
-        "CAS transition failed after 5 attempt(s)"
+        StateMachineError::<TestState, TestEvent>::CasFailure {
+            kind: qubit_cas::CasErrorKind::RetryExhausted,
+            attempts: 5,
+        }
+        .to_string(),
+        "CAS transition failed (RetryExhausted) after 5 attempt(s)"
     );
 }
 
@@ -82,7 +86,10 @@ fn test_state_machine_result_alias_uses_runtime_error() {
 
 #[test]
 fn test_state_machine_error_has_no_nested_source() {
-    let error = StateMachineError::<TestState, TestEvent>::CasConflict { attempts: 2 };
+    let error = StateMachineError::<TestState, TestEvent>::CasFailure {
+        kind: qubit_cas::CasErrorKind::ConflictExhausted,
+        attempts: 2,
+    };
 
     assert!(error.source().is_none());
 }

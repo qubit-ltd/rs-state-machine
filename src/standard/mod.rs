@@ -12,6 +12,9 @@
 //! event enums. It is optimized for correctness and ergonomic API while
 //! preserving the current crate behavior.
 
+/// Default maximum CAS attempts used by the standard state machine.
+pub const STANDARD_STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS: u32 = 100;
+
 mod state_machine;
 mod state_machine_build_error;
 mod state_machine_builder;

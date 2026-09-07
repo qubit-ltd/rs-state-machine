@@ -7,6 +7,8 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
+标准状态机使用 `qubit-cas` 0.12。可在构建器上配置 `cas_max_attempts`，CAS 终止类型会保留在 `StateMachineError::CasFailure` 中。
+
 文档：[API 文档](https://docs.rs/qubit-state-machine)
 
 `qubit-state-machine` 是一个小型 Rust 有限状态机库，适用于生命周期、工作流和任务状态跟踪代码。

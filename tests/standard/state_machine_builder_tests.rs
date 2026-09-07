@@ -60,6 +60,15 @@ fn test_builder_build_creates_immutable_state_machine() {
 }
 
 #[test]
+fn test_builder_rejects_zero_cas_attempts() {
+    let error = create_valid_builder()
+        .cas_max_attempts(0)
+        .build()
+        .expect_err("zero CAS attempts must be rejected");
+    assert_eq!(error, StateMachineBuildError::InvalidCasMaxAttempts { max_attempts: 0 });
+}
+
+#[test]
 fn test_builder_build_supports_chained_rule_definition() {
     let machine = StateMachine::builder()
         .add_states(&[JobState::New, JobState::Running, JobState::Done, JobState::Failed])
