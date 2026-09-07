@@ -49,7 +49,7 @@
 //! let machine = StateMachine::builder()
 //!     .add_states(&[State::New, State::Running, State::Done])
 //!     .initial_state(State::New)
-//!     .final_state(State::Done)
+//!     .terminal_state(State::Done)
 //!     .transition(State::New, Event::Start, State::Running)
 //!     .transition(State::Running, Event::Finish, State::Done)
 //!     .build()
@@ -62,6 +62,10 @@
 //! ```
 
 #![deny(missing_docs)]
+
+mod transition;
+
+pub use transition::Transition;
 
 #[cfg(feature = "fast")]
 mod fast;
@@ -90,5 +94,3 @@ pub use standard::StateMachineBuilder;
 pub use standard::StateMachineError;
 #[cfg(feature = "standard")]
 pub use standard::StateMachineResult;
-#[cfg(feature = "standard")]
-pub use standard::Transition;

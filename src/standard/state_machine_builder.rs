@@ -12,9 +12,13 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 
+use qubit_cas::CasExecutor;
+use qubit_cas::CasStrategy;
+
 use super::StateMachine;
 use super::StateMachineBuildError;
-use super::Transition;
+use super::StateMachineError;
+use crate::Transition;
 
 /// Builder used to define and validate finite state machine rules.
 ///
@@ -33,12 +37,14 @@ where
 {
     /// Registered states accepted by the machine.
     pub(crate) states: HashSet<S>,
-    /// Registered states marked as initial.
-    pub(crate) initial_states: HashSet<S>,
-    /// Registered states marked as final.
-    pub(crate) final_states: HashSet<S>,
+    /// The unique registered initial state.
+    pub(crate) initial_state: Option<S>,
+    /// Registered terminal states.
+    pub(crate) terminal_states: HashSet<S>,
     /// Transition definitions in builder insertion order.
     pub(crate) transitions: Vec<Transition<S, E>>,
+    /// CAS executor configuration retained by the built machine.
+    pub(crate) cas_executor: CasExecutor<S, StateMachineError<S, E>>,
 }
 
 impl<S, E> StateMachineBuilder<S, E>
@@ -54,9 +60,10 @@ where
     pub fn new() -> Self {
         Self {
             states: HashSet::new(),
-            initial_states: HashSet::new(),
-            final_states: HashSet::new(),
+            initial_state: None,
+            terminal_states: HashSet::new(),
             transitions: Vec::new(),
+            cas_executor: CasExecutor::latency_first(),
         }
     }
 
@@ -99,24 +106,11 @@ where
     /// The updated builder.
     #[inline]
     pub fn initial_state(mut self, state: S) -> Self {
-        self.initial_states.insert(state);
+        self.initial_state = Some(state);
         self
     }
 
-    /// Registers multiple initial states.
-    ///
-    /// # Parameters
-    /// - `states`: Initial states to add.
-    ///
-    /// # Returns
-    /// The updated builder.
-    #[inline]
-    pub fn initial_states(mut self, states: &[S]) -> Self {
-        self.initial_states.extend(states.iter().copied());
-        self
-    }
-
-    /// Registers one final state.
+    /// Registers one terminal state.
     ///
     /// The state must also be registered through [`add_state`](Self::add_state)
     /// or [`add_states`](Self::add_states) before [`build`](Self::build) is
@@ -128,12 +122,12 @@ where
     /// # Returns
     /// The updated builder.
     #[inline]
-    pub fn final_state(mut self, state: S) -> Self {
-        self.final_states.insert(state);
+    pub fn terminal_state(mut self, state: S) -> Self {
+        self.terminal_states.insert(state);
         self
     }
 
-    /// Registers multiple final states.
+    /// Registers multiple terminal states.
     ///
     /// # Parameters
     /// - `states`: Final states to add.
@@ -141,8 +135,15 @@ where
     /// # Returns
     /// The updated builder.
     #[inline]
-    pub fn final_states(mut self, states: &[S]) -> Self {
-        self.final_states.extend(states.iter().copied());
+    pub fn terminal_states(mut self, states: &[S]) -> Self {
+        self.terminal_states.extend(states.iter().copied());
+        self
+    }
+
+    /// Configures a built-in CAS execution strategy.
+    #[inline]
+    pub fn cas_strategy(mut self, strategy: CasStrategy) -> Self {
+        self.cas_executor = CasExecutor::with_strategy(strategy);
         self
     }
 
@@ -184,21 +185,26 @@ where
     /// A validated immutable state machine.
     ///
     /// # Errors
-    /// Returns a [`StateMachineBuildError`] when an initial state, final state,
+    /// Returns a [`StateMachineBuildError`] when the initial or terminal state,
     /// transition source, or transition target is not registered, or when two
     /// transitions map the same `(source, event)` pair to different targets.
     pub fn build(self) -> Result<StateMachine<S, E>, StateMachineBuildError<S, E>> {
+        let initial_state = self
+            .initial_state
+            .ok_or(StateMachineBuildError::InitialStateNotConfigured)?;
+        if !self.states.contains(&initial_state) {
+            return Err(StateMachineBuildError::InitialStateNotRegistered { state: initial_state });
+        }
         self.validate_registered_states()?;
 
-        let mut transition_set = HashSet::new();
         let mut transition_map = HashMap::new();
         for transition in &self.transitions {
             let transition = *transition;
             self.validate_transition(transition)?;
-            Self::insert_transition(transition, &mut transition_set, &mut transition_map)?;
+            Self::insert_transition(transition, &mut transition_map)?;
         }
 
-        Ok(StateMachine::new(self, transition_set, transition_map))
+        Ok(StateMachine::new(self, transition_map))
     }
 
     /// Validates that initial and final states are registered.
@@ -209,14 +215,9 @@ where
     /// # Errors
     /// Returns the first unregistered initial or final state encountered.
     fn validate_registered_states(&self) -> Result<(), StateMachineBuildError<S, E>> {
-        for state in &self.initial_states {
+        for state in &self.terminal_states {
             if !self.states.contains(state) {
-                return Err(StateMachineBuildError::InitialStateNotRegistered { state: *state });
-            }
-        }
-        for state in &self.final_states {
-            if !self.states.contains(state) {
-                return Err(StateMachineBuildError::FinalStateNotRegistered { state: *state });
+                return Err(StateMachineBuildError::TerminalStateNotRegistered { state: *state });
             }
         }
         Ok(())
@@ -247,6 +248,13 @@ where
                 target: transition.target(),
             });
         }
+        if self.terminal_states.contains(&transition.source()) {
+            return Err(StateMachineBuildError::TerminalStateHasOutgoingTransition {
+                state: transition.source(),
+                event: transition.event(),
+                target: transition.target(),
+            });
+        }
         Ok(())
     }
 
@@ -265,7 +273,6 @@ where
     /// already point to a different target.
     fn insert_transition(
         transition: Transition<S, E>,
-        transition_set: &mut HashSet<Transition<S, E>>,
         transition_map: &mut HashMap<(S, E), S>,
     ) -> Result<(), StateMachineBuildError<S, E>> {
         let source = transition.source();
@@ -281,7 +288,6 @@ where
                 new_target: target,
             });
         }
-        transition_set.insert(transition);
         transition_map.insert((source, event), target);
         Ok(())
     }
