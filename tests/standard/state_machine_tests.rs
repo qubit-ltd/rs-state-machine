@@ -15,6 +15,7 @@ use std::sync::atomic::Ordering;
 use std::thread;
 
 use qubit_atomic::AtomicRef;
+use qubit_cas::CasErrorKind;
 use qubit_state_machine::StateMachine;
 use qubit_state_machine::StateMachineError;
 use qubit_state_machine::StateMachineResult;
@@ -134,7 +135,7 @@ fn test_state_machine_error_display_describes_failure_context() {
     );
     assert_eq!(
         StateMachineError::<JobState, JobEvent>::CasFailure {
-            kind: qubit_cas::CasErrorKind::RetryExhausted,
+            kind: CasErrorKind::RetryExhausted,
             attempts: 3,
         }
         .to_string(),
