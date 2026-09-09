@@ -7,14 +7,16 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-The standard state machine uses `qubit-cas` 0.12. Configure `cas_max_attempts` on the builder; terminal CAS kinds are preserved in `StateMachineError::CasFailure`.
+The standard state machine uses `qubit-cas` 0.13. Inject limits, budgets, and
+backoff with `cas_executor`, or choose a preset with `cas_strategy`. Terminal CAS
+kinds are preserved in `StateMachineError::CasFailure`.
 
 Documentation: [API Reference](https://docs.rs/qubit-state-machine)
 
 `qubit-state-machine` is a small Rust finite state machine crate for lifecycle,
 workflow, and task-state tracking code.
 
-Version 0.7 requires exactly one initial state. Terminal states cannot have
+Version 0.8 requires exactly one initial state. Terminal states cannot have
 outgoing transitions. `create_state()` creates an independent current-state
 cell; externally created cells are not bound to a machine. Callbacks run once
 after a successful commit, with concurrent callback order unspecified, and a
@@ -52,7 +54,7 @@ types from their owning crates:
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.7"
+qubit-state-machine = "0.8"
 qubit-atomic = "0.13"
 qubit-fast-cas = "0.3"
 ```
@@ -61,7 +63,7 @@ Use only the standard implementation:
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.7", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.8", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
 ```
 
@@ -69,7 +71,7 @@ Use only the Fast implementation without pulling in `qubit-cas`:
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.7", default-features = false, features = ["fast"] }
+qubit-state-machine = { version = "0.8", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
 ```
 
@@ -203,6 +205,7 @@ assert!(machine.is_initial_state(QUEUED));
 assert!(machine.is_terminal_state(SUCCEEDED));
 assert_eq!(machine.cas_policy(), FAST_STATE_MACHINE_DEFAULT_CAS_POLICY);
 assert_eq!(tuned.cas_policy(), FastCasPolicy::spin(8));
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 `FAST_STATE_MACHINE_DEFAULT_CAS_POLICY` is used when `.cas_policy(...)` is omitted.
@@ -229,6 +232,7 @@ enum JobEvent {
 
 let error = StateMachine::builder()
     .add_state(JobState::Queued)
+    .initial_state(JobState::Queued)
     .transition(JobState::Queued, JobEvent::Start, JobState::Running)
     .build()
     .expect_err("transition target must be registered");
@@ -266,6 +270,7 @@ enum DoorEvent {
 
 let machine = StateMachine::builder()
     .add_states(&[DoorState::Open, DoorState::Closed])
+    .initial_state(DoorState::Open)
     .transition(DoorState::Open, DoorEvent::Close, DoorState::Closed)
     .build()
     .expect("rules should build");
@@ -307,6 +312,45 @@ assert_eq!(*state.load(), DoorState::Closed);
 | `StateMachine` | Immutable, validated transition table used to query and trigger events. |
 | `StateMachineBuildError` | Validation error returned while building invalid rule sets. |
 | `StateMachineError` | Runtime error returned when an event cannot be applied. |
+
+## Configure Standard CAS
+
+Inject a configured `CasExecutor` with `StateMachineBuilder::cas_executor`.
+For example, one attempt lets the caller decide how to handle contention. Add
+`qubit-cas = "0.13"` to use this configuration entry point. `cas_strategy` and
+`cas_executor` each replace the whole executor; the last call wins. The default
+is LatencyFirst. Synchronous transitions ignore async hard timeouts and block
+the calling thread during retry delays.
+
+```rust
+use qubit_atomic::AtomicRef;
+use qubit_cas::CasExecutor;
+use qubit_state_machine::StateMachine;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum JobState { Queued, Running }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum JobEvent { Start }
+
+let executor = CasExecutor::builder().max_attempts(1).no_delay()
+    .build().expect("valid retry settings");
+let machine = StateMachine::builder()
+    .add_states(&[JobState::Queued, JobState::Running])
+    .initial_state(JobState::Queued)
+    .transition(JobState::Queued, JobEvent::Start, JobState::Running)
+    .cas_executor(executor)
+    .build().expect("valid transition table");
+let state = AtomicRef::from_value(JobState::Queued);
+let mut audit = Vec::new();
+machine.trigger_with(&state, JobEvent::Start, |old, next| audit.push((old, next)))
+    .expect("start transition commits");
+assert_eq!(*state.load(), JobState::Running);
+assert_eq!(audit, vec![(JobState::Queued, JobState::Running)]);
+assert!(!machine.try_trigger(&state, JobEvent::Start));
+```
+
+Read the [English guide](doc/user_guide.md), [中文指南](doc/user_guide.zh_CN.md),
+and [0.8 migration note](doc/migration-0.8.md) for errors and side-effect boundaries.
 
 ## Project Scope
 

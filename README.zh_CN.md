@@ -7,13 +7,14 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
-标准状态机使用 `qubit-cas` 0.12。可在构建器上配置 `cas_max_attempts`，CAS 终止类型会保留在 `StateMachineError::CasFailure` 中。
+标准状态机使用 `qubit-cas` 0.13，通过 `cas_executor` 注入次数、预算及退避配置；
+也可用 `cas_strategy` 选择预设。CAS 终止类型保留在 `StateMachineError::CasFailure` 中。
 
 文档：[API 文档](https://docs.rs/qubit-state-machine)
 
 `qubit-state-machine` 是一个小型 Rust 有限状态机库，适用于生命周期、工作流和任务状态跟踪代码。
 
-0.7 版本要求恰好配置一个初态，终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
+0.8 版本要求恰好配置一个初态，终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
 
 它提供不可变的状态转换规则和构建阶段校验。标准版通过 `qubit-cas` 更新
 `qubit_atomic::AtomicRef`，Fast 版则直接更新
@@ -45,7 +46,7 @@
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.7"
+qubit-state-machine = "0.8"
 qubit-atomic = "0.13"
 qubit-fast-cas = "0.3"
 ```
@@ -54,7 +55,7 @@ qubit-fast-cas = "0.3"
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.7", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.8", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
 ```
 
@@ -62,7 +63,7 @@ qubit-atomic = "0.13"
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.7", default-features = false, features = ["fast"] }
+qubit-state-machine = { version = "0.8", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
 ```
 
@@ -196,6 +197,7 @@ assert!(machine.is_initial_state(QUEUED));
 assert!(machine.is_terminal_state(SUCCEEDED));
 assert_eq!(machine.cas_policy(), FAST_STATE_MACHINE_DEFAULT_CAS_POLICY);
 assert_eq!(tuned.cas_policy(), FastCasPolicy::spin(8));
+# Ok::<(), Box<dyn std::error::Error>>(())
 ```
 
 默认不显式设置时会使用 `FAST_STATE_MACHINE_DEFAULT_CAS_POLICY`，如需调优可通过
@@ -221,6 +223,7 @@ enum JobEvent {
 
 let error = StateMachine::builder()
     .add_state(JobState::Queued)
+    .initial_state(JobState::Queued)
     .transition(JobState::Queued, JobEvent::Start, JobState::Running)
     .build()
     .expect_err("transition target must be registered");
@@ -258,6 +261,7 @@ enum DoorEvent {
 
 let machine = StateMachine::builder()
     .add_states(&[DoorState::Open, DoorState::Closed])
+    .initial_state(DoorState::Open)
     .transition(DoorState::Open, DoorEvent::Close, DoorState::Closed)
     .build()
     .expect("rules should build");
@@ -299,6 +303,43 @@ assert_eq!(*state.load(), DoorState::Closed);
 | `StateMachine` | 已校验的不可变转换表，用于查询和触发事件。 |
 | `StateMachineBuildError` | 构建无效规则集时返回的校验错误。 |
 | `StateMachineError` | 事件无法应用到当前状态时返回的运行时错误。 |
+
+## 配置标准版 CAS
+
+通过 `StateMachineBuilder::cas_executor` 注入配置好的 `CasExecutor`。例如将尝试次数设为 1，
+发生竞争时由调用方决定是否重试。需要此配置入口时在依赖中加入 `qubit-cas = "0.13"`。
+`cas_strategy` 与 `cas_executor` 都替换整个 executor，最后一次调用生效；默认使用 LatencyFirst。
+同步状态迁移忽略异步硬 timeout，退避会阻塞调用线程。
+
+```rust
+use qubit_atomic::AtomicRef;
+use qubit_cas::CasExecutor;
+use qubit_state_machine::StateMachine;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum JobState { Queued, Running }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum JobEvent { Start }
+
+let executor = CasExecutor::builder().max_attempts(1).no_delay()
+    .build().expect("valid retry settings");
+let machine = StateMachine::builder()
+    .add_states(&[JobState::Queued, JobState::Running])
+    .initial_state(JobState::Queued)
+    .transition(JobState::Queued, JobEvent::Start, JobState::Running)
+    .cas_executor(executor)
+    .build().expect("valid transition table");
+let state = AtomicRef::from_value(JobState::Queued);
+let mut audit = Vec::new();
+machine.trigger_with(&state, JobEvent::Start, |old, next| audit.push((old, next)))
+    .expect("start transition commits");
+assert_eq!(*state.load(), JobState::Running);
+assert_eq!(audit, vec![(JobState::Queued, JobState::Running)]);
+assert!(!machine.try_trigger(&state, JobEvent::Start));
+```
+
+完整配置、错误和副作用边界见[中文指南](doc/user_guide.zh_CN.md)、
+[English guide](doc/user_guide.md)和[0.8 迁移说明](doc/migration-0.8.zh_CN.md)。
 
 ## 项目范围
 
