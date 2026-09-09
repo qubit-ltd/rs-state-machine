@@ -184,7 +184,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-state-machine"
-version = "0.8.0"
+version = "0.9.0"
 dependencies = [
  "qubit-atomic",
  "qubit-cas",
@@ -197,6 +197,7 @@ name = "qubit-state-machine-fuzz"
 version = "0.0.0"
 dependencies = [
  "libfuzzer-sys",
+ "qubit-cas",
  "qubit-fast-cas",
  "qubit-state-machine",
 ]

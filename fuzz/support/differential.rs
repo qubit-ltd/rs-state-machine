@@ -5,6 +5,7 @@
 // =============================================================================
 //! Compares runtime traces against a dense reference model, independently of
 //! CAS.
+use qubit_cas::CasExecutor;
 use qubit_state_machine::DenseCode;
 use qubit_state_machine::FastStateMachine;
 use qubit_state_machine::FastStateMachineError;
@@ -63,7 +64,19 @@ pub fn run_differential(data: &[u8]) {
         .state_count(state_count)
         .event_count(event_count)
         .initial_state(0);
-    let mut standard = StateMachine::builder().add_states(&states).initial_state(0);
+    let executor = CasExecutor::<u64, StateMachineError<u64, u64>>::builder()
+        .max_attempts(1)
+        .max_operation_elapsed(None)
+        .max_total_elapsed(None)
+        .attempt_timeout(None)
+        .flow_timeout(None)
+        .no_delay()
+        .build()
+        .expect("deterministic differential executor configuration");
+    let mut standard = StateMachine::builder()
+        .add_states(&states)
+        .initial_state(0)
+        .cas_executor(executor);
     let mut typed = TypedFastStateMachine::builder().initial_state(DiffState::S0);
     for source in 0..state_count {
         for event in 0..event_count {
