@@ -5,8 +5,27 @@ use qubit_cas::CasDecision;
 use qubit_cas::CasExecutor;
 use qubit_cas::CasStrategy;
 
+use crate::STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS;
 use crate::StateMachine;
 use crate::StateMachineError;
+
+#[test]
+fn test_default_executor_is_attempt_bounded_without_time_budgets() {
+    let machine = StateMachine::<u8, u8>::builder()
+        .add_states(&[0, 1])
+        .initial_state(0)
+        .transition(0, 0, 1)
+        .build()
+        .expect("valid machine");
+    let executor = machine.cas_executor();
+    let limits = executor.retry_policy().admission_limits();
+    assert_eq!(STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS, 16);
+    assert_eq!(limits.max_attempts().get(), STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS);
+    assert_eq!(limits.operation_time_budget(), None);
+    assert_eq!(limits.total_time_budget(), None);
+    assert_eq!(executor.attempt_timeout(), None);
+    assert_eq!(executor.flow_timeout(), None);
+}
 
 #[test]
 fn test_injection_and_strategy_replace_whole_executor() {
@@ -21,14 +40,19 @@ fn test_injection_and_strategy_replace_whole_executor() {
         } else {
             builder.cas_strategy(CasStrategy::LatencyFirst).cas_executor(executor)
         };
-        // Finish has no timing sensitivity; its context exposes the installed limit.
-        let state = AtomicRef::from_value(0u8);
-        let success = builder
-            .cas_executor
-            .execute_result(&state, |_: &u8| CasDecision::finish(()))
-            .expect("finish succeeds");
-        assert_eq!(success.context().max_attempts(), if strategy_last { 100 } else { 1 });
+        let limits = builder.cas_executor.retry_policy().admission_limits();
+        if strategy_last {
+            let profile = CasStrategy::LatencyFirst.profile();
+            assert_eq!(limits.max_attempts().get(), profile.max_attempts());
+            assert_eq!(limits.operation_time_budget(), Some(profile.max_operation_elapsed()));
+            assert_eq!(limits.total_time_budget(), profile.max_total_elapsed());
+        } else {
+            assert_eq!(limits.max_attempts().get(), 1);
+            assert_eq!(limits.operation_time_budget(), None);
+            assert_eq!(limits.total_time_budget(), None);
+        }
         if !strategy_last {
+            let state = AtomicRef::from_value(0u8);
             let error = builder
                 .cas_executor
                 .execute_result(&state, |_: &u8| {

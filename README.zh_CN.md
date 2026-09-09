@@ -16,7 +16,9 @@
 
 `qubit-state-machine` 是一个小型 Rust 有限状态机库，适用于生命周期、工作流和任务状态跟踪代码。
 
-0.8 版本要求恰好配置一个初态，终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
+0.9 版本要求恰好配置一个初态，终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
+
+标准版默认使用 16 次立即 CAS 尝试，不设置墙钟时间预算。需要时间上限时，请显式选择 `CasStrategy::LatencyFirst`；CAS 终止失败仍与业务上的未定义转换区分。
 
 它提供不可变的状态转换规则和构建阶段校验。标准版通过 `qubit-cas` 更新
 `qubit_atomic::AtomicRef`，Fast 版则直接更新
@@ -96,7 +98,7 @@ CAS 只原子提交状态；冲突重试会针对新观察状态重新计算该�
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.8"
+qubit-state-machine = "0.9"
 qubit-atomic = "0.13"
 qubit-fast-cas = "0.3"
 ```
@@ -105,7 +107,7 @@ qubit-fast-cas = "0.3"
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.8", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
 ```
 
@@ -113,7 +115,7 @@ qubit-atomic = "0.13"
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.8", default-features = false, features = ["fast"] }
+qubit-state-machine = { version = "0.9", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
 ```
 

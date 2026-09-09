@@ -19,6 +19,7 @@ mod state_machine_error;
 
 pub use state_machine::StateMachine;
 pub use state_machine_build_error::StateMachineBuildError;
+pub use state_machine_builder::STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS;
 pub use state_machine_builder::StateMachineBuilder;
 pub use state_machine_error::StateMachineError;
 pub use state_machine_error::StateMachineResult;
