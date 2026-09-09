@@ -21,3 +21,17 @@ pub enum TypedFastStateMachineError {
     #[error(transparent)]
     Raw(#[from] FastStateMachineError),
 }
+
+impl TypedFastStateMachineError {
+    /// Returns whether the supplied event has no configured transition.
+    #[must_use]
+    pub const fn is_unknown_transition(&self) -> bool {
+        matches!(self, Self::Raw(FastStateMachineError::UnknownTransition { .. }))
+    }
+
+    /// Returns whether the CAS retry budget was exhausted.
+    #[must_use]
+    pub const fn is_cas_conflict(&self) -> bool {
+        matches!(self, Self::Raw(FastStateMachineError::CasConflict { .. }))
+    }
+}

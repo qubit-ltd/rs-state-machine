@@ -283,4 +283,22 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
             )
         })
     }
+
+    /// Analyzes reachability and paths to explicit terminal states.
+    #[must_use]
+    pub fn diagnose_graph(&self) -> crate::GraphDiagnostics<S> {
+        let report = self.raw.diagnose_graph();
+        crate::GraphDiagnostics {
+            unreachable_states: report
+                .unreachable_states
+                .into_iter()
+                .map(|code| decode(code).expect("validated state must decode"))
+                .collect(),
+            states_without_terminal_path: report
+                .states_without_terminal_path
+                .into_iter()
+                .map(|code| decode(code).expect("validated state must decode"))
+                .collect(),
+        }
+    }
 }

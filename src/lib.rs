@@ -68,6 +68,11 @@ mod transition;
 
 pub use transition::Transition;
 
+#[cfg(any(feature = "standard", feature = "fast"))]
+mod diagnostics;
+#[cfg(any(feature = "standard", feature = "fast"))]
+pub use diagnostics::GraphDiagnostics;
+
 #[cfg(feature = "fast")]
 mod fast;
 #[cfg(feature = "standard")]

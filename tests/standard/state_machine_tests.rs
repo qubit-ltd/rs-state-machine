@@ -285,21 +285,45 @@ fn test_trigger_handles_competing_alternating_transitions() {
 #[cfg(feature = "standard")]
 #[test]
 fn test_standard_strategy_reports_actual_configuration() {
+    use qubit_cas::CasExecutor;
     use qubit_cas::CasStrategy;
-    use qubit_state_machine::StateMachine;
     let default = StateMachine::<u8, u8>::builder()
         .add_state(0)
         .initial_state(0)
         .build()
         .expect("machine definition is valid");
-    assert_eq!(default.cas_strategy(), CasStrategy::LatencyFirst);
+    assert_eq!(
+        default
+            .cas_executor()
+            .retry_policy()
+            .admission_limits()
+            .max_attempts()
+            .get(),
+        CasExecutor::<JobState, StateMachineError<JobState, JobEvent>>::latency_first()
+            .retry_policy()
+            .admission_limits()
+            .max_attempts()
+            .get()
+    );
     let custom = StateMachine::<u8, u8>::builder()
         .add_state(0)
         .initial_state(0)
         .cas_strategy(CasStrategy::ReliabilityFirst)
         .build()
         .expect("machine definition is valid");
-    assert_eq!(custom.cas_strategy(), CasStrategy::ReliabilityFirst);
+    assert_eq!(
+        custom
+            .cas_executor()
+            .retry_policy()
+            .admission_limits()
+            .max_attempts()
+            .get(),
+        CasExecutor::<JobState, StateMachineError<JobState, JobEvent>>::reliability_first()
+            .retry_policy()
+            .admission_limits()
+            .max_attempts()
+            .get()
+    );
 }
 
 mod runtime_contracts {

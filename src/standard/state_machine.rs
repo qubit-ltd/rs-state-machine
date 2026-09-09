@@ -16,7 +16,6 @@ use qubit_atomic::AtomicRef;
 use qubit_cas::CasDecision;
 use qubit_cas::CasError;
 use qubit_cas::CasExecutor;
-use qubit_cas::CasStrategy;
 use qubit_cas::CasSuccess;
 
 use super::StateMachineBuilder;
@@ -100,8 +99,6 @@ where
     terminal_states: HashSet<S>,
     /// Constant-time transition lookup keyed by `(source, event)`.
     transition_map: HashMap<(S, E), S>,
-    /// Configured strategy installed in the CAS executor.
-    cas_strategy: CasStrategy,
     /// CAS executor used to update external current-state references.
     cas_executor: CasExecutor<S, StateMachineError<S, E>>,
 }
@@ -161,20 +158,48 @@ where
             initial_state: builder.initial_state.expect("builder validates initial state"),
             terminal_states: builder.terminal_states,
             transition_map,
-            cas_strategy: builder.cas_strategy,
             cas_executor: builder.cas_executor,
         }
     }
 
-    /// Returns the configured CAS strategy.
-    ///
-    /// Inspect its profile for the actual retry and elapsed-time budgets.
-    ///
-    /// # Returns
-    /// The strategy used by every trigger on this machine.
+    /// Returns the executor containing the actual synchronous CAS
+    /// configuration.
+    #[must_use]
     #[inline(always)]
-    pub const fn cas_strategy(&self) -> CasStrategy {
-        self.cas_strategy
+    pub const fn cas_executor(&self) -> &CasExecutor<S, StateMachineError<S, E>> {
+        &self.cas_executor
+    }
+
+    /// Analyzes reachability and paths to explicit terminal states.
+    #[must_use]
+    pub fn diagnose_graph(&self) -> crate::GraphDiagnostics<S> {
+        let states: Vec<S> = self.states.iter().copied().collect();
+        let indices: HashMap<S, usize> = states
+            .iter()
+            .copied()
+            .enumerate()
+            .map(|(index, state)| (state, index))
+            .collect();
+        let report = crate::diagnostics::analyze_graph(
+            states.len(),
+            indices[&self.initial_state],
+            self.terminal_states.iter().map(|state| indices[state]),
+            self.transition_map
+                .iter()
+                .map(|((source, _), target)| (indices[source], indices[target])),
+        );
+        crate::GraphDiagnostics {
+            unreachable_states: report
+                .unreachable_states
+                .into_iter()
+                .map(|index| states[index])
+                .collect(),
+            states_without_terminal_path: report
+                .states_without_terminal_path
+                .into_iter()
+                .map(|index| states[index])
+                .collect(),
+        }
     }
 
     /// Returns all registered states.
