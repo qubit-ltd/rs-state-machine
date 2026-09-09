@@ -16,6 +16,7 @@ use qubit_atomic::AtomicRef;
 use qubit_cas::CasDecision;
 use qubit_cas::CasError;
 use qubit_cas::CasExecutor;
+use qubit_cas::CasStrategy;
 use qubit_cas::CasSuccess;
 
 use super::StateMachineBuilder;
@@ -99,6 +100,8 @@ where
     terminal_states: HashSet<S>,
     /// Constant-time transition lookup keyed by `(source, event)`.
     transition_map: HashMap<(S, E), S>,
+    /// Configured strategy installed in the CAS executor.
+    cas_strategy: CasStrategy,
     /// CAS executor used to update external current-state references.
     cas_executor: CasExecutor<S, StateMachineError<S, E>>,
 }
@@ -144,7 +147,6 @@ where
     ///
     /// # Parameters
     /// - `builder`: Builder containing validated states and terminal markers.
-    /// - `transitions`: Validated transition set.
     /// - `transition_map`: Lookup table keyed by `(source, event)`.
     ///
     /// # Returns
@@ -159,8 +161,20 @@ where
             initial_state: builder.initial_state.expect("builder validates initial state"),
             terminal_states: builder.terminal_states,
             transition_map,
+            cas_strategy: builder.cas_strategy,
             cas_executor: builder.cas_executor,
         }
+    }
+
+    /// Returns the configured CAS strategy.
+    ///
+    /// Inspect its profile for the actual retry and elapsed-time budgets.
+    ///
+    /// # Returns
+    /// The strategy used by every trigger on this machine.
+    #[inline(always)]
+    pub const fn cas_strategy(&self) -> CasStrategy {
+        self.cas_strategy
     }
 
     /// Returns all registered states.
@@ -193,7 +207,7 @@ where
     /// Returns the configured initial state.
     ///
     /// # Returns
-    /// An immutable view of the initial state set.
+    /// The unique configured initial state.
     ///
     /// # Examples
     ///
@@ -246,7 +260,7 @@ where
     /// Returns all registered transitions.
     ///
     /// # Returns
-    /// An immutable view of the transition set.
+    /// An iterator of configured transition values.
     ///
     /// # Examples
     ///
@@ -434,6 +448,10 @@ where
 
     /// Triggers an event and updates the provided atomic state reference.
     ///
+    /// External cells are not bound to a machine. Conflict retries resolve
+    /// the event against each newly observed state; only state installation
+    /// commits atomically, not associated payload or result publication.
+    ///
     /// # Parameters
     /// - `state`: Current state atomic reference.
     /// - `event`: Event to apply.
@@ -446,7 +464,7 @@ where
     /// not registered. Returns [`StateMachineError::UnknownTransition`]
     /// when the current state is registered but has no transition for
     /// `event`. Returns [`StateMachineError::CasFailure`] when
-    /// compare-and-swap conflicts exhaust the configured executor policy.
+    /// execution reaches a terminal limit of the configured executor policy.
     ///
     /// # Examples
     ///
@@ -485,7 +503,10 @@ where
     /// Triggers an event, updates the atomic state, and invokes a success
     /// callback.
     ///
-    /// The callback runs after the CAS update has succeeded.
+    /// The callback runs once after the CAS update has succeeded. It may
+    /// reenter the machine; concurrent callbacks need not follow commit order.
+    /// It may observe a later state, while its arguments and the return value
+    /// describe this commit. Payload publication is coordinated by the caller.
     ///
     /// # Type Parameters
     /// - `F`: One-shot callback type.
@@ -746,7 +767,3 @@ where
         }
     }
 }
-
-#[cfg(test)]
-#[path = "../tests/state_error_mapping_tests.rs"]
-mod error_mapping_tests;

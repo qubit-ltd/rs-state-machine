@@ -39,6 +39,54 @@
 - 为服务、任务、设备或 UI 逻辑提供简单、轻量的状态跟踪能力
 - 在高频触发场景中使用 `FastStateMachine` 获取更紧凑的转移性能
 
+## 强类型 Fast 状态机
+
+任务生命周期使用 `TypedFastStateMachine<S, E>` 时，状态与事件在编译期区分，数量由 `DenseCode::VALUES` 推导。`code()` 必须稳定返回值在数组中的索引；每个可用值列出一次。构建器检查编码表，运行时也检查输入是否属于该表；反向转换使用安全索引，无需实现 `from_code` 或使用 `transmute`。
+
+```rust
+use qubit_state_machine::{DenseCode, TypedFastStateMachine};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum State { Pending, Running, Done }
+impl DenseCode for State {
+    const VALUES: &'static [Self] = &[Self::Pending, Self::Running, Self::Done];
+    fn code(self) -> u64 { self as u64 }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Event { Start, Finish }
+impl DenseCode for Event {
+    const VALUES: &'static [Self] = &[Self::Start, Self::Finish];
+    fn code(self) -> u64 { self as u64 }
+}
+
+let machine = TypedFastStateMachine::<State, Event>::builder()
+    .initial_state(State::Pending)
+    .terminal_state(State::Done)
+    .transition(State::Pending, Event::Start, State::Running)
+    .transition(State::Running, Event::Finish, State::Done)
+    .build().expect("valid job definition");
+let state = machine.create_state();
+assert_eq!(machine.trigger(&state, Event::Start).expect("start"), State::Running);
+assert!(machine.try_trigger(&state, Event::Finish));
+assert!(machine.is_terminal_state(state.load()));
+```
+
+| 入口 | 适用场景与成本 |
+| --- | --- |
+| `StateMachine` | 泛型 `Copy + Eq + Hash + Debug` 状态；HashMap 查表，每次候选更新分配 Arc。 |
+| `FastStateMachine` | 原始整数协议；调用方提供连续 code 范围，稠密查表与整数 CAS。 |
+| `TypedFastStateMachine` | 枚举生命周期；复用同一 Fast 内核并检查类型和值表，不额外分配每次转换的堆对象。实际性能以 benchmark 为准。 |
+
+三种入口均保留不可变规则与独立状态单元。原始 Fast 是正式的整数入口，不是兼容适配层。强类型状态单元只能由机器创建，公开读而不公开 setter/raw 单元；同一种状态类型的机器可共用单元，没有机器身份绑定。
+
+## 并发与错误边界
+
+`trigger` 返回详细错误；`try_trigger`/`try_trigger_with` 将未知状态、未定义转换和 CAS 耗尽都压成 `false`。对必须区分业务拒绝与执行失败的路径，使用 `trigger` 并匹配错误。Typed 入口会额外拒绝未列入值表的事件，其他错误通过 `TypedFastStateMachineError::Raw` 保留。
+
+CAS 只原子提交状态；冲突重试会针对新观察状态重新计算该事件的后继，不保证仍从最早读到的状态出发，也不保证检测循环中的 ABA。回调在提交后执行一次，允许重入，并发顺序不保证；回调可能看到更晚的状态，但参数和返回值仍描述本次提交。回调 panic 会传播，状态不会回滚。
+
+结果发送、hook 排序和业务 payload 的同步由调用方维护。例如 executor 的 `is_done()` 表示已经进入终态，结果仍可能正在发布；它不等价于此刻非阻塞取结果一定成功。需要联合维护队列、计数和生命周期的 monitor 状态，不宜拆成一个独立原子状态机。
+
 ## 安装
 
 默认 feature 集同时包含标准版和 Fast 版。原子状态类型必须从其所属 crate
@@ -151,6 +199,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 `index = source * event_count + event`。
 
 ```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 use qubit_fast_cas::{FastCasPolicy, FastCasState};
 use qubit_state_machine::{
     FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
@@ -197,7 +246,8 @@ assert!(machine.is_initial_state(QUEUED));
 assert!(machine.is_terminal_state(SUCCEEDED));
 assert_eq!(machine.cas_policy(), FAST_STATE_MACHINE_DEFAULT_CAS_POLICY);
 assert_eq!(tuned.cas_policy(), FastCasPolicy::spin(8));
-# Ok::<(), Box<dyn std::error::Error>>(())
+# Ok(())
+# }
 ```
 
 默认不显式设置时会使用 `FAST_STATE_MACHINE_DEFAULT_CAS_POLICY`，如需调优可通过
@@ -303,43 +353,6 @@ assert_eq!(*state.load(), DoorState::Closed);
 | `StateMachine` | 已校验的不可变转换表，用于查询和触发事件。 |
 | `StateMachineBuildError` | 构建无效规则集时返回的校验错误。 |
 | `StateMachineError` | 事件无法应用到当前状态时返回的运行时错误。 |
-
-## 配置标准版 CAS
-
-通过 `StateMachineBuilder::cas_executor` 注入配置好的 `CasExecutor`。例如将尝试次数设为 1，
-发生竞争时由调用方决定是否重试。需要此配置入口时在依赖中加入 `qubit-cas = "0.13"`。
-`cas_strategy` 与 `cas_executor` 都替换整个 executor，最后一次调用生效；默认使用 LatencyFirst。
-同步状态迁移忽略异步硬 timeout，退避会阻塞调用线程。
-
-```rust
-use qubit_atomic::AtomicRef;
-use qubit_cas::CasExecutor;
-use qubit_state_machine::StateMachine;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum JobState { Queued, Running }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-enum JobEvent { Start }
-
-let executor = CasExecutor::builder().max_attempts(1).no_delay()
-    .build().expect("valid retry settings");
-let machine = StateMachine::builder()
-    .add_states(&[JobState::Queued, JobState::Running])
-    .initial_state(JobState::Queued)
-    .transition(JobState::Queued, JobEvent::Start, JobState::Running)
-    .cas_executor(executor)
-    .build().expect("valid transition table");
-let state = AtomicRef::from_value(JobState::Queued);
-let mut audit = Vec::new();
-machine.trigger_with(&state, JobEvent::Start, |old, next| audit.push((old, next)))
-    .expect("start transition commits");
-assert_eq!(*state.load(), JobState::Running);
-assert_eq!(audit, vec![(JobState::Queued, JobState::Running)]);
-assert!(!machine.try_trigger(&state, JobEvent::Start));
-```
-
-完整配置、错误和副作用边界见[中文指南](doc/user_guide.zh_CN.md)、
-[English guide](doc/user_guide.md)和[0.8 迁移说明](doc/migration-0.8.zh_CN.md)。
 
 ## 项目范围
 

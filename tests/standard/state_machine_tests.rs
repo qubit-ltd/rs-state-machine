@@ -281,3 +281,180 @@ fn test_trigger_handles_competing_alternating_transitions() {
     assert_eq!(new_targets.load(Ordering::SeqCst), total_transitions / 2);
     assert_eq!(running_targets.load(Ordering::SeqCst), total_transitions / 2);
 }
+
+#[cfg(feature = "standard")]
+#[test]
+fn test_standard_strategy_reports_actual_configuration() {
+    use qubit_cas::CasStrategy;
+    use qubit_state_machine::StateMachine;
+    let default = StateMachine::<u8, u8>::builder()
+        .add_state(0)
+        .initial_state(0)
+        .build()
+        .expect("machine definition is valid");
+    assert_eq!(default.cas_strategy(), CasStrategy::LatencyFirst);
+    let custom = StateMachine::<u8, u8>::builder()
+        .add_state(0)
+        .initial_state(0)
+        .cas_strategy(CasStrategy::ReliabilityFirst)
+        .build()
+        .expect("machine definition is valid");
+    assert_eq!(custom.cas_strategy(), CasStrategy::ReliabilityFirst);
+}
+
+mod runtime_contracts {
+    use std::panic::AssertUnwindSafe;
+    use std::panic::catch_unwind;
+    use std::sync::Arc;
+    use std::sync::Mutex;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    use qubit_state_machine::StateMachine;
+    use qubit_state_machine::StateMachineBuildError;
+    type Machine = StateMachine<u64, u64>;
+
+    /// Builds the same three-state lifecycle for each backend.
+    fn create_machine() -> Machine {
+        Machine::builder()
+            .add_states(&[0, 1, 2])
+            .initial_state(0)
+            .terminal_state(2)
+            .transition(0, 0, 1)
+            .transition(1, 1, 2)
+            .build()
+            .expect("lifecycle definition is valid")
+    }
+
+    #[test]
+    fn test_initial_state_and_terminal_edges() {
+        assert!(matches!(
+            Machine::builder().add_states(&[0, 1, 2]).build(),
+            Err(StateMachineBuildError::InitialStateNotConfigured)
+        ));
+        for target in [0, 1] {
+            assert!(
+                matches!(Machine::builder().add_states(&[0, 1, 2]).initial_state(0).terminal_state(0)
+                .transition(0, 0, target).build(),
+                Err(StateMachineBuildError::TerminalStateHasOutgoingTransition { state: 0, event: 0, target: actual }) if actual == target)
+            );
+        }
+        let terminal = Machine::builder()
+            .add_states(&[0, 1, 2])
+            .initial_state(0)
+            .terminal_state(0)
+            .build()
+            .expect("an initial terminal state may have no edges");
+        assert!(terminal.is_terminal_state(terminal.initial_state()));
+        let state = terminal.create_state();
+        assert!(!terminal.try_trigger(&state, 0));
+        let overwritten = Machine::builder()
+            .add_states(&[0, 1, 2])
+            .initial_state(0)
+            .initial_state(1)
+            .build()
+            .expect("the last initial state wins");
+        assert_eq!(overwritten.initial_state(), 1);
+        let state = overwritten.create_state();
+        assert_eq!(*state.load(), 1);
+    }
+
+    #[test]
+    fn test_self_transition_commits_once_and_failure_skips_callback() {
+        let machine = Machine::builder()
+            .add_states(&[0, 1, 2])
+            .initial_state(0)
+            .transition(0, 0, 0)
+            .transition(0, 0, 0)
+            .build()
+            .expect("duplicate self edge is valid");
+        assert_eq!(machine.transition_count(), 1);
+        let state = machine.create_state();
+        let mut calls = Vec::new();
+        assert!(machine.try_trigger_with(&state, 0, |old, new| calls.push((old, new))));
+        assert!(!machine.try_trigger_with(&state, 2, |old, new| calls.push((old, new))));
+        assert_eq!(calls, vec![(0, 0)]);
+        assert_eq!(*state.load(), 0);
+        assert!(matches!(
+            Machine::builder()
+                .add_states(&[0, 1, 2])
+                .initial_state(0)
+                .transition(0, 0, 1)
+                .transition(0, 0, 2)
+                .build(),
+            Err(StateMachineBuildError::DuplicateTransition { .. })
+        ));
+    }
+
+    #[test]
+    fn test_created_states_are_independent() {
+        let machine = create_machine();
+        let first = machine.create_state();
+        let state = machine.create_state();
+        assert_eq!(machine.trigger(&first, 0).expect("start commits"), 1);
+        assert_eq!(*state.load(), 0);
+    }
+
+    #[test]
+    fn test_callback_reentry_returns_own_target() {
+        let machine = create_machine();
+        let state = machine.create_state();
+        let result = machine
+            .trigger_with(&state, 0, |old, new| {
+                assert_eq!((old, new), (0, 1));
+                assert_eq!(machine.trigger(&state, 1).expect("nested finish commits"), 2);
+            })
+            .expect("outer start commits");
+        assert_eq!(result, 1);
+        assert_eq!(*state.load(), 2);
+    }
+
+    #[test]
+    fn test_callback_panic_preserves_commit() {
+        let machine = create_machine();
+        let state = machine.create_state();
+        let outcome = catch_unwind(AssertUnwindSafe(|| {
+            let _result = machine.trigger_with(&state, 0, |_, _| panic!("callback panicked"));
+        }));
+        assert!(outcome.is_err());
+        assert_eq!(*state.load(), 1);
+    }
+
+    #[test]
+    fn test_callbacks_can_observe_later_state_and_finish_out_of_order() {
+        let machine = Arc::new(create_machine());
+        let state = Arc::new(machine.create_state());
+        let order = Arc::new(Mutex::new(Vec::new()));
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let thread_machine = Arc::clone(&machine);
+        let thread_state = Arc::clone(&state);
+        let thread_order = Arc::clone(&order);
+        let worker = std::thread::spawn(move || {
+            thread_machine
+                .trigger_with(&thread_state, 0, |old, new| {
+                    entered_tx.send(()).expect("receiver remains alive");
+                    release_rx
+                        .recv_timeout(Duration::from_secs(5))
+                        .expect("later callback releases earlier callback");
+                    assert_eq!((old, new), (0, 1));
+                    let state = &thread_state;
+                    assert_eq!(*state.load(), 2);
+                    thread_order.lock().expect("order lock is healthy").push(0);
+                })
+                .expect("first transition commits")
+        });
+        entered_rx
+            .recv_timeout(Duration::from_secs(5))
+            .expect("first callback entered");
+        machine
+            .trigger_with(&state, 1, |old, new| {
+                assert_eq!((old, new), (1, 2));
+                order.lock().expect("order lock is healthy").push(1);
+            })
+            .expect("second transition commits");
+        release_tx.send(()).expect("earlier callback is waiting");
+        assert_eq!(worker.join().expect("worker finishes"), 1);
+        assert_eq!(*order.lock().expect("order lock is healthy"), vec![1, 0]);
+    }
+}
