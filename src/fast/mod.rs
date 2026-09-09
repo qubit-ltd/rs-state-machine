@@ -25,3 +25,11 @@ pub use fast_state_machine_builder::FAST_STATE_MACHINE_DEFAULT_CAS_POLICY;
 pub use fast_state_machine_builder::FastStateMachineBuilder;
 pub use fast_state_machine_error::FastStateMachineError;
 pub use fast_state_machine_error::FastStateMachineResult;
+
+mod typed;
+pub use typed::DenseCode;
+pub use typed::TypedFastState;
+pub use typed::TypedFastStateMachine;
+pub use typed::TypedFastStateMachineBuildError;
+pub use typed::TypedFastStateMachineBuilder;
+pub use typed::TypedFastStateMachineError;

@@ -9,6 +9,7 @@
 
 use std::error::Error;
 
+use qubit_cas::CasErrorKind;
 use qubit_state_machine::StateMachineError;
 use qubit_state_machine::StateMachineResult;
 
@@ -66,7 +67,7 @@ fn test_state_machine_error_display_reports_runtime_context() {
     );
     assert_eq!(
         StateMachineError::<TestState, TestEvent>::CasFailure {
-            kind: qubit_cas::CasErrorKind::RetryExhausted,
+            kind: CasErrorKind::RetryExhausted,
             attempts: 5,
         }
         .to_string(),
@@ -87,7 +88,7 @@ fn test_state_machine_result_alias_uses_runtime_error() {
 #[test]
 fn test_state_machine_error_has_no_nested_source() {
     let error = StateMachineError::<TestState, TestEvent>::CasFailure {
-        kind: qubit_cas::CasErrorKind::ConflictExhausted,
+        kind: CasErrorKind::ConflictExhausted,
         attempts: 2,
     };
 
