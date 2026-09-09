@@ -412,6 +412,29 @@ fn test_typed_error_sources_and_diagnostics() {
 }
 
 #[test]
+fn test_typed_error_classification() {
+    use qubit_state_machine::FastStateMachineError as Raw;
+    use qubit_state_machine::TypedFastStateMachineError as Error;
+
+    for (error, rejected, conflicted) in [
+        (Error::InvalidEventCode { code: 99 }, false, false),
+        (Error::Raw(Raw::UnknownState { state: 99 }), false, false),
+        (
+            Error::Raw(Raw::UnknownTransition {
+                source_state: 1,
+                event: 2,
+            }),
+            true,
+            false,
+        ),
+        (Error::Raw(Raw::CasConflict { attempts: 7 }), false, true),
+    ] {
+        assert_eq!(error.is_unknown_transition(), rejected);
+        assert_eq!(error.is_cas_conflict(), conflicted);
+    }
+}
+
+#[test]
 fn test_typed_callbacks_can_observe_later_state_and_finish_out_of_order() {
     use std::sync::Arc;
     use std::sync::Mutex;

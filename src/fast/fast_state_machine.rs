@@ -98,6 +98,31 @@ impl FastStateMachine {
         })
     }
 
+    /// Analyzes reachability and paths to explicit terminal states.
+    #[must_use]
+    pub fn diagnose_graph(&self) -> crate::GraphDiagnostics<u64> {
+        let index = |code: u64| usize::try_from(code).expect("validated state code fits usize");
+        let report = crate::diagnostics::analyze_graph(
+            index(self.state_count),
+            index(self.initial_state),
+            self.terminal_states().map(index),
+            self.transitions()
+                .map(|edge| (index(edge.source()), index(edge.target()))),
+        );
+        crate::GraphDiagnostics {
+            unreachable_states: report
+                .unreachable_states
+                .into_iter()
+                .map(|index| index as u64)
+                .collect(),
+            states_without_terminal_path: report
+                .states_without_terminal_path
+                .into_iter()
+                .map(|index| index as u64)
+                .collect(),
+        }
+    }
+
     /// Returns the CAS retry policy used for all transitions.
     ///
     /// This is the policy configured in the builder via
