@@ -20,9 +20,6 @@ use super::StateMachineBuildError;
 use super::StateMachineError;
 use crate::Transition;
 
-/// Default maximum CAS attempts used by the standard state machine.
-pub const STANDARD_STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS: u32 = 100;
-
 /// Builder used to define and validate finite state machine rules.
 ///
 /// Configuration methods consume and return the builder so rule definitions
@@ -46,7 +43,9 @@ where
     pub(crate) terminal_states: HashSet<S>,
     /// Transition definitions in builder insertion order.
     pub(crate) transitions: Vec<Transition<S, E>>,
-    /// CAS executor configuration retained by the built machine.
+    /// CAS strategy installed when the immutable machine is built.
+    pub(crate) cas_strategy: CasStrategy,
+    /// CAS executor installed when the immutable machine is built.
     pub(crate) cas_executor: CasExecutor<S, StateMachineError<S, E>>,
 }
 
@@ -66,6 +65,7 @@ where
             initial_state: None,
             terminal_states: HashSet::new(),
             transitions: Vec::new(),
+            cas_strategy: CasStrategy::LatencyFirst,
             cas_executor: CasExecutor::latency_first(),
         }
     }
@@ -163,6 +163,7 @@ where
     /// executor.
     #[inline]
     pub fn cas_strategy(mut self, strategy: CasStrategy) -> Self {
+        self.cas_strategy = strategy;
         self.cas_executor = CasExecutor::with_strategy(strategy);
         self
     }

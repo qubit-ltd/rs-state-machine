@@ -10,7 +10,8 @@
 //! A small, thread-safe finite state machine for Rust.
 //!
 //! With the default feature set, this crate provides a generic state machine
-//! (`StateMachine`) and a compact fast state machine (`FastStateMachine`)
+//! (`StateMachine`), a typed dense machine (`TypedFastStateMachine`),
+//! and a compact integer state machine (`FastStateMachine`)
 //! built on dense `u64` codes and `FastCas`.
 //!
 //! # Cargo features
@@ -73,6 +74,8 @@ mod fast;
 mod standard;
 
 #[cfg(feature = "fast")]
+pub use fast::DenseCode;
+#[cfg(feature = "fast")]
 pub use fast::FAST_STATE_MACHINE_DEFAULT_CAS_POLICY;
 #[cfg(feature = "fast")]
 pub use fast::FastStateMachine;
@@ -84,8 +87,16 @@ pub use fast::FastStateMachineBuilder;
 pub use fast::FastStateMachineError;
 #[cfg(feature = "fast")]
 pub use fast::FastStateMachineResult;
-#[cfg(feature = "standard")]
-pub use standard::STANDARD_STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS;
+#[cfg(feature = "fast")]
+pub use fast::TypedFastState;
+#[cfg(feature = "fast")]
+pub use fast::TypedFastStateMachine;
+#[cfg(feature = "fast")]
+pub use fast::TypedFastStateMachineBuildError;
+#[cfg(feature = "fast")]
+pub use fast::TypedFastStateMachineBuilder;
+#[cfg(feature = "fast")]
+pub use fast::TypedFastStateMachineError;
 #[cfg(feature = "standard")]
 pub use standard::StateMachine;
 #[cfg(feature = "standard")]
@@ -99,3 +110,11 @@ pub use standard::StateMachineResult;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(all(doctest, feature = "standard", feature = "fast"))]
+#[doc = include_str!("../README.md")]
+mod readme_en {}
+
+#[cfg(all(doctest, feature = "standard", feature = "fast"))]
+#[doc = include_str!("../README.zh_CN.md")]
+mod readme_zh_cn {}

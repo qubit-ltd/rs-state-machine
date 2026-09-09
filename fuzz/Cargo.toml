@@ -41,3 +41,11 @@ test = false
 doc = false
 bench = false
 required-features = ["standard"]
+
+[[bin]]
+name = "differential"
+path = "fuzz_targets/differential.rs"
+test = false
+doc = false
+bench = false
+required-features = ["standard", "fast"]
