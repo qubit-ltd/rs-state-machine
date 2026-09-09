@@ -9,6 +9,7 @@
 
 use std::fmt::Debug;
 
+use qubit_cas::CasErrorKind;
 use thiserror::Error;
 
 /// Error returned when an event cannot be applied to the current state.
@@ -40,7 +41,7 @@ where
     #[error("CAS transition failed ({kind:?}) after {attempts} attempt(s)")]
     CasFailure {
         /// Terminal CAS error kind.
-        kind: qubit_cas::CasErrorKind,
+        kind: CasErrorKind,
         /// Number of attempts executed by the CAS executor.
         attempts: u32,
     },

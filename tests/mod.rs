@@ -13,3 +13,5 @@ mod transition_tests;
 mod fast;
 #[cfg(feature = "standard")]
 mod standard;
+
+mod fuzz_contracts_tests;

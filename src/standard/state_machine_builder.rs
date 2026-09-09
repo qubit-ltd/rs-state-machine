@@ -12,12 +12,10 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 
-use qubit_cas::CasExecutor;
 use qubit_cas::CasStrategy;
 
 use super::StateMachine;
 use super::StateMachineBuildError;
-use super::StateMachineError;
 use crate::Transition;
 
 /// Builder used to define and validate finite state machine rules.
@@ -43,8 +41,8 @@ where
     pub(crate) terminal_states: HashSet<S>,
     /// Transition definitions in builder insertion order.
     pub(crate) transitions: Vec<Transition<S, E>>,
-    /// CAS executor configuration retained by the built machine.
-    pub(crate) cas_executor: CasExecutor<S, StateMachineError<S, E>>,
+    /// CAS strategy installed when the immutable machine is built.
+    pub(crate) cas_strategy: CasStrategy,
 }
 
 impl<S, E> StateMachineBuilder<S, E>
@@ -63,7 +61,7 @@ where
             initial_state: None,
             terminal_states: HashSet::new(),
             transitions: Vec::new(),
-            cas_executor: CasExecutor::latency_first(),
+            cas_strategy: CasStrategy::LatencyFirst,
         }
     }
 
@@ -143,7 +141,7 @@ where
     /// Configures a built-in CAS execution strategy.
     #[inline]
     pub fn cas_strategy(mut self, strategy: CasStrategy) -> Self {
-        self.cas_executor = CasExecutor::with_strategy(strategy);
+        self.cas_strategy = strategy;
         self
     }
 

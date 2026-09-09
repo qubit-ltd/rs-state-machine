@@ -60,3 +60,38 @@ pub(super) fn fast_state_machine_error_from_fast_cas_error(
         FastCasError::Conflict { attempts, .. } => FastStateMachineError::CasConflict { attempts },
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use qubit_fast_cas::FastCasError;
+
+    use super::FastStateMachineError;
+    use super::fast_state_machine_error_from_fast_cas_error;
+
+    #[test]
+    fn test_conflict_mapping_preserves_attempt_count() {
+        assert_eq!(
+            fast_state_machine_error_from_fast_cas_error(FastCasError::Conflict {
+                current: 1,
+                attempts: 7,
+            }),
+            FastStateMachineError::CasConflict { attempts: 7 }
+        );
+    }
+
+    #[test]
+    fn test_abort_mapping_preserves_business_error() {
+        let expected = FastStateMachineError::UnknownTransition {
+            source_state: 1,
+            event: 3,
+        };
+        assert_eq!(
+            fast_state_machine_error_from_fast_cas_error(FastCasError::Abort {
+                current: 1,
+                error: expected,
+                attempts: 2,
+            }),
+            expected
+        );
+    }
+}

@@ -36,7 +36,7 @@ pub struct FastStateMachine {
     pub(super) state_count: u64,
     /// Number of valid event codes.
     pub(super) event_count: u64,
-    /// Dense flags indexed by validated state code.
+    /// The unique configured initial state code.
     pub(super) initial_state: u64,
     /// Dense flags indexed by validated state code.
     pub(super) terminal_states: Vec<bool>,
@@ -84,14 +84,10 @@ impl FastStateMachine {
         self.event_count
     }
 
-    /// Returns the dense transition table.
-    ///
-    /// The table is laid out row-major: source index first, then event index.
-    /// Cells without a configured transition contain `u64::MAX`; prefer
-    /// [`Self::transition_target`] when the sentinel is not needed.
+    /// Iterates configured transitions in source-code then event-code order.
     ///
     /// # Returns
-    /// The immutable row-major transition cells.
+    /// Only valid transition values; unset dense table cells are omitted.
     #[inline(always)]
     pub fn transitions(&self) -> impl Iterator<Item = crate::Transition<u64, u64>> + '_ {
         (0..self.state_count).flat_map(move |source| {
@@ -116,28 +112,19 @@ impl FastStateMachine {
         self.cas.policy()
     }
 
-    /// Returns a read-only slice marking which state codes are initial.
-    ///
-    /// The slice has length [`Self::state_count`]; index `s` corresponds to
-    /// state code `s`, and is `true` if that state was registered as
-    /// initial in the builder.
+    /// Returns the unique configured initial state code.
     ///
     /// # Returns
-    /// Dense initial-state flags in state-code order.
+    /// The code used by every new independent state cell.
     #[inline(always)]
     pub fn initial_state(&self) -> u64 {
         self.initial_state
     }
 
-    /// Returns a read-only slice marking which state codes are final
-    /// (accepting).
-    ///
-    /// The slice has length [`Self::state_count`]; index `s` corresponds to
-    /// state code `s`, and is `true` if that state was registered as final
-    /// in the builder.
+    /// Iterates terminal state codes in ascending order.
     ///
     /// # Returns
-    /// Dense final-state flags in state-code order.
+    /// Codes whose validated rule set forbids outgoing transitions.
     #[inline(always)]
     pub fn terminal_states(&self) -> impl Iterator<Item = u64> + '_ {
         self.terminal_states
@@ -240,6 +227,8 @@ impl FastStateMachine {
     /// Applies one event atomically on `state` using the configured [`FastCas`]
     /// policy.
     ///
+    /// The cell is not bound to this machine. A conflict retries against the
+    /// newly observed state, without detecting intermediate ABA changes.
     /// Reads the current code from `state`, resolves the transition for
     /// `event`, and stores the new code back if the transition is valid.
     ///
@@ -265,9 +254,12 @@ impl FastStateMachine {
     /// Like [`Self::trigger`], but invokes `on_success` after the CAS update
     /// succeeds.
     ///
-    /// The callback receives `(old_state, new_state)` as observed for the
-    /// successful transition. It is not called when [`Self::trigger`] would
-    /// return an error.
+    /// Callbacks may reenter and execute out of commit order. A callback may
+    /// observe a later state; its arguments and this return value describe
+    /// only this call's commit. Payload publication requires caller
+    /// coordination. The callback receives `(old_state, new_state)` as
+    /// observed for the successful transition. It is not called when
+    /// [`Self::trigger`] would return an error.
     ///
     /// # Type Parameters
     /// - `F`: One-shot callback type.

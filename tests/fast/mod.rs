@@ -11,3 +11,5 @@ mod fast_state_machine_build_error_tests;
 mod fast_state_machine_builder_tests;
 mod fast_state_machine_error_tests;
 mod fast_state_machine_tests;
+
+mod typed_fast_state_machine_tests;

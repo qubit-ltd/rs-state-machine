@@ -7,13 +7,15 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
-标准状态机使用 `qubit-cas` 0.12。可在构建器上配置 `cas_max_attempts`，CAS 终止类型会保留在 `StateMachineError::CasFailure` 中。
+标准状态机使用 `qubit-cas` 0.12。通过构建器的 `cas_strategy(CasStrategy::...)` 选择策略，通过 `machine.cas_strategy().profile()` 查询实际预算；CAS 终止类型保留在 `StateMachineError::CasFailure` 中。
 
 文档：[API 文档](https://docs.rs/qubit-state-machine)
 
 `qubit-state-machine` 是一个小型 Rust 有限状态机库，适用于生命周期、工作流和任务状态跟踪代码。
 
-0.7 版本要求恰好配置一个初态，终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
+0.8 版本要求恰好配置一个初态，终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
+
+0.8 版本新增强类型 Fast API，并删除未生效的 `STANDARD_STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS` 常量。请通过 `machine.cas_strategy().profile()` 查询标准版实际使用的策略。
 
 它提供不可变的状态转换规则和构建阶段校验。标准版通过 `qubit-cas` 更新
 `qubit_atomic::AtomicRef`，Fast 版则直接更新
@@ -38,6 +40,54 @@
 - 为服务、任务、设备或 UI 逻辑提供简单、轻量的状态跟踪能力
 - 在高频触发场景中使用 `FastStateMachine` 获取更紧凑的转移性能
 
+## 强类型 Fast 状态机
+
+任务生命周期使用 `TypedFastStateMachine<S, E>` 时，状态与事件在编译期区分，数量由 `DenseCode::VALUES` 推导。`code()` 必须稳定返回值在数组中的索引；每个可用值列出一次。构建器检查编码表，运行时也检查输入是否属于该表；反向转换使用安全索引，无需实现 `from_code` 或使用 `transmute`。
+
+```rust
+use qubit_state_machine::{DenseCode, TypedFastStateMachine};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum State { Pending, Running, Done }
+impl DenseCode for State {
+    const VALUES: &'static [Self] = &[Self::Pending, Self::Running, Self::Done];
+    fn code(self) -> u64 { self as u64 }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Event { Start, Finish }
+impl DenseCode for Event {
+    const VALUES: &'static [Self] = &[Self::Start, Self::Finish];
+    fn code(self) -> u64 { self as u64 }
+}
+
+let machine = TypedFastStateMachine::<State, Event>::builder()
+    .initial_state(State::Pending)
+    .terminal_state(State::Done)
+    .transition(State::Pending, Event::Start, State::Running)
+    .transition(State::Running, Event::Finish, State::Done)
+    .build().expect("valid job definition");
+let state = machine.create_state();
+assert_eq!(machine.trigger(&state, Event::Start).expect("start"), State::Running);
+assert!(machine.try_trigger(&state, Event::Finish));
+assert!(machine.is_terminal_state(state.load()));
+```
+
+| 入口 | 适用场景与成本 |
+| --- | --- |
+| `StateMachine` | 泛型 `Copy + Eq + Hash + Debug` 状态；HashMap 查表，每次候选更新分配 Arc。 |
+| `FastStateMachine` | 原始整数协议；调用方提供连续 code 范围，稠密查表与整数 CAS。 |
+| `TypedFastStateMachine` | 枚举生命周期；复用同一 Fast 内核并检查类型和值表，不额外分配每次转换的堆对象。实际性能以 benchmark 为准。 |
+
+三种入口均保留不可变规则与独立状态单元。原始 Fast 是正式的整数入口，不是兼容适配层。强类型状态单元只能由机器创建，公开读而不公开 setter/raw 单元；同一种状态类型的机器可共用单元，没有机器身份绑定。
+
+## 并发与错误边界
+
+`trigger` 返回详细错误；`try_trigger`/`try_trigger_with` 将未知状态、未定义转换和 CAS 耗尽都压成 `false`。对必须区分业务拒绝与执行失败的路径，使用 `trigger` 并匹配错误。Typed 入口会额外拒绝未列入值表的事件，其他错误通过 `TypedFastStateMachineError::Raw` 保留。
+
+CAS 只原子提交状态；冲突重试会针对新观察状态重新计算该事件的后继，不保证仍从最早读到的状态出发，也不保证检测循环中的 ABA。回调在提交后执行一次，允许重入，并发顺序不保证；回调可能看到更晚的状态，但参数和返回值仍描述本次提交。回调 panic 会传播，状态不会回滚。
+
+结果发送、hook 排序和业务 payload 的同步由调用方维护。例如 executor 的 `is_done()` 表示已经进入终态，结果仍可能正在发布；它不等价于此刻非阻塞取结果一定成功。需要联合维护队列、计数和生命周期的 monitor 状态，不宜拆成一个独立原子状态机。
+
 ## 安装
 
 默认 feature 集同时包含标准版和 Fast 版。原子状态类型必须从其所属 crate
@@ -45,7 +95,7 @@
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.7"
+qubit-state-machine = "0.8"
 qubit-atomic = "0.13"
 qubit-fast-cas = "0.3"
 ```
@@ -54,7 +104,7 @@ qubit-fast-cas = "0.3"
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.7", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.8", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
 ```
 
@@ -62,7 +112,7 @@ qubit-atomic = "0.13"
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.7", default-features = false, features = ["fast"] }
+qubit-state-machine = { version = "0.8", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
 ```
 
@@ -150,6 +200,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 `index = source * event_count + event`。
 
 ```rust
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
 use qubit_fast_cas::{FastCasPolicy, FastCasState};
 use qubit_state_machine::{
     FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
@@ -196,6 +247,8 @@ assert!(machine.is_initial_state(QUEUED));
 assert!(machine.is_terminal_state(SUCCEEDED));
 assert_eq!(machine.cas_policy(), FAST_STATE_MACHINE_DEFAULT_CAS_POLICY);
 assert_eq!(tuned.cas_policy(), FastCasPolicy::spin(8));
+# Ok(())
+# }
 ```
 
 默认不显式设置时会使用 `FAST_STATE_MACHINE_DEFAULT_CAS_POLICY`，如需调优可通过
@@ -221,6 +274,7 @@ enum JobEvent {
 
 let error = StateMachine::builder()
     .add_state(JobState::Queued)
+    .initial_state(JobState::Queued)
     .transition(JobState::Queued, JobEvent::Start, JobState::Running)
     .build()
     .expect_err("transition target must be registered");
@@ -258,6 +312,7 @@ enum DoorEvent {
 
 let machine = StateMachine::builder()
     .add_states(&[DoorState::Open, DoorState::Closed])
+    .initial_state(DoorState::Open)
     .transition(DoorState::Open, DoorEvent::Close, DoorState::Closed)
     .build()
     .expect("rules should build");
