@@ -11,12 +11,13 @@ cargo-fuzz = true
 [features]
 default = ["fast", "standard"]
 fast = ["dep:qubit-fast-cas", "qubit-state-machine/fast"]
-standard = ["qubit-state-machine/standard"]
+standard = ["qubit-state-machine/standard", "dep:qubit-cas"]
 
 [dependencies]
 libfuzzer-sys = "0.4"
 qubit-fast-cas = { version = "0.3", path = "../../rs-fast-cas", optional = true }
 qubit-state-machine = { path = "..", default-features = false }
+qubit-cas = { version = "0.13", path = "../../rs-cas", optional = true }
 
 [[bin]]
 name = "fast_builder"
