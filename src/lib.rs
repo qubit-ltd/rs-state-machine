@@ -108,6 +108,9 @@ pub use standard::StateMachineError;
 #[cfg(feature = "standard")]
 pub use standard::StateMachineResult;
 
+#[cfg(test)]
+mod tests;
+
 #[cfg(all(doctest, feature = "standard", feature = "fast"))]
 #[doc = include_str!("../README.md")]
 mod readme_en {}

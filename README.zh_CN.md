@@ -7,15 +7,14 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
-标准状态机使用 `qubit-cas` 0.12。通过构建器的 `cas_strategy(CasStrategy::...)` 选择策略，通过 `machine.cas_strategy().profile()` 查询实际预算；CAS 终止类型保留在 `StateMachineError::CasFailure` 中。
+标准状态机使用 `qubit-cas` 0.13，通过 `cas_executor` 注入次数、预算及退避配置；
+也可用 `cas_strategy` 选择预设。CAS 终止类型保留在 `StateMachineError::CasFailure` 中。
 
 文档：[API 文档](https://docs.rs/qubit-state-machine)
 
 `qubit-state-machine` 是一个小型 Rust 有限状态机库，适用于生命周期、工作流和任务状态跟踪代码。
 
 0.8 版本要求恰好配置一个初态，终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
-
-0.8 版本新增强类型 Fast API，并删除未生效的 `STANDARD_STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS` 常量。请通过 `machine.cas_strategy().profile()` 查询标准版实际使用的策略。
 
 它提供不可变的状态转换规则和构建阶段校验。标准版通过 `qubit-cas` 更新
 `qubit_atomic::AtomicRef`，Fast 版则直接更新

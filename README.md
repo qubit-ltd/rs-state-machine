@@ -7,7 +7,9 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-The standard state machine uses `qubit-cas` 0.12. Select `cas_strategy(CasStrategy::...)` on the builder and inspect `machine.cas_strategy().profile()` for actual budgets. Terminal CAS kinds are preserved in `StateMachineError::CasFailure`.
+The standard state machine uses `qubit-cas` 0.13. Inject limits, budgets, and
+backoff with `cas_executor`, or choose a preset with `cas_strategy`. Terminal CAS
+kinds are preserved in `StateMachineError::CasFailure`.
 
 Documentation: [API Reference](https://docs.rs/qubit-state-machine)
 
@@ -19,10 +21,6 @@ outgoing transitions. `create_state()` creates an independent current-state
 cell; externally created cells are not bound to a machine. Callbacks run once
 after a successful commit, with concurrent callback order unspecified, and a
 callback may observe a later committed state.
-
-Version 0.8 adds the typed Fast API and removes the unused
-`STANDARD_STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS` constant. Query the actual
-standard policy through `machine.cas_strategy().profile()` instead.
 
 It provides immutable transition rules and build-time validation. The standard
 machine updates `qubit_atomic::AtomicRef` values through `qubit-cas`; the Fast

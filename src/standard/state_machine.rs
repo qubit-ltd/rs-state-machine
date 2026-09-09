@@ -162,7 +162,7 @@ where
             terminal_states: builder.terminal_states,
             transition_map,
             cas_strategy: builder.cas_strategy,
-            cas_executor: CasExecutor::with_strategy(builder.cas_strategy),
+            cas_executor: builder.cas_executor,
         }
     }
 
