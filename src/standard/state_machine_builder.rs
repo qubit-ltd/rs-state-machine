@@ -20,6 +20,9 @@ use super::StateMachineBuildError;
 use super::StateMachineError;
 use crate::Transition;
 
+/// Default maximum CAS attempts used by the standard state machine.
+pub const STANDARD_STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS: u32 = 100;
+
 /// Builder used to define and validate finite state machine rules.
 ///
 /// Configuration methods consume and return the builder so rule definitions
@@ -140,7 +143,24 @@ where
         self
     }
 
-    /// Configures a built-in CAS execution strategy.
+    /// Replaces the executor used for synchronous state transitions.
+    ///
+    /// # Parameters
+    /// - `executor`: Validated retry limits, budgets and delays for
+    ///   transitions.
+    ///
+    /// # Returns
+    /// The updated builder. This replaces an earlier [`Self::cas_strategy`];
+    /// a later strategy call replaces this executor in turn. Async hard
+    /// timeouts are ignored by synchronous state transitions.
+    #[inline]
+    pub fn cas_executor(mut self, executor: CasExecutor<S, StateMachineError<S, E>>) -> Self {
+        self.cas_executor = executor;
+        self
+    }
+
+    /// Configures a built-in CAS execution strategy, replacing any injected
+    /// executor.
     #[inline]
     pub fn cas_strategy(mut self, strategy: CasStrategy) -> Self {
         self.cas_executor = CasExecutor::with_strategy(strategy);

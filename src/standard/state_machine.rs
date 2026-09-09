@@ -445,7 +445,7 @@ where
     /// Returns [`StateMachineError::UnknownState`] when the current state is
     /// not registered. Returns [`StateMachineError::UnknownTransition`]
     /// when the current state is registered but has no transition for
-    /// `event`. Returns [`StateMachineError::CasConflict`] when
+    /// `event`. Returns [`StateMachineError::CasFailure`] when
     /// compare-and-swap conflicts exhaust the configured executor policy.
     ///
     /// # Examples
@@ -746,3 +746,7 @@ where
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/state_error_mapping_tests.rs"]
+mod error_mapping_tests;

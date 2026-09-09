@@ -96,3 +96,6 @@ pub use standard::StateMachineBuilder;
 pub use standard::StateMachineError;
 #[cfg(feature = "standard")]
 pub use standard::StateMachineResult;
+
+#[cfg(test)]
+mod tests;
