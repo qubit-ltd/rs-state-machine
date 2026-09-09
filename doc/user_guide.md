@@ -57,10 +57,17 @@ the last call winning. ContentionBackoff is fixed exponential backoff plus jitte
 not an adaptive controller. Default LatencyFirst uses 100 attempts, a 5ms
 operation budget, and a 20ms total budget.
 
+After building, inspect the actual installed policy with
+`machine.cas_executor().retry_policy()`; a custom executor is not assigned a
+preset strategy name.
+
 Custom builders support max_attempts, max_operation_elapsed, max_total_elapsed,
 and retry delays. Soft budgets gate later attempts without revoking a committed
 success. Synchronous triggering ignores attempt_timeout/flow_timeout and blocks
 during backoff. Use rs-cas directly when async execution or hooks are needed.
+Typed Fast errors expose `is_unknown_transition()` and `is_cas_conflict()`.
+`diagnose_graph()` performs offline reachability analysis without changing build
+validity.
 
 ## Errors and side effects
 

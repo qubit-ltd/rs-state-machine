@@ -8,7 +8,9 @@
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
 标准状态机使用 `qubit-cas` 0.13，通过 `cas_executor` 注入次数、预算及退避配置；
-也可用 `cas_strategy` 选择预设。CAS 终止类型保留在 `StateMachineError::CasFailure` 中。
+也可用 builder 上的 `cas_strategy` 选择预设。实际配置通过
+`machine.cas_executor().retry_policy()` 查询。CAS 终止类型保留在
+`StateMachineError::CasFailure` 中。
 
 文档：[API 文档](https://docs.rs/qubit-state-machine)
 
@@ -73,7 +75,7 @@ assert!(machine.is_terminal_state(state.load()));
 
 | 入口 | 适用场景与成本 |
 | --- | --- |
-| `StateMachine` | 泛型 `Copy + Eq + Hash + Debug` 状态；HashMap 查表，每次候选更新分配 Arc。 |
+| `StateMachine` | 泛型 `Copy + Eq + Hash + Debug` 状态；适合稀疏值、已有 `AtomicRef` 或需要完整 CAS 配置的场景。 |
 | `FastStateMachine` | 原始整数协议；调用方提供连续 code 范围，稠密查表与整数 CAS。 |
 | `TypedFastStateMachine` | 枚举生命周期；复用同一 Fast 内核并检查类型和值表，不额外分配每次转换的堆对象。实际性能以 benchmark 为准。 |
 
@@ -184,12 +186,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## 标准版与高性能版如何选
 
-如果你的模型天然适合枚举表达，且优先考虑代码可读性和业务语义清晰度，
-优先使用 `StateMachine`。
+如果是小型、固定的枚举生命周期，优先使用 `TypedFastStateMachine`；它保留枚举类型安全，
+同时使用紧凑整数状态。
+
+如果状态空间稀疏、已有 `AtomicRef`，或需要完整的 `qubit-cas` 配置，使用 `StateMachine`。
 
 如果你面对的是高频触发路径、并且状态和事件可以表达为稠密 `u64` 编码，
-优先使用 `FastStateMachine`。它通过可计算下标的扁平转移表换取更稳定的热点路径
-性能。
+使用 `FastStateMachine`。它通过可计算下标的扁平转移表换取更稳定的热点路径性能。
+
+三种入口都支持 `diagnose_graph()`。该方法只做离线可达性分析，不改变构建合法性，
+并报告不可达状态和无法到达显式终态的状态；无终态模型仍可构建。
 
 ## Fast State Machine（高性能模式）
 
