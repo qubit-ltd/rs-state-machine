@@ -12,10 +12,12 @@ use std::collections::HashSet;
 use std::fmt::Debug;
 use std::hash::Hash;
 
+use qubit_cas::CasExecutor;
 use qubit_cas::CasStrategy;
 
 use super::StateMachine;
 use super::StateMachineBuildError;
+use super::StateMachineError;
 use crate::Transition;
 
 /// Builder used to define and validate finite state machine rules.
@@ -43,6 +45,8 @@ where
     pub(crate) transitions: Vec<Transition<S, E>>,
     /// CAS strategy installed when the immutable machine is built.
     pub(crate) cas_strategy: CasStrategy,
+    /// CAS executor installed when the immutable machine is built.
+    pub(crate) cas_executor: CasExecutor<S, StateMachineError<S, E>>,
 }
 
 impl<S, E> StateMachineBuilder<S, E>
@@ -62,6 +66,7 @@ where
             terminal_states: HashSet::new(),
             transitions: Vec::new(),
             cas_strategy: CasStrategy::LatencyFirst,
+            cas_executor: CasExecutor::latency_first(),
         }
     }
 
@@ -138,10 +143,28 @@ where
         self
     }
 
-    /// Configures a built-in CAS execution strategy.
+    /// Replaces the executor used for synchronous state transitions.
+    ///
+    /// # Parameters
+    /// - `executor`: Validated retry limits, budgets and delays for
+    ///   transitions.
+    ///
+    /// # Returns
+    /// The updated builder. This replaces an earlier [`Self::cas_strategy`];
+    /// a later strategy call replaces this executor in turn. Async hard
+    /// timeouts are ignored by synchronous state transitions.
+    #[inline]
+    pub fn cas_executor(mut self, executor: CasExecutor<S, StateMachineError<S, E>>) -> Self {
+        self.cas_executor = executor;
+        self
+    }
+
+    /// Configures a built-in CAS execution strategy, replacing any injected
+    /// executor.
     #[inline]
     pub fn cas_strategy(mut self, strategy: CasStrategy) -> Self {
         self.cas_strategy = strategy;
+        self.cas_executor = CasExecutor::with_strategy(strategy);
         self
     }
 
