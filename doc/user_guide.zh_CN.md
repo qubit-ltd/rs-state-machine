@@ -1,6 +1,6 @@
 # Qubit State Machine 用户指南
 
-适用于 0.8。[English](user_guide.md)。本指南面向需要明确任务生命周期规则的 Rust 应用。
+适用于 0.9。[English](user_guide.md)。本指南面向需要明确任务生命周期规则的 Rust 应用。
 
 ## 模型与安装
 
@@ -9,7 +9,7 @@
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.8", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
 qubit-cas = "0.13"
 ```
@@ -49,7 +49,7 @@ assert!(!machine.try_trigger(&state, JobEvent::Start));
 
 `cas_executor` 注入已校验的 CasExecutor；`cas_strategy` 选择 LatencyFirst、ContentionBackoff 或
 ReliabilityFirst。两者都替换整个 executor，最后调用者生效。ContentionBackoff 是固定指数退避加
-jitter，不会自动学习竞争率。默认 LatencyFirst 为 100 次尝试、5ms 操作预算、20ms 总预算。
+jitter，不会自动学习竞争率。标准版默认是 16 次立即尝试，不设置操作或总墙钟预算；需要时间上限时显式选择 `CasStrategy::LatencyFirst`。
 
 构建后使用 `machine.cas_executor().retry_policy()` 查看实际生效的次数、软预算和退避配置；
 标准版不再提供单独的 machine `cas_strategy()` 查询，因为自定义 executor 没有对应的预设名称。
@@ -78,4 +78,4 @@ trigger_with 的回调只在成功提交后执行一次，自转换也算成功�
 - 延迟增大：检查同步退避和热点竞争，用实际负载评估策略；不要直接放宽重试到无限。
 
 本库不提供跨资源事务或完整工作流调度。参阅 [README](../README.zh_CN.md)、
-[API](https://docs.rs/qubit-state-machine)及[迁移说明](migration-0.8.zh_CN.md)。
+[API](https://docs.rs/qubit-state-machine)及[迁移说明](migration-0.9.zh_CN.md)。

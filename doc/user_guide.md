@@ -1,6 +1,6 @@
 # Qubit State Machine User Guide
 
-Applies to 0.8. [中文版](user_guide.zh_CN.md). This guide is for Rust applications
+Applies to 0.9. [中文版](user_guide.zh_CN.md). This guide is for Rust applications
 that need explicit job lifecycle rules.
 
 ## Model and setup
@@ -10,9 +10,13 @@ small enum-like states in AtomicRef; Fast machines use compact integer states.
 Both require one initial state and reject outgoing transitions from terminal
 states. Each job owns a state cell independently of the shared rule table.
 
+The Standard builder defaults to 16 immediate CAS attempts without operation or
+total wall-clock budgets. Select `CasStrategy::LatencyFirst` explicitly when a
+time-bounded retry window is part of the application contract.
+
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.8", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
 qubit-cas = "0.13"
 ```
@@ -54,8 +58,9 @@ assert!(!machine.try_trigger(&state, JobEvent::Start));
 `cas_executor` injects a validated executor; `cas_strategy` selects LatencyFirst,
 ContentionBackoff, or ReliabilityFirst. Both replace the entire executor, with
 the last call winning. ContentionBackoff is fixed exponential backoff plus jitter,
-not an adaptive controller. Default LatencyFirst uses 100 attempts, a 5ms
-operation budget, and a 20ms total budget.
+not an adaptive controller. The Standard default uses 16 immediate attempts and
+no operation or total wall-clock budget; choose `LatencyFirst` explicitly for a
+time-bounded policy.
 
 After building, inspect the actual installed policy with
 `machine.cas_executor().retry_policy()`; a custom executor is not assigned a
@@ -93,4 +98,4 @@ configured state/event ranges.
 
 This crate is not a cross-resource transaction or full workflow scheduler. See
 the [README](../README.md), [API](https://docs.rs/qubit-state-machine), and
-[migration note](migration-0.8.md).
+[migration note](migration-0.9.md).

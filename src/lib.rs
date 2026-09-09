@@ -103,6 +103,8 @@ pub use fast::TypedFastStateMachineBuilder;
 #[cfg(feature = "fast")]
 pub use fast::TypedFastStateMachineError;
 #[cfg(feature = "standard")]
+pub use standard::STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS;
+#[cfg(feature = "standard")]
 pub use standard::StateMachine;
 #[cfg(feature = "standard")]
 pub use standard::StateMachineBuildError;

@@ -287,6 +287,7 @@ fn test_trigger_handles_competing_alternating_transitions() {
 fn test_standard_strategy_reports_actual_configuration() {
     use qubit_cas::CasExecutor;
     use qubit_cas::CasStrategy;
+    use qubit_state_machine::STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS;
     let default = StateMachine::<u8, u8>::builder()
         .add_state(0)
         .initial_state(0)
@@ -299,11 +300,7 @@ fn test_standard_strategy_reports_actual_configuration() {
             .admission_limits()
             .max_attempts()
             .get(),
-        CasExecutor::<JobState, StateMachineError<JobState, JobEvent>>::latency_first()
-            .retry_policy()
-            .admission_limits()
-            .max_attempts()
-            .get()
+        STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS
     );
     let custom = StateMachine::<u8, u8>::builder()
         .add_state(0)

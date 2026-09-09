@@ -18,7 +18,7 @@ Documentation: [API Reference](https://docs.rs/qubit-state-machine)
 `qubit-state-machine` is a small Rust finite state machine crate for lifecycle,
 workflow, and task-state tracking code.
 
-Version 0.8 requires exactly one initial state. Terminal states cannot have
+Version 0.9 requires exactly one initial state. Terminal states cannot have
 outgoing transitions. `create_state()` creates an independent current-state
 cell; externally created cells are not bound to a machine. Callbacks run once
 after a successful commit, with concurrent callback order unspecified, and a
@@ -32,6 +32,11 @@ There are two variants:
 
 - `StateMachine` for clear, generic APIs suitable for enum-like state/event types.
 - `FastStateMachine` for high-throughput, integer-coded state/event processing.
+
+The Standard machine defaults to 16 immediate CAS attempts with no wall-clock
+budget. Explicitly choose `CasStrategy::LatencyFirst` when a time-bounded retry
+window is required; a terminal CAS failure remains distinct from a rejected
+transition.
 
 Both variants keep transition tables immutable after construction and execute event
 triggers through CAS-backed state updates.
@@ -104,7 +109,7 @@ types from their owning crates:
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.8"
+qubit-state-machine = "0.9"
 qubit-atomic = "0.13"
 qubit-fast-cas = "0.3"
 ```
@@ -113,7 +118,7 @@ Use only the standard implementation:
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.8", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
 ```
 
@@ -121,7 +126,7 @@ Use only the Fast implementation without pulling in `qubit-cas`:
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.8", default-features = false, features = ["fast"] }
+qubit-state-machine = { version = "0.9", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
 ```
 
@@ -194,8 +199,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 ## Choosing Standard vs Fast
 
-Use `StateMachine` when readability, explicit type modeling, and standard enum-based
-business semantics are the priority.
+Use `TypedFastStateMachine` for small, fully enumerated enum lifecycles. Use
+`StateMachine` when the state set is sparse or assembled at runtime, or when a
+fully configured generic CAS executor is needed.
 
 Use `FastStateMachine` when you need low-latency dispatch loops and can model
 states/events as dense integer ranges. It trades some ergonomics (explicit bounds,

@@ -20,6 +20,12 @@ use super::StateMachineBuildError;
 use super::StateMachineError;
 use crate::Transition;
 
+/// Default number of CAS attempts for generic state-machine transitions.
+///
+/// The default is attempt-bounded but has no wall-clock budget or retry delay,
+/// so ordinary transitions are not rejected because of scheduler timing.
+pub const STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS: u32 = 16;
+
 /// Builder used to define and validate finite state machine rules.
 ///
 /// Configuration methods consume and return the builder so rule definitions
@@ -63,7 +69,15 @@ where
             initial_state: None,
             terminal_states: HashSet::new(),
             transitions: Vec::new(),
-            cas_executor: CasExecutor::latency_first(),
+            cas_executor: CasExecutor::builder()
+                .max_attempts(STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS)
+                .max_operation_elapsed(None)
+                .max_total_elapsed(None)
+                .flow_timeout(None)
+                .attempt_timeout(None)
+                .no_delay()
+                .build()
+                .expect("state machine default CAS configuration must be valid"),
         }
     }
 
