@@ -4,7 +4,8 @@
 //    SPDX-License-Identifier: Apache-2.0
 // =============================================================================
 //! Comparable atomic, integer, typed, and generic lifecycle benchmarks.
-//! Race timing includes synchronization but excludes thread/cell construction.
+//! Race timing includes worker synchronization but excludes thread/cell
+//! construction.
 use std::hint::black_box;
 use std::sync::Barrier;
 use std::sync::atomic::AtomicU64;
@@ -335,9 +336,11 @@ struct Counts {
 
 /// Times a two-worker batch after spawning, then returns both worker counts.
 fn measure_race<D: Driver>(driver: &D, cells: &[D::Cell], events: [D::Event; 2]) -> (Duration, [Counts; 2]) {
+    let ready = Barrier::new(3);
     let start = Barrier::new(3);
     let finish = Barrier::new(3);
     let run = |worker: usize| {
+        ready.wait();
         start.wait();
         let mut counts = Counts::default();
         for cell in cells {
@@ -354,6 +357,7 @@ fn measure_race<D: Driver>(driver: &D, cells: &[D::Cell], events: [D::Event; 2])
     std::thread::scope(|scope| {
         let a = scope.spawn(|| run(0));
         let b = scope.spawn(|| run(1));
+        ready.wait();
         let began = Instant::now();
         start.wait();
         finish.wait();

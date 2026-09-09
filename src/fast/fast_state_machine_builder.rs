@@ -9,6 +9,7 @@
 //! Builder for fast state machine rules.
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use qubit_fast_cas::FastCas;
 use qubit_fast_cas::FastCasPolicy;
@@ -194,7 +195,12 @@ impl FastStateMachineBuilder {
             .initial_state
             .ok_or(FastStateMachineBuildError::InitialStateNotConfigured)?;
         self.validate_state_sets(state_count, initial_state)?;
-        let configured_transition_count = self.validate_transitions(state_count, event_count)?;
+        let mut terminal_state_set = HashSet::new();
+        terminal_state_set
+            .try_reserve(self.terminal_states.len())
+            .map_err(|_| Self::capacity_error(state_count, event_count))?;
+        terminal_state_set.extend(self.terminal_states.iter().copied());
+        let configured_transition_count = self.validate_transitions(state_count, event_count, &terminal_state_set)?;
 
         let transition_count =
             state_count
@@ -271,7 +277,12 @@ impl FastStateMachineBuilder {
     /// # Errors
     /// Returns a range error, duplicate-transition error, or capacity error if
     /// the temporary duplicate-detection map cannot reserve storage.
-    fn validate_transitions(&self, state_count: u64, event_count: u64) -> Result<usize, FastStateMachineBuildError> {
+    fn validate_transitions(
+        &self,
+        state_count: u64,
+        event_count: u64,
+        terminal_states: &HashSet<u64>,
+    ) -> Result<usize, FastStateMachineBuildError> {
         let mut targets = HashMap::new();
         if targets.try_reserve(self.transitions.len()).is_err() {
             return Err(Self::capacity_error(state_count, event_count));
@@ -290,7 +301,7 @@ impl FastStateMachineBuilder {
             if target >= state_count {
                 return Err(FastStateMachineBuildError::TransitionTargetOutOfRange { target, state_count });
             }
-            if self.terminal_states.contains(&source) {
+            if terminal_states.contains(&source) {
                 return Err(FastStateMachineBuildError::TerminalStateHasOutgoingTransition {
                     state: source,
                     event,
