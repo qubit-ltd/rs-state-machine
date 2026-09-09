@@ -51,9 +51,14 @@ assert!(!machine.try_trigger(&state, JobEvent::Start));
 ReliabilityFirst。两者都替换整个 executor，最后调用者生效。ContentionBackoff 是固定指数退避加
 jitter，不会自动学习竞争率。默认 LatencyFirst 为 100 次尝试、5ms 操作预算、20ms 总预算。
 
+构建后使用 `machine.cas_executor().retry_policy()` 查看实际生效的次数、软预算和退避配置；
+标准版不再提供单独的 machine `cas_strategy()` 查询，因为自定义 executor 没有对应的预设名称。
+
 自定义 builder 支持 max_attempts、max_operation_elapsed、max_total_elapsed 和退避。
 软预算只决定后续准入，不撤销已成功提交的结果；同步触发忽略 attempt_timeout/flow_timeout，
 重试延迟阻塞调用线程。这里不提供异步触发或 hooks，需这些能力时直接使用 rs-cas。
+Typed Fast 错误可用 `is_unknown_transition()` 和 `is_cas_conflict()` 分类；
+`diagnose_graph()` 只做离线图分析，不改变构建规则。
 
 ## 错误与副作用
 

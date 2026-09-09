@@ -8,8 +8,10 @@
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
 The standard state machine uses `qubit-cas` 0.13. Inject limits, budgets, and
-backoff with `cas_executor`, or choose a preset with `cas_strategy`. Terminal CAS
-kinds are preserved in `StateMachineError::CasFailure`.
+backoff with `cas_executor`, or choose a preset with the builder's
+`cas_strategy`. Inspect the actual installed configuration through
+`machine.cas_executor().retry_policy()`. Terminal CAS kinds are preserved in
+`StateMachineError::CasFailure`.
 
 Documentation: [API Reference](https://docs.rs/qubit-state-machine)
 
