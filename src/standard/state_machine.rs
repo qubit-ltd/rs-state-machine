@@ -695,6 +695,11 @@ where
     /// # Errors
     /// Returns a runtime state machine error when no valid next state exists.
     fn change_state(&self, state: &AtomicRef<S>, event: E) -> Result<(S, S), StateMachineError<S, E>> {
+        // Reject deterministic lookup failures before entering the retry
+        // kernel.  Besides avoiding needless CAS work, this keeps invalid
+        // events independent of the executor's terminal budget.
+        let initial_state = *state.load();
+        self.next_state(initial_state, event)?;
         let result = self.cas_executor.execute_result(state, |current_state: &S| {
             match self.next_state(*current_state, event) {
                 Ok(new_state) => CasDecision::update(new_state, new_state),
