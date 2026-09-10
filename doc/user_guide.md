@@ -18,7 +18,7 @@ time-bounded retry window is part of the application contract.
 [dependencies]
 qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
-qubit-cas = "0.14"
+qubit-cas = "0.15"
 ```
 
 ## Start and audit a job
@@ -98,5 +98,4 @@ configured state/event ranges.
   rather than making retries unbounded.
 
 This crate is not a cross-resource transaction or full workflow scheduler. See
-the [README](../README.md), [API](https://docs.rs/qubit-state-machine), and
-[migration note](migration-0.9.md).
+the [README](../README.md) and [API](https://docs.rs/qubit-state-machine).

@@ -11,7 +11,7 @@
 [dependencies]
 qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
-qubit-cas = "0.14"
+qubit-cas = "0.15"
 ```
 
 ## 任务启动与审计
@@ -78,5 +78,5 @@ trigger_with 的回调只在成功提交后执行一次，自转换也算成功�
 - 触发失败：先分清业务错误与 CasFailure，再选择是否重试。
 - 延迟增大：检查同步退避和热点竞争，用实际负载评估策略；不要直接放宽重试到无限。
 
-本库不提供跨资源事务或完整工作流调度。参阅 [README](../README.zh_CN.md)、
-[API](https://docs.rs/qubit-state-machine)及[迁移说明](migration-0.9.zh_CN.md)。
+本库不提供跨资源事务或完整工作流调度。参阅 [README](../README.zh_CN.md) 和
+[API](https://docs.rs/qubit-state-machine)。
