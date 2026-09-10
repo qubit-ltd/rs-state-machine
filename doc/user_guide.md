@@ -18,7 +18,7 @@ time-bounded retry window is part of the application contract.
 [dependencies]
 qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
-qubit-cas = "0.15"
+qubit-cas = "0.9"
 ```
 
 ## Start and audit a job
