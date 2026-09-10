@@ -18,7 +18,7 @@ time-bounded retry window is part of the application contract.
 [dependencies]
 qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
-qubit-cas = "0.13"
+qubit-cas = "0.14"
 ```
 
 ## Start and audit a job
@@ -62,9 +62,10 @@ not an adaptive controller. The Standard default uses 16 immediate attempts and
 no operation or total wall-clock budget; choose `LatencyFirst` explicitly for a
 time-bounded policy.
 
-After building, inspect the actual installed policy with
-`machine.cas_executor().retry_policy()`; a custom executor is not assigned a
-preset strategy name.
+After building, inspect the installed limits through `machine.cas_executor()`
+using `max_attempts()`, `max_operation_elapsed()`, and `max_total_elapsed()`.
+Backoff is configured on the builder and has no public getter. A custom executor
+is not assigned a preset strategy name.
 
 Custom builders support max_attempts, max_operation_elapsed, max_total_elapsed,
 and retry delays. Soft budgets gate later attempts without revoking a committed

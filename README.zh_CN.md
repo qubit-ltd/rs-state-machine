@@ -7,9 +7,9 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
-标准状态机使用 `qubit-cas` 0.13，通过 `cas_executor` 注入次数、预算及退避配置；
+标准状态机使用 `qubit-cas` 0.14，通过 `cas_executor` 注入次数、预算及退避配置；
 也可用 builder 上的 `cas_strategy` 选择预设。实际配置通过
-`machine.cas_executor().retry_policy()` 查询。CAS 终止类型保留在
+executor 的 `max_attempts()`、`max_operation_elapsed()` 和 `max_total_elapsed()` 查询。CAS 终止类型保留在
 `StateMachineError::CasFailure` 中。
 
 文档：[API 文档](https://docs.rs/qubit-state-machine)
