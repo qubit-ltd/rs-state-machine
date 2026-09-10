@@ -40,7 +40,7 @@ fast = ["dep:qubit-fast-cas"]
 thiserror = "2.0"
 
 qubit-atomic = { version = "0.13", optional = true }
-qubit-cas = { version = "0.9", path = "../rs-cas", optional = true }
+qubit-cas = { version = "0.9", optional = true }
 qubit-fast-cas = { version = "0.3", path = "../rs-fast-cas", optional = true }
 
 [dev-dependencies]
