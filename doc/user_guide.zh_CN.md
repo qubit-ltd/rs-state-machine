@@ -11,7 +11,7 @@
 [dependencies]
 qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
-qubit-cas = "0.13"
+qubit-cas = "0.14"
 ```
 
 ## 任务启动与审计
@@ -51,7 +51,8 @@ assert!(!machine.try_trigger(&state, JobEvent::Start));
 ReliabilityFirst。两者都替换整个 executor，最后调用者生效。ContentionBackoff 是固定指数退避加
 jitter，不会自动学习竞争率。标准版默认是 16 次立即尝试，不设置操作或总墙钟预算；需要时间上限时显式选择 `CasStrategy::LatencyFirst`。
 
-构建后使用 `machine.cas_executor().retry_policy()` 查看实际生效的次数、软预算和退避配置；
+构建后通过 `machine.cas_executor()` 的 `max_attempts()`、`max_operation_elapsed()` 和
+`max_total_elapsed()` 查看实际生效的次数与软预算；退避在 builder 上配置，不通过 getter 暴露。
 标准版不再提供单独的 machine `cas_strategy()` 查询，因为自定义 executor 没有对应的预设名称。
 
 自定义 builder 支持 max_attempts、max_operation_elapsed、max_total_elapsed 和退避。

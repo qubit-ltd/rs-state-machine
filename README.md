@@ -7,10 +7,11 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-The standard state machine uses `qubit-cas` 0.13. Inject limits, budgets, and
+The standard state machine uses `qubit-cas` 0.14. Inject limits, budgets, and
 backoff with `cas_executor`, or choose a preset with the builder's
 `cas_strategy`. Inspect the actual installed configuration through
-`machine.cas_executor().retry_policy()`. Terminal CAS kinds are preserved in
+`machine.cas_executor()` using `max_attempts()`, `max_operation_elapsed()`,
+and `max_total_elapsed()`. Terminal CAS kinds are preserved in
 `StateMachineError::CasFailure`.
 
 Documentation: [API Reference](https://docs.rs/qubit-state-machine)

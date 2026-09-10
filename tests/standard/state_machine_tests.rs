@@ -294,12 +294,7 @@ fn test_standard_strategy_reports_actual_configuration() {
         .build()
         .expect("machine definition is valid");
     assert_eq!(
-        default
-            .cas_executor()
-            .retry_policy()
-            .admission_limits()
-            .max_attempts()
-            .get(),
+        default.cas_executor().max_attempts(),
         STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS
     );
     let custom = StateMachine::<u8, u8>::builder()
@@ -309,17 +304,8 @@ fn test_standard_strategy_reports_actual_configuration() {
         .build()
         .expect("machine definition is valid");
     assert_eq!(
-        custom
-            .cas_executor()
-            .retry_policy()
-            .admission_limits()
-            .max_attempts()
-            .get(),
-        CasExecutor::<JobState, StateMachineError<JobState, JobEvent>>::reliability_first()
-            .retry_policy()
-            .admission_limits()
-            .max_attempts()
-            .get()
+        custom.cas_executor().max_attempts(),
+        CasExecutor::<JobState, StateMachineError<JobState, JobEvent>>::reliability_first().max_attempts()
     );
 }
 
