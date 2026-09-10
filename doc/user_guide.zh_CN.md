@@ -11,7 +11,7 @@
 [dependencies]
 qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
-qubit-cas = "0.15"
+qubit-cas = "0.9"
 ```
 
 ## 任务启动与审计
