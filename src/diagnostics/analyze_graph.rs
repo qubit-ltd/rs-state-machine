@@ -1,5 +1,21 @@
+// =============================================================================
+//    Copyright (c) 2026 Haixing Hu.
+//
+//    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
+// =============================================================================
+
 use super::GraphDiagnostics;
 
+/// Marks every vertex reachable from the supplied seeds.
+///
+/// # Parameters
+/// - `adjacency`: Directed adjacency lists indexed by vertex.
+/// - `seeds`: Vertices from which traversal starts.
+///
+/// # Returns
+/// A boolean vector whose entries are `true` for reachable vertices.
 fn mark_reachable(adjacency: &[Vec<usize>], seeds: impl IntoIterator<Item = usize>) -> Vec<bool> {
     let mut seen = vec![false; adjacency.len()];
     let mut stack = Vec::new();
@@ -20,6 +36,17 @@ fn mark_reachable(adjacency: &[Vec<usize>], seeds: impl IntoIterator<Item = usiz
     seen
 }
 
+/// Computes reachability findings for a finite directed state graph.
+///
+/// # Parameters
+/// - `state_count`: Number of vertices in the graph.
+/// - `initial`: Initial vertex used for forward reachability.
+/// - `terminals`: Vertices considered explicit terminal states.
+/// - `edges`: Directed state transitions.
+///
+/// # Returns
+/// A report containing unreachable states and states with no path to a
+/// terminal.
 pub(crate) fn analyze_graph(
     state_count: usize,
     initial: usize,
