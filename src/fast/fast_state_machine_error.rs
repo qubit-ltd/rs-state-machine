@@ -12,6 +12,15 @@ use qubit_fast_cas::FastCasError;
 use thiserror::Error;
 
 /// Error returned when applying an event through a [`crate::FastStateMachine`].
+///
+/// # Examples
+///
+/// ```
+/// use qubit_state_machine::FastStateMachineError;
+///
+/// let error = FastStateMachineError::UnknownState { state: 9 };
+/// assert_eq!(error.to_string(), "unknown state: 9");
+/// ```
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Error)]
 pub enum FastStateMachineError {
     /// The current state code is not configured in the state machine.

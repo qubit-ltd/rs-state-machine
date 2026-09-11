@@ -17,6 +17,16 @@ use thiserror::Error;
 /// # Type Parameters
 /// - `S`: State type recorded in the failed transition.
 /// - `E`: Event type recorded in the failed transition.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_state_machine::StateMachineError;
+///
+/// let error: StateMachineError<u8, u8> =
+///     StateMachineError::UnknownState { state: 9 };
+/// assert_eq!(error.to_string(), "unknown state: 9");
+/// ```
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Error)]
 pub enum StateMachineError<S, E>
 where
