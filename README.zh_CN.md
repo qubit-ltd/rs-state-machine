@@ -14,7 +14,7 @@ executor 的 `max_attempts()`、`max_operation_elapsed()` 和 `max_total_elapsed
 
 `qubit-state-machine` 是一个小型 Rust 有限状态机库，适用于生命周期、工作流和任务状态跟踪代码。
 
-0.9 版本要求恰好配置一个初态，终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
+0.9 版本要求配置有效初态；如果多次调用 `initial_state(...)`，最后一次设置生效。终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
 
 标准版默认使用 16 次立即 CAS 尝试，不设置墙钟时间预算。需要时间上限时，请显式选择 `CasStrategy::LatencyFirst`；CAS 终止失败仍与业务上的未定义转换区分。
 
@@ -22,12 +22,14 @@ executor 的 `max_attempts()`、`max_operation_elapsed()` 和 `max_total_elapsed
 `qubit_atomic::AtomicRef`，Fast 版则直接更新
 `qubit_fast_cas::FastCasState`。
 
-库内同时提供两种实现方式：
+库内同时提供三个公开入口：
 
 - `StateMachine`：适合可读性优先、以枚举语义建模状态/事件的场景。
 - `FastStateMachine`：适合高吞吐、热点路径对延迟要求更严格的场景。
+- `TypedFastStateMachine<S, E>`：在 Fast 内核上提供编译期区分的状态与事件类型。
 
-这两种实现都在构建后冻结转换规则，并通过 CAS 机制更新共享状态。
+这三个入口都在构建后冻结转换规则，并通过 CAS 机制更新共享状态；均提供
+`diagnose_graph()` 做离线可达性分析。标准版的迭代顺序不保证，Fast 版本按 code 顺序返回。
 
 ## 为什么使用
 
@@ -115,6 +117,13 @@ qubit-atomic = "0.13"
 [dependencies]
 qubit-state-machine = { version = "0.9", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
+```
+
+从全新克隆运行仓库本地 CI 包装脚本前，先初始化已固定版本的 CI 子模块：
+
+```bash
+git submodule update --init --recursive
+./ci-check.sh
 ```
 
 ## 快速开始：任务处理

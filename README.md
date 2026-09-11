@@ -17,8 +17,9 @@ and `max_total_elapsed()`. Terminal CAS kinds are preserved in
 `qubit-state-machine` is a small Rust finite state machine crate for lifecycle,
 workflow, and task-state tracking code.
 
-Version 0.9 requires exactly one initial state. Terminal states cannot have
-outgoing transitions. `create_state()` creates an independent current-state
+Version 0.9 requires a valid initial state; if `initial_state(...)` is called
+more than once, the last value wins. Terminal states cannot have outgoing
+transitions. `create_state()` creates an independent current-state
 cell; externally created cells are not bound to a machine. Callbacks run once
 after a successful commit, with concurrent callback order unspecified, and a
 callback may observe a later committed state.
@@ -27,18 +28,22 @@ It provides immutable transition rules and build-time validation. The standard
 machine updates `qubit_atomic::AtomicRef` values through `qubit-cas`; the Fast
 machine updates `qubit_fast_cas::FastCasState` values directly.
 
-There are two variants:
+There are three public entry points:
 
 - `StateMachine` for clear, generic APIs suitable for enum-like state/event types.
 - `FastStateMachine` for high-throughput, integer-coded state/event processing.
+- `TypedFastStateMachine<S, E>` for compile-time state/event domains backed by
+  the Fast engine.
 
 The Standard machine defaults to 16 immediate CAS attempts with no wall-clock
 budget. Explicitly choose `CasStrategy::LatencyFirst` when a time-bounded retry
 window is required; a terminal CAS failure remains distinct from a rejected
 transition.
 
-Both variants keep transition tables immutable after construction and execute event
-triggers through CAS-backed state updates.
+All three entry points keep transition tables immutable after construction and
+execute event triggers through CAS-backed state updates. Each also exposes
+`diagnose_graph()` for offline reachability analysis; the standard implementation
+does not guarantee iteration order, while Fast implementations return code order.
 
 ## Why Use It
 
@@ -127,6 +132,14 @@ Use only the Fast implementation without pulling in `qubit-cas`:
 [dependencies]
 qubit-state-machine = { version = "0.9", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
+```
+
+To run the repository's local CI wrapper from a fresh clone, initialize the
+version-pinned CI submodule first:
+
+```bash
+git submodule update --init --recursive
+./ci-check.sh
 ```
 
 ## Quick Start: Job Processing
