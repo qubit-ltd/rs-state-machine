@@ -31,7 +31,11 @@ pub enum TypedFastStateMachineError {
     },
     /// The integer engine rejected the event or exhausted its CAS budget.
     #[error(transparent)]
-    Raw(#[from] FastStateMachineError),
+    Raw(
+        /// The underlying integer-engine error.
+        #[from]
+        FastStateMachineError,
+    ),
 }
 
 impl TypedFastStateMachineError {

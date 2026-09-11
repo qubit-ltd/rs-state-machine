@@ -49,5 +49,9 @@ pub enum TypedFastStateMachineBuildError {
     },
     /// The shared integer builder rejected the transition definition.
     #[error(transparent)]
-    Raw(#[from] FastStateMachineBuildError),
+    Raw(
+        /// The underlying integer-builder error.
+        #[from]
+        FastStateMachineBuildError,
+    ),
 }
