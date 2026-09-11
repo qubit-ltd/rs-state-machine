@@ -1,11 +1,30 @@
-# Qubit State Machine 用户指南
+# Qubit State Machine 用户手册
 
-适用于 0.9。[English](user_guide.md)。本指南面向需要明确任务生命周期规则的 Rust 应用。
+[English](user_guide.md) · 适用于 0.9 版本
 
-## 模型与安装
+## 手册目标与读者
 
-转换表创建后不可变。标准版在 AtomicRef 中存储 enum 风格状态，Fast 版使用紧凑整数状态。
-两者均要求一个初态，终态不能有出边。状态单元与规则表独立；每个任务应有自己的状态单元。
+本手册面向需要为任务、服务、设备或其他有限生命周期明确规定状态转换的 Rust 开发者。
+内容覆盖公开的 `StateMachine`、`FastStateMachine` 和 `TypedFastStateMachine` API。
+本库是有限状态机，不负责工作流调度，也不提供跨资源事务。
+
+## 概念模型
+
+构建完成的 machine 保存已注册状态、唯一初态、终态标记和转换规则，之后规则不可变。
+每个任务单独持有一个当前状态单元；多个任务可以共享同一份 machine，而不会共享当前状态。
+
+标准版把枚举风格的值存放在 `qubit_atomic::AtomicRef` 中，通过同步的 `qubit-cas` 执行更新。
+Fast 版把连续的 `u64` 编码存放在 `qubit_fast_cas::FastCasState` 中；强类型 Fast 版还会根据
+每种类型的 `DenseCode::VALUES` 校验编码。
+
+## 贯穿场景：启动任务并记录审计
+
+假设 worker 需要把任务从 `Queued` 转为 `Running`，并且只有状态提交成功后才能写入审计记录。
+如果再次收到 `Start`，则应将其作为不允许的转换处理。
+
+## 安装与最小配置
+
+只使用标准版时，可以采用下面的依赖配置：
 
 ```toml
 [dependencies]
@@ -14,9 +33,12 @@ qubit-atomic = "0.13"
 qubit-cas = "0.9"
 ```
 
-## 任务启动与审计
+项目要求 Rust 1.94 或更新版本。默认 feature 集同时启用 `standard` 和 `fast`。
 
-初始任务处于 Queued；Start 将其提交为 Running。提交成功后记录审计，重复 Start 则失败。
+## 核心工作流
+
+先定义实现 `Copy + Eq + Hash + Debug` 的小型状态和事件类型，再注册状态、指定唯一初态、添加转换规则，
+最后构建不可变规则表。每个任务创建自己的状态单元；需要在成功转换后记录审计时使用 `trigger_with`：
 
 ```rust
 use qubit_atomic::AtomicRef;
@@ -38,45 +60,54 @@ let machine = StateMachine::builder()
     .build().expect("valid transition table");
 let state = AtomicRef::from_value(JobState::Queued);
 let mut audit = Vec::new();
-machine.trigger_with(&state, JobEvent::Start, |old, next| audit.push((old, next)))
-    .expect("start transition commits");
+
+machine.trigger_with(&state, JobEvent::Start, |old, next| {
+    audit.push((old, next));
+}).expect("start transition commits");
 assert_eq!(*state.load(), JobState::Running);
 assert_eq!(audit, vec![(JobState::Queued, JobState::Running)]);
 assert!(!machine.try_trigger(&state, JobEvent::Start));
 ```
 
-## 重试配置
+运行结果是一次成功的状态提交和一条审计记录。调用方需要区分业务规则拒绝与 CAS 执行失败时，
+使用 `trigger` 或 `trigger_with` 并检查错误；不需要区分时，使用 `try_trigger` 或 `try_trigger_with`，
+它们会把失败压缩为 `false`。
 
-`cas_executor` 注入已校验的 CasExecutor；`cas_strategy` 选择 LatencyFirst、ContentionBackoff 或
-ReliabilityFirst。两者都替换整个 executor，最后调用者生效。ContentionBackoff 是固定指数退避加
-jitter，不会自动学习竞争率。标准版默认是 16 次立即尝试，不设置操作或总墙钟预算；需要时间上限时显式选择 `CasStrategy::LatencyFirst`。
+## 进阶用法
 
-构建后通过 `machine.cas_executor()` 的 `max_attempts()`、`max_operation_elapsed()` 和
-`max_total_elapsed()` 查看实际生效的次数与软预算；退避在 builder 上配置，不通过 getter 暴露。
-标准版不再提供单独的 machine `cas_strategy()` 查询，因为自定义 executor 没有对应的预设名称。
+`cas_executor` 用于注入已校验的同步 executor；`cas_strategy` 可选择 `LatencyFirst`、
+`ContentionBackoff` 或 `ReliabilityFirst`。最后一次设置 executor 或 strategy 的调用生效。
+默认配置为 16 次立即尝试，不设置操作或总墙钟预算。构建后可通过 `machine.cas_executor()` 查看实际配置，
+包括 `max_attempts()`、`max_operation_elapsed()` 和 `max_total_elapsed()`。
 
-自定义 builder 支持 max_attempts、max_operation_elapsed、max_total_elapsed 和退避。
-软预算只决定后续准入，不撤销已成功提交的结果；同步触发忽略 attempt_timeout/flow_timeout，
-重试延迟阻塞调用线程。这里不提供异步触发或 hooks，需这些能力时直接使用 rs-cas。
-Typed Fast 错误可用 `is_unknown_transition()` 和 `is_cas_conflict()` 分类；
-`diagnose_graph()` 只做离线图分析，不改变构建规则。
+当状态和事件可以编码为连续的 `u64`，且适合使用平铺转换表时，选择 `FastStateMachine`。
+需要编译期区分状态和事件类型时，选择 `TypedFastStateMachine<S, E>`；其 `DenseCode::VALUES` 必须完整且不重复。
+三种 machine 都提供 `diagnose_graph()` 做离线可达性分析，但该分析不会改变构建是否合法。
 
-## 错误与副作用
+## 错误与诊断
 
-UnknownState/UnknownTransition 表示业务规则不允许当前操作；CasFailure 保留 CAS 错误类别和尝试数，
-可区分冲突耗尽与预算耗尽。try_trigger 将失败压成 false，需排障时使用 trigger。
+构建错误涵盖缺少或重复定义、初态无效，以及违反状态注册或终态规则的转换。
+运行时的 `UnknownState` 和 `UnknownTransition` 表示业务操作不符合规则；`CasFailure` 保留 CAS 失败类别和尝试次数，
+包括冲突或预算耗尽的情况。
 
-trigger_with 的回调只在成功提交后执行一次，自转换也算成功提交。回调 panic 不会回滚状态。
-并发回调没有全局顺序，回调中重新读取状态可能看到更新后的值；使用传入的旧/新状态做该次审计。
+`trigger_with` 仅在提交成功后调用一次回调，自转换也不例外。回调 panic 会向上传播，状态不会回滚。
+并发回调没有全局顺序，回调中重新读取状态还可能看到后续提交；记录审计时应使用回调参数中的 `old` 和 `new`。
 
-## Fast 模式与排障
+## 排障
 
-仅使用 fast 时配置 default-features=false、features=["fast"] 并依赖 qubit-fast-cas 0.3，
-不需要 qubit-cas 或 qubit-atomic。整数状态/事件编码必须落在构建时声明的范围。
+- `build` 失败：确认初态已注册且只设置一次，终态没有出边，所有转换端点都已注册。
+- 触发失败：先匹配详细错误，再判断是 CAS 冲突还是业务拒绝，以及是否适合重试。
+- 延迟升高：检查同步重试延迟和竞争情况，使用有界策略并基于实际负载测量，不要无限增加重试次数。
+- Fast 版本：确认所有编码都在声明的状态/事件范围内；强类型 Fast 版本还要确认 `code()` 与
+  `DenseCode::VALUES` 中的索引一致。
 
-- 构建失败：检查初态、状态注册、终态出边和重复转换。
-- 触发失败：先分清业务错误与 CasFailure，再选择是否重试。
-- 延迟增大：检查同步退避和热点竞争，用实际负载评估策略；不要直接放宽重试到无限。
+## 限制与最佳实践
 
-本库不提供跨资源事务或完整工作流调度。参阅 [README](../README.zh_CN.md) 和
-[API](https://docs.rs/qubit-state-machine)。
+`build` 后规则不可变，但每个任务仍需独立的状态单元。CAS 只负责原子提交状态；结果投递、hook 顺序和业务负载的同步
+由调用方负责。同步触发路径不提供异步执行或外部事务协调。本库适合有限状态转换，不是完整工作流引擎。
+
+## 延伸阅读
+
+- [README](../README.zh_CN.md)
+- [English user guide](user_guide.md)
+- [API 文档](https://docs.rs/qubit-state-machine)

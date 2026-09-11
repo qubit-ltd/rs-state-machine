@@ -12,8 +12,6 @@
 executor 的 `max_attempts()`、`max_operation_elapsed()` 和 `max_total_elapsed()` 查询。CAS 终止类型保留在
 `StateMachineError::CasFailure` 中。
 
-文档：[API 文档](https://docs.rs/qubit-state-machine)
-
 `qubit-state-machine` 是一个小型 Rust 有限状态机库，适用于生命周期、工作流和任务状态跟踪代码。
 
 0.9 版本要求恰好配置一个初态，终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
@@ -347,6 +345,9 @@ assert_eq!(*state.load(), DoorState::Closed);
 | 应用事件并获取详细错误 | `trigger`、`trigger_with`、`StateMachineError` |
 | 应用事件但不处理错误详情 | `try_trigger`、`try_trigger_with` |
 | 存储共享可变状态 | `qubit_atomic::AtomicRef` 或 `qubit_fast_cas::FastCasState` |
+
+需要完整了解任务生命周期、重试策略、错误处理和排障步骤时，请阅读[中文用户手册](doc/user_guide.zh_CN.md)
+或 [English user guide](doc/user_guide.md)。完整的公共 API 说明请参阅生成的 [API 文档](https://docs.rs/qubit-state-machine)。
 
 ## 核心 API 概览
 

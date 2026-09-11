@@ -14,8 +14,6 @@ backoff with `cas_executor`, or choose a preset with the builder's
 and `max_total_elapsed()`. Terminal CAS kinds are preserved in
 `StateMachineError::CasFailure`.
 
-Documentation: [API Reference](https://docs.rs/qubit-state-machine)
-
 `qubit-state-machine` is a small Rust finite state machine crate for lifecycle,
 workflow, and task-state tracking code.
 
@@ -357,6 +355,11 @@ assert_eq!(*state.load(), DoorState::Closed);
 | Apply events and get detailed errors | `trigger`, `trigger_with`, `StateMachineError` |
 | Apply events without handling errors | `try_trigger`, `try_trigger_with` |
 | Store shared mutable state | `qubit_atomic::AtomicRef` or `qubit_fast_cas::FastCasState` |
+
+For the complete job-lifecycle walkthrough, retry-policy guidance, error
+handling, and troubleshooting steps, read the [English user guide](doc/user_guide.md)
+or the [中文用户手册](doc/user_guide.zh_CN.md). The generated [API Reference](https://docs.rs/qubit-state-machine)
+contains the complete public API documentation.
 
 ## Core API At A Glance
 

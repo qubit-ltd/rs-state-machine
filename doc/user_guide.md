@@ -1,18 +1,35 @@
 # Qubit State Machine User Guide
 
-Applies to 0.9. [中文版](user_guide.zh_CN.md). This guide is for Rust applications
-that need explicit job lifecycle rules.
+[中文版](user_guide.zh_CN.md) · Applies to version 0.9
 
-## Model and setup
+## Purpose and Audience
 
-Transition tables are immutable after construction. Standard machines store
-small enum-like states in AtomicRef; Fast machines use compact integer states.
-Both require one initial state and reject outgoing transitions from terminal
-states. Each job owns a state cell independently of the shared rule table.
+This guide is for Rust developers modeling a job, service, device, or other
+finite lifecycle with explicit allowed transitions. It covers the public
+`StateMachine`, `FastStateMachine`, and `TypedFastStateMachine` APIs. It does
+not turn this crate into a workflow scheduler or a cross-resource transaction.
 
-The Standard builder defaults to 16 immediate CAS attempts without operation or
-total wall-clock budgets. Select `CasStrategy::LatencyFirst` explicitly when a
-time-bounded retry window is part of the application contract.
+## Conceptual Model
+
+An immutable machine owns the registered states, the unique initial state,
+terminal-state markers, and transition rules. A separately owned state cell
+holds one object's current state. Multiple objects can share the same machine
+while keeping independent state cells.
+
+The Standard machine stores enum-like values in `qubit_atomic::AtomicRef` and
+uses synchronous `qubit-cas` execution. The Fast machine stores dense `u64`
+codes in `qubit_fast_cas::FastCasState`; the typed Fast machine checks those
+codes against each type's `DenseCode::VALUES`.
+
+## Scenario: Start and Audit a Job
+
+Suppose a worker must move a job from `Queued` to `Running` and record an audit
+entry only after the state commit succeeds. A repeated `Start` must be
+reported as a rejected transition.
+
+## Installation and Minimal Configuration
+
+The Standard-only setup keeps the dependency surface small:
 
 ```toml
 [dependencies]
@@ -21,10 +38,15 @@ qubit-atomic = "0.13"
 qubit-cas = "0.9"
 ```
 
-## Start and audit a job
+Use Rust 1.94 or newer. The default feature set enables both `standard` and
+`fast`.
 
-The job starts Queued. Start commits Running, then records an audit event. A
-second Start fails because no such transition exists from Running.
+## Core Workflow
+
+Define small `Copy + Eq + Hash + Debug` state and event types, register the
+states, select exactly one initial state, add transitions, and build the
+immutable table. Create a state cell for each job and use `trigger_with` when
+the successful transition needs an audit callback:
 
 ```rust
 use qubit_atomic::AtomicRef;
@@ -46,56 +68,75 @@ let machine = StateMachine::builder()
     .build().expect("valid transition table");
 let state = AtomicRef::from_value(JobState::Queued);
 let mut audit = Vec::new();
-machine.trigger_with(&state, JobEvent::Start, |old, next| audit.push((old, next)))
-    .expect("start transition commits");
+
+machine.trigger_with(&state, JobEvent::Start, |old, next| {
+    audit.push((old, next));
+}).expect("start transition commits");
 assert_eq!(*state.load(), JobState::Running);
 assert_eq!(audit, vec![(JobState::Queued, JobState::Running)]);
 assert!(!machine.try_trigger(&state, JobEvent::Start));
 ```
 
-## Retry configuration
+The observable result is one committed state change and one audit entry. Use
+`trigger` or `trigger_with` when the caller must distinguish a rejected
+business transition from a CAS execution failure; use `try_trigger` or
+`try_trigger_with` when all failures may be collapsed to `false`.
 
-`cas_executor` injects a validated executor; `cas_strategy` selects LatencyFirst,
-ContentionBackoff, or ReliabilityFirst. Both replace the entire executor, with
-the last call winning. ContentionBackoff is fixed exponential backoff plus jitter,
-not an adaptive controller. The Standard default uses 16 immediate attempts and
-no operation or total wall-clock budget; choose `LatencyFirst` explicitly for a
-time-bounded policy.
+## Advanced Usage
 
-After building, inspect the installed limits through `machine.cas_executor()`
-using `max_attempts()`, `max_operation_elapsed()`, and `max_total_elapsed()`.
-Backoff is configured on the builder and has no public getter. A custom executor
-is not assigned a preset strategy name.
+`cas_executor` injects a validated synchronous executor. `cas_strategy` selects
+`LatencyFirst`, `ContentionBackoff`, or `ReliabilityFirst`; the last call that
+sets the executor or strategy wins. The default is 16 immediate attempts with
+no operation or total wall-clock budget. Inspect the installed executor with
+`machine.cas_executor()`, including `max_attempts()`,
+`max_operation_elapsed()`, and `max_total_elapsed()`.
 
-Custom builders support max_attempts, max_operation_elapsed, max_total_elapsed,
-and retry delays. Soft budgets gate later attempts without revoking a committed
-success. Synchronous triggering ignores attempt_timeout/flow_timeout and blocks
-during backoff. Use rs-cas directly when async execution or hooks are needed.
-Typed Fast errors expose `is_unknown_transition()` and `is_cas_conflict()`.
-`diagnose_graph()` performs offline reachability analysis without changing build
+Use `FastStateMachine` when states and events are dense `u64` codes and the
+flat transition table is appropriate. Use `TypedFastStateMachine<S, E>` when
+compile-time state and event types are useful; its `DenseCode::VALUES` list
+must be complete and unique. All three machine types provide
+`diagnose_graph()` for offline reachability analysis; it does not change build
 validity.
 
-## Errors and side effects
+## Errors and Diagnostics
 
-UnknownState/UnknownTransition represent invalid business transitions. CasFailure
-retains the CAS kind and attempt count, including exhausted conflicts or budgets.
-try_trigger compresses errors to false; use trigger when diagnostics matter.
+Build errors cover missing or duplicate definitions, an invalid initial state,
+and transitions that violate the registered state or terminal-state rules.
+At runtime, `UnknownState` and `UnknownTransition` describe invalid business
+operations. `CasFailure` retains the CAS failure kind and attempt count,
+including exhausted conflicts or budgets.
 
-trigger_with invokes its callback once after a successful commit, including
-self-transitions. A callback panic does not roll back state. Concurrent callbacks
-have no global order and a fresh state read may observe a newer commit; use the
-supplied old/new arguments for that transition's audit record.
+`trigger_with` invokes its callback once after a successful commit, including a
+self-transition. A callback panic propagates and does not roll back the state.
+Concurrent callback order is unspecified, and a fresh read inside a callback
+may see a later commit; use the callback's `old` and `new` arguments for the
+audit record.
 
-## Fast mode and troubleshooting
+## Troubleshooting
 
-Use default-features=false, features=["fast"] and qubit-fast-cas 0.3 for fast-only
-consumers, without qubit-cas or qubit-atomic. Integer codes must stay within the
-configured state/event ranges.
+- If `build` fails, check that the initial state is registered exactly once,
+  terminal states have no outgoing transitions, and every transition endpoint
+  is registered.
+- If triggering fails, match the detailed error before deciding whether a CAS
+  conflict or a business rejection is retryable.
+- If latency increases, inspect synchronous retry delays and contention; use
+  a bounded strategy and measure the workload rather than making retries
+  unbounded.
+- For Fast machines, verify every code is within the configured state/event
+  range. For typed Fast machines, verify `code()` matches the index in
+  `DenseCode::VALUES`.
 
-- Build failure: check initial state, registrations, terminal edges, and duplicates.
-- Trigger failure: distinguish business errors from CasFailure before retrying.
-- High latency: inspect synchronous backoff and hot contention; measure presets
-  rather than making retries unbounded.
+## Limitations and Best Practices
 
-This crate is not a cross-resource transaction or full workflow scheduler. See
-the [README](../README.md) and [API](https://docs.rs/qubit-state-machine).
+Rules are immutable after `build`, but each job still needs its own state cell.
+CAS only atomically commits the state; result delivery, hook ordering, and
+business payload synchronization remain the caller's responsibility. The
+synchronous trigger path does not provide async execution or external
+transaction coordination. This crate is a finite state machine, not a complete
+workflow engine.
+
+## Further Reading
+
+- [README](../README.md)
+- [中文用户手册](user_guide.zh_CN.md)
+- [API Reference](https://docs.rs/qubit-state-machine)
