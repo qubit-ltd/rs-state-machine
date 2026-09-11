@@ -2,7 +2,10 @@
 //    Copyright (c) 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//
 //! Safe finite value encodings for typed dense state machines.
 use std::fmt::Debug;
 
@@ -15,10 +18,27 @@ use super::TypedFastStateMachineBuildError;
 /// table; each typed input is also checked against its table entry, so an
 /// omitted value cannot impersonate another value with the same code.
 /// Decoding uses safe slice access; this trait never grants unsafe privileges.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_state_machine::DenseCode;
+///
+/// #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+/// enum State { Ready }
+/// impl DenseCode for State {
+///     const VALUES: &'static [Self] = &[Self::Ready];
+///     fn code(self) -> u64 { 0 }
+/// }
+/// assert_eq!(State::Ready.code(), 0);
+/// ```
 pub trait DenseCode: Copy + Eq + Debug + Send + Sync + 'static {
     /// Complete value set in ascending code order.
     const VALUES: &'static [Self];
     /// Returns this value's stable index in [`Self::VALUES`].
+    ///
+    /// The returned code must equal this value's index in `VALUES`; builders
+    /// reject tables that do not satisfy this invariant.
     fn code(self) -> u64;
 }
 
