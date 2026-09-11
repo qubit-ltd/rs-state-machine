@@ -21,6 +21,7 @@ use crate::FastStateMachineBuildError;
 /// let error = TypedFastStateMachineBuildError::EmptyCodebook { domain: "state" };
 /// assert_eq!(error.to_string(), "state codebook is empty");
 /// ```
+#[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum TypedFastStateMachineBuildError {
     /// The state or event value table is empty.

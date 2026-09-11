@@ -26,6 +26,7 @@ use thiserror::Error;
 ///     StateMachineBuildError::InitialStateNotConfigured;
 /// assert_eq!(error.to_string(), "initial state is not configured");
 /// ```
+#[must_use]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Error)]
 pub enum StateMachineBuildError<S, E>
 where

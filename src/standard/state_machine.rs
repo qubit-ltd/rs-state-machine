@@ -231,6 +231,7 @@ where
     /// assert!(machine.states().contains(&State::New));
     /// assert_eq!(machine.states().len(), 2);
     /// ```
+    #[must_use]
     #[inline(always)]
     pub const fn states(&self) -> &HashSet<S> {
         &self.states
@@ -257,6 +258,7 @@ where
     /// #     .expect("rules should build");
     /// assert_eq!(machine.initial_state(), State::New);
     /// ```
+    #[must_use]
     #[inline(always)]
     pub const fn initial_state(&self) -> S {
         self.initial_state
@@ -284,6 +286,7 @@ where
     /// #     .expect("rules should build");
     /// assert!(machine.terminal_states().contains(&State::Done));
     /// ```
+    #[must_use]
     #[inline(always)]
     pub const fn terminal_states(&self) -> &HashSet<S> {
         &self.terminal_states
@@ -321,6 +324,7 @@ where
     ///     transition == Transition::new(State::New, Event::Start, State::Running)
     /// }));
     /// ```
+    #[must_use = "iterate over the configured transitions"]
     #[inline(always)]
     pub fn transitions(&self) -> impl Iterator<Item = Transition<S, E>> + '_ {
         self.transition_map
@@ -353,6 +357,7 @@ where
     /// assert!(machine.contains_state(State::Running));
     /// assert!(!machine.contains_state(State::Detached));
     /// ```
+    #[must_use]
     #[inline(always)]
     pub fn contains_state(&self, state: S) -> bool {
         self.states.contains(&state)
@@ -383,6 +388,7 @@ where
     /// assert!(machine.is_initial_state(State::New));
     /// assert!(!machine.is_initial_state(State::Running));
     /// ```
+    #[must_use]
     #[inline(always)]
     pub fn is_initial_state(&self, state: S) -> bool {
         self.initial_state == state
@@ -414,6 +420,7 @@ where
     /// assert!(machine.is_terminal_state(State::Done));
     /// assert!(!machine.is_terminal_state(State::Running));
     /// ```
+    #[must_use]
     #[inline(always)]
     pub fn is_terminal_state(&self, state: S) -> bool {
         self.terminal_states.contains(&state)
@@ -482,6 +489,7 @@ where
     /// );
     /// assert_eq!(machine.transition_target(State::New, Event::Finish), None);
     /// ```
+    #[must_use]
     #[inline(always)]
     pub fn transition_target(&self, source: S, event: E) -> Option<S> {
         self.transition_map.get(&(source, event)).copied()

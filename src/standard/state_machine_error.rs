@@ -27,6 +27,7 @@ use thiserror::Error;
 ///     StateMachineError::UnknownState { state: 9 };
 /// assert_eq!(error.to_string(), "unknown state: 9");
 /// ```
+#[must_use]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Error)]
 pub enum StateMachineError<S, E>
 where

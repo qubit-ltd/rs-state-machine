@@ -8,13 +8,19 @@
 //
 //! Shared bounded fuzz harnesses exercised by ordinary regression tests.
 mod builder_cases;
-pub use builder_cases::BuilderOutcome;
+pub type BuilderOutcome = builder_cases::BuilderOutcome;
 #[cfg(feature = "fast")]
-pub use builder_cases::run_fast_builder;
+pub fn run_fast_builder(data: &[u8]) -> BuilderOutcome {
+    builder_cases::run_fast_builder(data)
+}
 #[cfg(feature = "standard")]
-pub use builder_cases::run_standard_builder;
+pub fn run_standard_builder(data: &[u8]) -> BuilderOutcome {
+    builder_cases::run_standard_builder(data)
+}
 
 #[cfg(all(feature = "fast", feature = "standard"))]
 mod differential;
 #[cfg(all(feature = "fast", feature = "standard"))]
-pub use differential::run_differential;
+pub fn run_differential(data: &[u8]) {
+    differential::run_differential(data);
+}

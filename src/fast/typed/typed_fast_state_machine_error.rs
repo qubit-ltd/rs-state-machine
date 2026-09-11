@@ -21,6 +21,7 @@ use crate::FastStateMachineError;
 /// let error = TypedFastStateMachineError::InvalidEventCode { code: 9 };
 /// assert!(!error.is_unknown_transition());
 /// ```
+#[must_use]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum TypedFastStateMachineError {
     /// The supplied event is absent from its declared finite table.

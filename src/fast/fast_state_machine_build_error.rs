@@ -20,6 +20,7 @@ use thiserror::Error;
 /// let error = FastStateMachineBuildError::InvalidStateCount { count: 0 };
 /// assert_eq!(error.to_string(), "state count must be positive: 0");
 /// ```
+#[must_use]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Error)]
 pub enum FastStateMachineBuildError {
     /// State count was not configured.
