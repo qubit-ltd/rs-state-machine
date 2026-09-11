@@ -2,13 +2,25 @@
 //    Copyright (c) 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//
 //! Validation failures for typed finite encodings and transition rules.
 use thiserror::Error;
 
 use crate::FastStateMachineBuildError;
 
 /// Error returned when a typed machine's encoding or rules are invalid.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_state_machine::TypedFastStateMachineBuildError;
+///
+/// let error = TypedFastStateMachineBuildError::EmptyCodebook { domain: "state" };
+/// assert_eq!(error.to_string(), "state codebook is empty");
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum TypedFastStateMachineBuildError {
     /// The state or event value table is empty.

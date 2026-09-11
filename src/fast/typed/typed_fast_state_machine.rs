@@ -2,7 +2,10 @@
 //    Copyright (c) 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//
 //! Type-checked entry points over the existing immutable Fast engine.
 use std::marker::PhantomData;
 
@@ -26,7 +29,7 @@ use crate::Transition;
 /// state; intermediate ABA changes and callback ordering are not detected or
 /// enforced.
 ///
-/// # Typed inputs
+/// # Examples
 ///
 /// ```
 /// use qubit_state_machine::{DenseCode, TypedFastStateMachine};
@@ -107,11 +110,18 @@ pub struct TypedFastStateMachine<S: DenseCode, E: DenseCode> {
 
 impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// Creates an empty typed builder with inferred state and event counts.
+    ///
+    /// # Returns
+    /// A builder whose state and event counts come from `S::VALUES` and
+    /// `E::VALUES`.
     pub fn builder() -> TypedFastStateMachineBuilder<S, E> {
         TypedFastStateMachineBuilder::new()
     }
 
     /// Creates an independent cell containing the configured initial state.
+    ///
+    /// # Returns
+    /// A new atomic cell initialized to this machine's initial state.
     #[must_use = "use the independent state cell"]
     pub fn create_state(&self) -> TypedFastState<S> {
         TypedFastState {
@@ -126,6 +136,10 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// This call's committed target, which may already be superseded by another
     /// caller.
+    ///
+    /// # Parameters
+    /// - `state`: Typed atomic cell to update.
+    /// - `event`: Event value to apply.
     ///
     /// # Errors
     /// Returns invalid-event membership, unknown-transition, or CAS-budget
@@ -150,6 +164,11 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     ///
     /// # Returns
     /// This call's target, even if a reentrant callback commits another state.
+    ///
+    /// # Parameters
+    /// - `state`: Typed atomic cell to update.
+    /// - `event`: Event value to apply.
+    /// - `on_success`: Callback receiving the committed old and new states.
     ///
     /// # Errors
     /// Returns the same errors as `trigger`; errors never invoke the callback.
@@ -181,6 +200,10 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     ///
     /// # Returns
     /// `true` on commit (including self-transitions), or `false` for any error.
+    ///
+    /// # Parameters
+    /// - `state`: Typed atomic cell to update.
+    /// - `event`: Event value to apply.
     #[must_use = "the result reports whether the transition committed"]
     #[inline]
     pub fn try_trigger(&self, state: &TypedFastState<S>, event: E) -> bool {
@@ -192,6 +215,14 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     ///
     /// # Returns
     /// `true` on commit, or `false` on any validation or CAS error.
+    ///
+    /// # Type Parameters
+    /// - `F`: One-shot callback type.
+    ///
+    /// # Parameters
+    /// - `state`: Typed atomic cell to update.
+    /// - `event`: Event value to apply.
+    /// - `callback`: Callback receiving the committed old and new states.
     ///
     /// # Panics
     /// Propagates callback panics without rolling back the committed state.
@@ -209,6 +240,10 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// The target, or `None` for an invalid typed input or an undefined
     /// transition.
+    ///
+    /// # Parameters
+    /// - `source`: Candidate source state.
+    /// - `event`: Candidate event.
     #[inline]
     pub fn transition_target(&self, source: S, event: E) -> Option<S> {
         decode(
@@ -219,6 +254,9 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
 
     /// Returns the unique configured initial state.
     ///
+    /// # Returns
+    /// The initial state value configured for every new cell.
+    ///
     /// # Panics
     /// Panics if the raw machine violates its validated initial-code invariant.
     pub fn initial_state(&self) -> S {
@@ -226,41 +264,74 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     }
 
     /// Returns whether `state` belongs to its declared finite value table.
+    ///
+    /// # Parameters
+    /// - `state`: State value to check.
+    ///
+    /// # Returns
+    /// `true` when `state` is present in `S::VALUES`.
     pub fn contains_state(&self, state: S) -> bool {
         checked_code(state).is_some()
     }
 
     /// Returns whether `state` is valid and is the initial state.
+    ///
+    /// # Parameters
+    /// - `state`: State value to check.
+    ///
+    /// # Returns
+    /// `true` when `state` is valid and equals the configured initial state.
     pub fn is_initial_state(&self, state: S) -> bool {
         checked_code(state).is_some_and(|code| self.raw.is_initial_state(code))
     }
 
     /// Returns whether `state` is valid and marked terminal.
+    ///
+    /// # Parameters
+    /// - `state`: State value to check.
+    ///
+    /// # Returns
+    /// `true` when `state` is a valid member marked terminal.
     pub fn is_terminal_state(&self, state: S) -> bool {
         checked_code(state).is_some_and(|code| self.raw.is_terminal_state(code))
     }
 
     /// Returns the number of states in the finite codebook.
+    ///
+    /// # Returns
+    /// The length of `S::VALUES` used by the machine.
     pub const fn state_count(&self) -> u64 {
         self.raw.state_count()
     }
 
     /// Returns the number of events in the finite codebook.
+    ///
+    /// # Returns
+    /// The length of `E::VALUES` used by the machine.
     pub const fn event_count(&self) -> u64 {
         self.raw.event_count()
     }
 
     /// Returns the number of distinct configured transition rules.
+    ///
+    /// # Returns
+    /// The count of unique `(source, event)` pairs.
     pub const fn transition_count(&self) -> usize {
         self.raw.transition_count()
     }
 
     /// Returns the policy used for each CAS transition.
+    ///
+    /// # Returns
+    /// The configured Fast CAS retry policy.
     pub fn cas_policy(&self) -> FastCasPolicy {
         self.raw.cas_policy()
     }
 
     /// Iterates terminal values in ascending code order.
+    ///
+    /// # Returns
+    /// An iterator over terminal state values in code order.
     ///
     /// # Panics
     /// Iteration panics if an internal terminal code cannot be decoded.
@@ -271,6 +342,9 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     }
 
     /// Iterates configured rules in source-code then event-code order.
+    ///
+    /// # Returns
+    /// An iterator over the configured typed transition values.
     ///
     /// # Panics
     /// Iteration panics if an internal rule contains an invalid code.
@@ -285,6 +359,9 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     }
 
     /// Analyzes reachability and paths to explicit terminal states.
+    ///
+    /// # Returns
+    /// Reachability findings expressed as typed state values.
     #[must_use]
     pub fn diagnose_graph(&self) -> crate::GraphDiagnostics<S> {
         let report = self.raw.diagnose_graph();

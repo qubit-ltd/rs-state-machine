@@ -2,7 +2,10 @@
 //    Copyright (c) 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//
 //! Typed configuration delegated to the validated dense integer builder.
 use std::marker::PhantomData;
 
@@ -20,6 +23,32 @@ use crate::Transition;
 ///
 /// Counts come from their value tables. The first invalid input is retained;
 /// encoding tables are validated before rule validation and dense allocation.
+///
+/// # Type Parameters
+/// - `S`: Finite state type implementing [`DenseCode`].
+/// - `E`: Finite event type implementing [`DenseCode`].
+///
+/// # Examples
+///
+/// ```
+/// use qubit_state_machine::{DenseCode, TypedFastStateMachineBuilder};
+///
+/// #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+/// enum State { Ready }
+/// impl DenseCode for State {
+///     const VALUES: &'static [Self] = &[Self::Ready];
+///     fn code(self) -> u64 { 0 }
+/// }
+/// #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+/// enum Event { Tick }
+/// impl DenseCode for Event {
+///     const VALUES: &'static [Self] = &[Self::Tick];
+///     fn code(self) -> u64 { 0 }
+/// }
+/// let machine = TypedFastStateMachineBuilder::<State, Event>::new()
+///     .initial_state(State::Ready).build().expect("valid rules");
+/// assert_eq!(machine.initial_state(), State::Ready);
+/// ```
 #[must_use = "configure and build the typed state machine"]
 #[derive(Debug, Clone)]
 pub struct TypedFastStateMachineBuilder<S: DenseCode, E: DenseCode> {
@@ -72,6 +101,9 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
 
     /// Sets the unique initial `state`; the last valid setting wins.
     ///
+    /// # Parameters
+    /// - `state`: Initial state value.
+    ///
     /// # Returns
     /// The updated builder. Invalid membership is reported by `build`.
     pub fn initial_state(mut self, state: S) -> Self {
@@ -83,6 +115,9 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
 
     /// Marks `state` terminal, forbidding all outgoing transitions.
     ///
+    /// # Parameters
+    /// - `state`: Terminal state value.
+    ///
     /// # Returns
     /// The updated builder. Invalid membership is reported by `build`.
     pub fn terminal_state(mut self, state: S) -> Self {
@@ -93,6 +128,9 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
     }
 
     /// Marks every value in `states` terminal.
+    ///
+    /// # Parameters
+    /// - `states`: Terminal state values.
     ///
     /// # Returns
     /// The updated builder, retaining the first invalid member for `build`.
@@ -125,6 +163,9 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
 
     /// Adds the supplied transition `value`.
     ///
+    /// # Parameters
+    /// - `value`: Transition value to add.
+    ///
     /// # Returns
     /// The updated builder, with the same validation as `transition`.
     pub fn transition_value(self, value: Transition<S, E>) -> Self {
@@ -132,6 +173,9 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
     }
 
     /// Selects `policy` for each runtime CAS operation.
+    ///
+    /// # Parameters
+    /// - `policy`: Fast CAS retry policy.
     ///
     /// # Returns
     /// The updated builder; the default is the original Fast engine's policy.
