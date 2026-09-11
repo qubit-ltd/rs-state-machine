@@ -2,7 +2,10 @@
 //    Copyright (c) 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+//
 //! Shared bounded fuzz harnesses exercised by ordinary regression tests.
 mod builder_cases;
 pub use builder_cases::BuilderOutcome;
