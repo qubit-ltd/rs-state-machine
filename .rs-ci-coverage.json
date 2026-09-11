@@ -4,9 +4,7 @@
       "src/fast/fast_state_machine.rs",
       "src/fast/fast_state_machine_builder.rs",
       "src/fast/typed/dense_code.rs",
-      "src/fast/typed/typed_fast_state.rs",
-      "src/fast/typed/typed_fast_state_machine.rs",
-      "src/fast/typed/typed_fast_state_machine_builder.rs"
+      "src/fast/typed/typed_fast_state_machine.rs"
     ]
   }
 }

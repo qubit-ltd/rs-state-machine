@@ -14,11 +14,10 @@ keywords = ["state-machine", "fsm", "workflow", "thread-safe", "qubit"]
 categories = ["data-structures", "concurrency"]
 include = [
     "/Cargo.toml",
+    "/CHANGELOG.md",
     "/LICENSE",
     "/README.md",
     "/README.zh_CN.md",
-    "/RUST_CODING_STYLE.md",
-    "/RUST_CODING_STYLE.zh_CN.md",
     "/benches/**",
     "/doc/**",
     "/examples/**",
