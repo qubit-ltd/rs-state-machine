@@ -9,7 +9,7 @@
 #![no_main]
 //! Fuzzes runtime equivalence with an independent reference state.
 use libfuzzer_sys::fuzz_target;
-#[allow(dead_code, unused_imports)]
+#[allow(dead_code)]
 #[path = "../support/mod.rs"]
 mod support;
 fuzz_target!(|data: &[u8]| {

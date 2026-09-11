@@ -7,11 +7,7 @@
 // =============================================================================
 //! Integration tests for `qubit-state-machine`.
 
-mod transition_tests;
-
 #[cfg(feature = "fast")]
 mod fast;
 #[cfg(feature = "standard")]
 mod standard;
-
-mod fuzz_contracts_tests;

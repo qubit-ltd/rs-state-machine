@@ -21,6 +21,7 @@ use thiserror::Error;
 /// let error = FastStateMachineError::UnknownState { state: 9 };
 /// assert_eq!(error.to_string(), "unknown state: 9");
 /// ```
+#[must_use]
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Error)]
 pub enum FastStateMachineError {
     /// The current state code is not configured in the state machine.
