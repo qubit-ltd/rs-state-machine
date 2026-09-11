@@ -29,6 +29,23 @@ const UNSET_TRANSITION: u64 = u64::MAX;
 ///
 /// Transition resolution is a single table index lookup:
 /// `index = source * event_count + event`.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_fast_cas::FastCasState;
+/// use qubit_state_machine::FastStateMachine;
+///
+/// let machine = FastStateMachine::builder()
+///     .state_count(2)
+///     .event_count(1)
+///     .initial_state(0)
+///     .transition(0, 0, 1)
+///     .build()
+///     .expect("the rules are valid");
+/// let state = FastCasState::new(0);
+/// assert_eq!(machine.trigger(&state, 0), Ok(1));
+/// ```
 #[must_use = "a fast state machine contains the configured transition rules"]
 #[derive(Debug, Clone)]
 pub struct FastStateMachine {
@@ -99,6 +116,10 @@ impl FastStateMachine {
     }
 
     /// Analyzes reachability and paths to explicit terminal states.
+    ///
+    /// # Returns
+    /// A report listing codes unreachable from the initial state and codes
+    /// unable to reach an explicit terminal state.
     #[must_use]
     pub fn diagnose_graph(&self) -> crate::GraphDiagnostics<u64> {
         let index = |code: u64| usize::try_from(code).expect("validated state code fits usize");
@@ -208,6 +229,9 @@ impl FastStateMachine {
 
     /// Creates a new independent fast state cell initialized to the initial
     /// state.
+    ///
+    /// # Returns
+    /// An atomic state cell initialized to [`Self::initial_state`].
     #[must_use]
     #[inline]
     pub fn create_state(&self) -> FastCasState {

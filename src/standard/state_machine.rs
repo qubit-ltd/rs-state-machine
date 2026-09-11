@@ -164,6 +164,9 @@ where
 
     /// Returns the executor containing the actual synchronous CAS
     /// configuration.
+    ///
+    /// # Returns
+    /// A reference to the executor used by runtime transitions.
     #[must_use]
     #[inline(always)]
     pub const fn cas_executor(&self) -> &CasExecutor<S, StateMachineError<S, E>> {
@@ -171,6 +174,10 @@ where
     }
 
     /// Analyzes reachability and paths to explicit terminal states.
+    ///
+    /// # Returns
+    /// A report listing registered states unreachable from the initial state
+    /// and states unable to reach an explicit terminal state.
     #[must_use]
     pub fn diagnose_graph(&self) -> crate::GraphDiagnostics<S> {
         let states: Vec<S> = self.states.iter().copied().collect();
@@ -413,6 +420,9 @@ where
     }
 
     /// Returns the number of registered states.
+    ///
+    /// # Returns
+    /// The number of unique states in the immutable rule table.
     #[must_use]
     #[inline(always)]
     pub fn state_count(&self) -> usize {
@@ -420,6 +430,9 @@ where
     }
 
     /// Returns the number of unique transitions.
+    ///
+    /// # Returns
+    /// The number of unique `(source, event)` transition pairs.
     #[must_use]
     #[inline(always)]
     pub fn transition_count(&self) -> usize {
@@ -428,6 +441,9 @@ where
 
     /// Creates an independent current-state cell initialized to the machine's
     /// initial state.
+    ///
+    /// # Returns
+    /// A new atomic reference initialized to the configured initial state.
     #[must_use = "use the newly initialized state cell"]
     #[inline]
     pub fn create_state(&self) -> AtomicRef<S> {
