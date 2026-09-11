@@ -100,7 +100,7 @@ validity.
 
 ## Errors and Diagnostics
 
-Build errors cover missing or duplicate definitions, an invalid initial state,
+Build errors cover missing definitions, conflicting duplicate transitions, an invalid initial state,
 and transitions that violate the registered state or terminal-state rules.
 At runtime, `UnknownState` and `UnknownTransition` describe invalid business
 operations. `CasFailure` retains the CAS failure kind and attempt count,
@@ -114,7 +114,8 @@ audit record.
 
 ## Troubleshooting
 
-- If `build` fails, check that the initial state is registered exactly once,
+- If `build` fails, check that the initial state is registered. Repeated
+  `initial_state(...)` calls are allowed and the last value wins; terminal
   terminal states have no outgoing transitions, and every transition endpoint
   is registered.
 - If triggering fails, match the detailed error before deciding whether a CAS
