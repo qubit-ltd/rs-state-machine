@@ -28,6 +28,21 @@ pub const FAST_STATE_MACHINE_DEFAULT_CAS_POLICY: FastCasPolicy = FastCasPolicy::
 /// Counts define contiguous code ranges. State codes must be less than
 /// `state_count`, event codes must be less than `event_count`, and the dense
 /// transition table requires `state_count * event_count` cells.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_state_machine::FastStateMachineBuilder;
+///
+/// let machine = FastStateMachineBuilder::new()
+///     .state_count(2)
+///     .event_count(1)
+///     .initial_state(0)
+///     .transition(0, 0, 1)
+///     .build()
+///     .expect("the rules are valid");
+/// assert_eq!(machine.transition_target(0, 0), Some(1));
+/// ```
 #[must_use = "a fast state machine builder must be configured and built"]
 #[derive(Debug, Clone)]
 pub struct FastStateMachineBuilder {

@@ -11,6 +11,15 @@
 use thiserror::Error;
 
 /// Error returned when fast state machine configuration is invalid.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_state_machine::FastStateMachineBuildError;
+///
+/// let error = FastStateMachineBuildError::InvalidStateCount { count: 0 };
+/// assert_eq!(error.to_string(), "state count must be positive: 0");
+/// ```
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Error)]
 pub enum FastStateMachineBuildError {
     /// State count was not configured.

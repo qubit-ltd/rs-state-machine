@@ -16,6 +16,16 @@ use thiserror::Error;
 /// # Type Parameters
 /// - `S`: State type recorded in the invalid rule.
 /// - `E`: Event type recorded in the invalid transition.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_state_machine::StateMachineBuildError;
+///
+/// let error: StateMachineBuildError<u8, u8> =
+///     StateMachineBuildError::InitialStateNotConfigured;
+/// assert_eq!(error.to_string(), "initial state is not configured");
+/// ```
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Error)]
 pub enum StateMachineBuildError<S, E>
 where

@@ -34,6 +34,20 @@ pub const STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS: u32 = 16;
 /// # Type Parameters
 /// - `S`: Copyable, hashable state type.
 /// - `E`: Copyable, hashable event type.
+///
+/// # Examples
+///
+/// ```
+/// use qubit_state_machine::StateMachineBuilder;
+///
+/// let machine = StateMachineBuilder::<u8, u8>::new()
+///     .add_state(0)
+///     .initial_state(0)
+///     .transition(0, 0, 0)
+///     .build()
+///     .expect("the rules are valid");
+/// assert_eq!(machine.transition_target(0, 0), Some(0));
+/// ```
 #[must_use = "a state machine builder must be configured and built"]
 #[derive(Debug, Clone)]
 pub struct StateMachineBuilder<S, E>
@@ -172,6 +186,12 @@ where
 
     /// Configures a built-in CAS execution strategy, replacing any injected
     /// executor.
+    ///
+    /// # Parameters
+    /// - `strategy`: Built-in CAS retry strategy.
+    ///
+    /// # Returns
+    /// The updated builder with an executor created from `strategy`.
     #[inline]
     pub fn cas_strategy(mut self, strategy: CasStrategy) -> Self {
         self.cas_executor = CasExecutor::with_strategy(strategy);
@@ -238,13 +258,13 @@ where
         Ok(StateMachine::new(self, transition_map))
     }
 
-    /// Validates that initial and final states are registered.
+    /// Validates that configured final states are registered.
     ///
     /// # Returns
     /// `Ok(())` when all configured state sets refer to registered states.
     ///
     /// # Errors
-    /// Returns the first unregistered initial or final state encountered.
+    /// Returns the first unregistered final state encountered.
     fn validate_registered_states(&self) -> Result<(), StateMachineBuildError<S, E>> {
         for state in &self.terminal_states {
             if !self.states.contains(state) {
@@ -293,7 +313,6 @@ where
     ///
     /// # Parameters
     /// - `transition`: Transition to insert.
-    /// - `transition_set`: Set used for public transition inspection.
     /// - `transition_map`: Lookup table used for event triggering.
     ///
     /// # Returns
