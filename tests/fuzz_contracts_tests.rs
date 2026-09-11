@@ -2,7 +2,10 @@
 //    Copyright (c) 2026 Haixing Hu.
 //
 //    SPDX-License-Identifier: Apache-2.0
+//
+//    Licensed under the Apache License, Version 2.0.
 // =============================================================================
+
 //! Ensures fuzz entry points cannot silently reject every input.
 #[cfg(any(feature = "fast", feature = "standard"))]
 #[path = "../fuzz/support/mod.rs"]
