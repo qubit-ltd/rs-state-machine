@@ -375,6 +375,48 @@ fn measure_race<D: Driver>(driver: &D, cells: &[D::Cell], events: [D::Event; 2])
     })
 }
 
+/// Measures sustained contention on one shared alternating state cell.
+fn measure_shared_toggle<D: Driver>(driver: &D, cell: &D::Cell, event: D::Event, workers: usize) -> (Duration, Counts) {
+    let ready = Barrier::new(workers + 1);
+    let start = Barrier::new(workers + 1);
+    let finish = Barrier::new(workers + 1);
+    std::thread::scope(|scope| {
+        let mut handles = Vec::with_capacity(workers);
+        for _ in 0..workers {
+            let handle = scope.spawn(|| {
+                ready.wait();
+                start.wait();
+                let mut counts = Counts::default();
+                for _ in 0..4096 {
+                    match driver.apply(cell, event) {
+                        Ok(_) => counts.committed += 1,
+                        Err(Failure::Rejected) => counts.rejected += 1,
+                        Err(Failure::Conflict) => counts.conflicts += 1,
+                        Err(Failure::Unexpected) => counts.unexpected += 1,
+                    }
+                }
+                finish.wait();
+                counts
+            });
+            handles.push(handle);
+        }
+        ready.wait();
+        let began = Instant::now();
+        start.wait();
+        finish.wait();
+        let elapsed = began.elapsed();
+        let mut total = Counts::default();
+        for handle in handles {
+            let counts = handle.join().expect("shared benchmark worker");
+            total.committed += counts.committed;
+            total.rejected += counts.rejected;
+            total.conflicts += counts.conflicts;
+            total.unexpected += counts.unexpected;
+        }
+        (elapsed, total)
+    })
+}
+
 /// Benchmarks one implementation under identical setup and result checks.
 fn benchmark_driver<D: Driver>(c: &mut Criterion, name: &str, alternating: D, self_loop: D, task: D) {
     let mut group = c.benchmark_group(name);
@@ -421,6 +463,23 @@ fn benchmark_driver<D: Driver>(c: &mut Criterion, name: &str, alternating: D, se
             BatchSize::SmallInput,
         )
     });
+    for workers in [1usize, 2, 4, 8] {
+        let scenario = format!("shared_toggle_t{workers}");
+        group.bench_function(&scenario, |b| {
+            b.iter_custom(|iterations| {
+                let mut duration = Duration::ZERO;
+                for _ in 0..iterations {
+                    let state = alternating.cell();
+                    let (elapsed, counts) = measure_shared_toggle(&alternating, &state, start_event, workers);
+                    assert_eq!(counts.rejected + counts.unexpected, 0);
+                    assert_eq!(counts.committed + counts.conflicts, workers * 4096);
+                    assert_eq!(D::load(&state), (counts.committed as u64) % 2);
+                    duration += elapsed;
+                }
+                duration
+            })
+        });
+    }
     for (scenario, running, events) in [
         ("start_cancel_1024", false, [0, 1]),
         ("complete_drop_1024", true, [2, 5]),
