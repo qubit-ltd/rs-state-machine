@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Internal graph algorithms backing [`super::GraphDiagnostics`].
+
 use super::GraphDiagnostics;
 
 /// Marks every vertex reachable from the supplied seeds.

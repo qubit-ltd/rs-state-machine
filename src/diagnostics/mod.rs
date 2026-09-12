@@ -6,6 +6,8 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Reachability analysis helpers shared by standard and fast state machines.
+
 mod analyze_graph;
 mod graph_diagnostics;
 
