@@ -430,6 +430,8 @@ checksum = "ed10a05a65f3e81328fab4e6841e99ca2a3d36bb329f4b5b1f00202474533aae"
 [[package]]
 name = "qubit-fast-cas"
 version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91048ed7cf5a65b23f0b6af148ec5245f84cd5364e6f4f2cb0ee15ff6fcc4a85"
 
 [[package]]
 name = "qubit-function"

@@ -15,7 +15,7 @@ standard = ["qubit-state-machine/standard", "dep:qubit-cas"]
 
 [dependencies]
 libfuzzer-sys = "0.4"
-qubit-fast-cas = { version = "0.3", path = "../../rs-fast-cas", optional = true }
+qubit-fast-cas = { version = "0.3", optional = true }
 qubit-state-machine = { path = "..", default-features = false }
 qubit-cas = { version = "0.9", optional = true }
 
