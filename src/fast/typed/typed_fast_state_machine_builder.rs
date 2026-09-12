@@ -107,6 +107,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
     ///
     /// # Returns
     /// The updated builder. Invalid membership is reported by `build`.
+    #[inline]
     pub fn initial_state(mut self, state: S) -> Self {
         if let Some(code) = self.encode(state, "state") {
             self.raw = self.raw.initial_state(code);
@@ -121,6 +122,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
     ///
     /// # Returns
     /// The updated builder. Invalid membership is reported by `build`.
+    #[inline]
     pub fn terminal_state(mut self, state: S) -> Self {
         if let Some(code) = self.encode(state, "state") {
             self.raw = self.raw.terminal_state(code);
@@ -169,7 +171,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
     ///
     /// # Returns
     /// The updated builder, with the same validation as `transition`.
-    #[inline(always)]
+    #[inline]
     pub fn transition_value(self, value: Transition<S, E>) -> Self {
         self.transition(value.source(), value.event(), value.target())
     }
@@ -181,6 +183,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
     ///
     /// # Returns
     /// The updated builder; the default is the original Fast engine's policy.
+    #[inline]
     pub fn cas_policy(mut self, policy: FastCasPolicy) -> Self {
         self.raw = self.raw.cas_policy(policy);
         self
@@ -210,6 +213,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
 
 impl<S: DenseCode, E: DenseCode> Default for TypedFastStateMachineBuilder<S, E> {
     /// Creates an empty definition with the default CAS policy.
+    #[inline]
     fn default() -> Self {
         Self::new()
     }

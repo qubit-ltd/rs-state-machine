@@ -59,6 +59,7 @@ impl<S> GraphDiagnostics<S> {
     /// # Returns
     /// A slice containing every unreachable state.
     #[must_use]
+    #[inline]
     pub fn unreachable_states(&self) -> &[S] {
         &self.unreachable_states
     }
@@ -68,6 +69,7 @@ impl<S> GraphDiagnostics<S> {
     /// # Returns
     /// A slice containing every state without a terminal path.
     #[must_use]
+    #[inline]
     pub fn states_without_terminal_path(&self) -> &[S] {
         &self.states_without_terminal_path
     }

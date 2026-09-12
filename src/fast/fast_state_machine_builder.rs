@@ -85,7 +85,7 @@ impl FastStateMachineBuilder {
     ///
     /// # Returns
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub const fn state_count(mut self, count: u64) -> Self {
         self.state_count = Some(count);
         self
@@ -98,7 +98,7 @@ impl FastStateMachineBuilder {
     ///
     /// # Returns
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub const fn event_count(mut self, count: u64) -> Self {
         self.event_count = Some(count);
         self
@@ -170,7 +170,7 @@ impl FastStateMachineBuilder {
     ///
     /// # Returns
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub const fn cas_policy(mut self, cas_policy: FastCasPolicy) -> Self {
         self.cas_policy = cas_policy;
         self
@@ -350,7 +350,7 @@ impl FastStateMachineBuilder {
     ///
     /// # Returns
     /// A capacity error for the configured dense table.
-    #[inline(always)]
+    #[inline]
     const fn capacity_error(state_count: u64, event_count: u64) -> FastStateMachineBuildError {
         FastStateMachineBuildError::TransitionTableCapacityExceeded {
             state_count,
@@ -414,7 +414,7 @@ impl FastStateMachineBuilder {
 
 impl Default for FastStateMachineBuilder {
     /// Creates the same empty builder as [`Self::new`].
-    #[inline(always)]
+    #[inline]
     fn default() -> Self {
         Self::new()
     }

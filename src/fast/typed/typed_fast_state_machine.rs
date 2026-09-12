@@ -118,7 +118,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// A builder whose state and event counts come from `S::VALUES` and
     /// `E::VALUES`.
-    #[inline(always)]
+    #[inline]
     pub fn builder() -> TypedFastStateMachineBuilder<S, E> {
         TypedFastStateMachineBuilder::new()
     }
@@ -128,7 +128,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// A new atomic cell initialized to this machine's initial state.
     #[must_use = "use the independent state cell"]
-    #[inline(always)]
+    #[inline]
     pub fn create_state(&self) -> TypedFastState<S> {
         TypedFastState {
             raw: self.raw.create_state(),
@@ -251,7 +251,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// - `source`: Candidate source state.
     /// - `event`: Candidate event.
     #[must_use = "use the queried transition target"]
-    #[inline(always)]
+    #[inline]
     pub fn transition_target(&self, source: S, event: E) -> Option<S> {
         decode(
             self.raw
@@ -267,7 +267,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Panics
     /// Panics if the raw machine violates its validated initial-code invariant.
     #[must_use = "use the configured initial state"]
-    #[inline(always)]
+    #[inline]
     pub fn initial_state(&self) -> S {
         decode(self.raw.initial_state()).expect("validated initial state must decode")
     }
@@ -280,7 +280,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// `true` when `state` is present in `S::VALUES`.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn contains_state(&self, state: S) -> bool {
         checked_code(state).is_some()
     }
@@ -293,7 +293,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// `true` when `state` is valid and equals the configured initial state.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn is_initial_state(&self, state: S) -> bool {
         checked_code(state).is_some_and(|code| self.raw.is_initial_state(code))
     }
@@ -306,7 +306,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// `true` when `state` is a valid member marked terminal.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn is_terminal_state(&self, state: S) -> bool {
         checked_code(state).is_some_and(|code| self.raw.is_terminal_state(code))
     }
@@ -316,7 +316,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// The length of `S::VALUES` used by the machine.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn state_count(&self) -> u64 {
         self.raw.state_count()
     }
@@ -326,7 +326,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// The length of `E::VALUES` used by the machine.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn event_count(&self) -> u64 {
         self.raw.event_count()
     }
@@ -336,7 +336,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// The count of unique `(source, event)` pairs.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn transition_count(&self) -> usize {
         self.raw.transition_count()
     }
@@ -346,7 +346,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// The configured Fast CAS retry policy.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn cas_policy(&self) -> FastCasPolicy {
         self.raw.cas_policy()
     }
@@ -359,7 +359,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Panics
     /// Iteration panics if an internal terminal code cannot be decoded.
     #[must_use = "iterate over the configured terminal states"]
-    #[inline(always)]
+    #[inline]
     pub fn terminal_states(&self) -> impl Iterator<Item = S> + '_ {
         self.raw
             .terminal_states()
@@ -374,7 +374,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Panics
     /// Iteration panics if an internal rule contains an invalid code.
     #[must_use = "iterate over the configured transitions"]
-    #[inline(always)]
+    #[inline]
     pub fn transitions(&self) -> impl Iterator<Item = Transition<S, E>> + '_ {
         self.raw.transitions().map(|value| {
             Transition::new(

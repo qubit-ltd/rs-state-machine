@@ -212,7 +212,7 @@ where
     ///
     /// # Returns
     /// The updated builder.
-    #[inline(always)]
+    #[inline]
     pub fn transition(self, source: S, event: E, target: S) -> Self {
         self.transition_value(Transition::new(source, event, target))
     }
@@ -349,7 +349,7 @@ where
     E: Copy + Eq + Hash + Debug + 'static,
 {
     /// Creates the same empty builder as [`Self::new`].
-    #[inline(always)]
+    #[inline]
     fn default() -> Self {
         Self::new()
     }

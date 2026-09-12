@@ -49,7 +49,7 @@ where
     ///
     /// # Returns
     /// A transition value containing the three supplied values.
-    #[inline(always)]
+    #[inline]
     pub const fn new(source: S, event: E, target: S) -> Self {
         Self { source, event, target }
     }
@@ -59,7 +59,7 @@ where
     /// # Returns
     /// The state required before this transition can be applied.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn source(&self) -> S {
         self.source
     }
@@ -69,7 +69,7 @@ where
     /// # Returns
     /// The event that selects this transition.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn event(&self) -> E {
         self.event
     }
@@ -79,7 +79,7 @@ where
     /// # Returns
     /// The state installed after this transition succeeds.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn target(&self) -> S {
         self.target
     }

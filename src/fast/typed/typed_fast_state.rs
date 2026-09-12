@@ -61,7 +61,7 @@ impl<S: DenseCode> TypedFastState<S> {
     /// Panics if an internal writer violated the validated state-code
     /// invariant.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn load(&self) -> S {
         decode(self.raw.load()).expect("typed state code must belong to the validated codebook")
     }
