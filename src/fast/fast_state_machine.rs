@@ -17,7 +17,10 @@ use super::FastStateMachineError;
 use super::FastStateMachineResult;
 use super::fast_state_machine_error::fast_state_machine_error_from_fast_cas_error;
 
-/// Sentinel stored in dense table cells without a configured transition.
+/// Dense-table sentinel meaning no transition is configured for a cell.
+///
+/// Valid targets are always in-range state codes; this value marks empty
+/// slots during build and is never returned from lookup APIs.
 const UNSET_TRANSITION: u64 = u64::MAX;
 
 /// A compact, high-performance state machine backed by [`FastCas`].
@@ -230,6 +233,9 @@ impl FastStateMachine {
     }
 
     /// Returns the number of unique configured transitions.
+    ///
+    /// # Returns
+    /// The count of distinct `(source, event)` pairs with a configured target.
     #[must_use]
     #[inline(always)]
     pub const fn transition_count(&self) -> usize {
