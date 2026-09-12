@@ -17,7 +17,7 @@ and `max_total_elapsed()`. Terminal CAS kinds are preserved in
 `qubit-state-machine` is a small Rust finite state machine crate for lifecycle,
 workflow, and task-state tracking code.
 
-Version 0.9 requires a valid initial state; if `initial_state(...)` is called
+Version 0.10 requires a valid initial state; if `initial_state(...)` is called
 more than once, the last value wins. Terminal states cannot have outgoing
 transitions. `create_state()` creates an independent current-state
 cell; externally created cells are not bound to a machine. Callbacks run once
@@ -101,7 +101,7 @@ All three keep immutable rules separate from independent cells. Raw Fast remains
 
 ## Concurrency and Error Boundaries
 
-`trigger` returns detailed errors. `try_trigger` and `try_trigger_with` collapse unknown states, undefined transitions, and exhausted CAS budgets into `false`. Use `trigger` and match errors when business rejection and execution failure require different handling. Typed entry points also reject events omitted from their value table; other errors are preserved through `TypedFastStateMachineError::Raw`.
+`trigger` returns detailed errors. `try_trigger` and `try_trigger_with` collapse unknown states, undefined transitions, and exhausted CAS budgets into `false`. Use `trigger` and match errors when business rejection and execution failure require different handling. Typed runtime failures are reported directly as `InvalidEventCode`, `UnknownTransition`, `CasConflict`, or `InvalidStateCode`; only typed build errors use `TypedFastStateMachineBuildError::Raw` to carry a `FastStateMachineBuildError`.
 
 CAS atomically commits only the state. Conflict retries recompute the event's successor from the newly observed state, without promising the original source or detecting ABA in cycles. Success callbacks run once after commit and may reenter; concurrent callback order is unspecified. A callback may observe a later state, while its arguments and the returned target still describe this call's commit. Callback panics propagate without rollback.
 
@@ -223,7 +223,10 @@ hot-path control.
 
 ## Fast State Machine
 
-`FastStateMachine` is for high-throughput loops with dense integer codes.
+`FastStateMachine` uses dense integer codes and a flat table. The default table
+budget is `1_048_576` cells (`state_count * event_count`); adjust it with
+`max_table_cells(limit)` when the memory cost is understood. Exceeding the
+limit returns `FastStateMachineBuildError::TransitionTableLimitExceeded`.
 It validates the full transition table at build time and keeps runtime transition
 lookup O(1) with a row-major flat array (`index = state * event_count + event`).
 
