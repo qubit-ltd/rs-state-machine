@@ -418,6 +418,15 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
         }
     }
 
+    /// Projects a raw integer runtime error into typed state and event values.
+    ///
+    /// # Parameters
+    /// - `error`: Runtime error returned by the dense integer machine.
+    /// - `event`: Typed event supplied to the operation.
+    ///
+    /// # Returns
+    /// A typed runtime error preserving business rejection, invalid state
+    /// codes, or exhausted CAS attempts.
     fn map_raw_error(error: crate::FastStateMachineError, event: E) -> TypedFastStateMachineError<S, E> {
         use crate::FastStateMachineError as Raw;
         match error {

@@ -189,8 +189,15 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
         self
     }
 
-    /// Sets the maximum number of dense transition-table cells.
-    #[inline(always)]
+    /// Sets the inclusive maximum number of dense transition-table cells.
+    ///
+    /// # Parameters
+    /// - `limit`: Maximum allowed `state_count * event_count` cells.
+    ///
+    /// # Returns
+    /// The updated builder. [`Self::build`] wraps a limit failure in
+    /// [`TypedFastStateMachineBuildError::Raw`].
+    #[inline]
     pub fn max_table_cells(mut self, limit: u64) -> Self {
         self.raw = self.raw.max_table_cells(limit);
         self
@@ -204,7 +211,9 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
     /// # Errors
     /// Checks state and event codebooks first, then the first invalid supplied
     /// value, then raw builder errors such as missing initial state, terminal
-    /// outgoing edges, conflicting targets, overflow, and allocation failure.
+    /// outgoing edges, conflicting targets, overflow, allocation failure, or
+    /// [`crate::FastStateMachineBuildError::TransitionTableLimitExceeded`]
+    /// wrapped in [`TypedFastStateMachineBuildError::Raw`].
     pub fn build(self) -> Result<TypedFastStateMachine<S, E>, TypedFastStateMachineBuildError> {
         validate_values::<S>("state")?;
         validate_values::<E>("event")?;

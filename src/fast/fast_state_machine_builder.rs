@@ -60,6 +60,8 @@ pub struct FastStateMachineBuilder {
     transitions: Vec<(u64, u64, u64)>,
     /// Retry policy used for runtime CAS conflicts.
     cas_policy: FastCasPolicy,
+    /// Maximum permitted dense table cells; defaults to
+    /// [`FAST_STATE_MACHINE_DEFAULT_MAX_TABLE_CELLS`].
     max_table_cells: u64,
 }
 
@@ -180,8 +182,16 @@ impl FastStateMachineBuilder {
         self
     }
 
-    /// Sets the maximum number of cells allocated by the dense table.
-    #[inline(always)]
+    /// Sets the inclusive maximum number of cells allocated by the dense table.
+    ///
+    /// # Parameters
+    /// - `limit`: Maximum allowed `state_count * event_count` cells.
+    ///
+    /// # Returns
+    /// The updated builder. [`Self::build`] returns
+    /// [`FastStateMachineBuildError::TransitionTableLimitExceeded`] when the
+    /// configured dimensions exceed this limit.
+    #[inline]
     pub const fn max_table_cells(mut self, limit: u64) -> Self {
         self.max_table_cells = limit;
         self
