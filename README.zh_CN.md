@@ -115,6 +115,7 @@ qubit-atomic = "0.13"
 
 ```toml
 [dependencies]
+qubit-state-machine = { version = "0.9", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
 ```
 
