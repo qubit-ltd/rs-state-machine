@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.0 - 2026-09-13
+
+### Changed
+
+- Typed Fast runtime errors now carry typed state and event values; the former
+  `Raw` wrapper and conversion are removed.
+- Fast builders enforce a configurable dense table cell limit, defaulting to
+  `FAST_STATE_MACHINE_DEFAULT_MAX_TABLE_CELLS`.
+- Restored error projection coverage and removed an undiscovered test module.
+
 ## 0.9.0 - 2026-09-12
 
 ### Added

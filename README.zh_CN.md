@@ -98,7 +98,7 @@ CAS 只原子提交状态；冲突重试会针对新观察状态重新计算该�
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.9"
+qubit-state-machine = "0.10"
 qubit-atomic = "0.13"
 qubit-fast-cas = "0.3"
 ```
@@ -107,7 +107,7 @@ qubit-fast-cas = "0.3"
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.10", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
 ```
 
@@ -115,7 +115,7 @@ qubit-atomic = "0.13"
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.9", default-features = false, features = ["fast"] }
+qubit-state-machine = { version = "0.10", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
 ```
 

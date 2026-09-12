@@ -28,7 +28,7 @@ Fast 版把连续的 `u64` 编码存放在 `qubit_fast_cas::FastCasState` 中；
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.10", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
 qubit-cas = "0.9"
 ```

@@ -114,7 +114,7 @@ types from their owning crates:
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.9"
+qubit-state-machine = "0.10"
 qubit-atomic = "0.13"
 qubit-fast-cas = "0.3"
 ```
@@ -123,7 +123,7 @@ Use only the standard implementation:
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.10", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
 ```
 
@@ -131,7 +131,7 @@ Use only the Fast implementation without pulling in `qubit-cas`:
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.9", default-features = false, features = ["fast"] }
+qubit-state-machine = { version = "0.10", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
 ```
 
