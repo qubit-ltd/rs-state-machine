@@ -1,6 +1,6 @@
 # Qubit State Machine 用户手册
 
-[English](user_guide.md) · 适用于 0.9 版本
+[English](user_guide.md) · 适用于 0.10 版本
 
 ## 手册目标与读者
 
@@ -16,6 +16,10 @@
 标准版把枚举风格的值存放在 `qubit_atomic::AtomicRef` 中，通过同步的 `qubit-cas` 执行更新。
 Fast 版把连续的 `u64` 编码存放在 `qubit_fast_cas::FastCasState` 中；强类型 Fast 版还会根据
 每种类型的 `DenseCode::VALUES` 校验编码。
+
+Fast 构建器按 `state_count * event_count` 分配转换表，默认上限为 `1_048_576` 个单元格。
+可用 `max_table_cells(limit)` 调整这个边界；主要的 `u64` 存储约占
+`8 * state_count * event_count` 字节，不含终态标记和容器开销。
 
 ## 贯穿场景：启动任务并记录审计
 
@@ -88,8 +92,9 @@ assert!(!machine.try_trigger(&state, JobEvent::Start));
 
 构建错误涵盖缺少定义、目标不同的冲突重复转换、初态无效，以及违反状态注册或终态规则的转换。
 标准版运行时会返回 `UnknownState`、`UnknownTransition` 或 `CasFailure`；后者保留 CAS 失败类别和尝试次数，
-包括冲突或软性耗时预算耗尽的情况。Fast 版返回对应的 `FastStateMachineError` 变体，重试策略耗尽时为
-`CasConflict`。强类型 Fast 版还会报告值不属于编码表的错误。
+包括冲突或软性耗时预算耗尽的情况。Raw Fast 返回 `UnknownState`、`UnknownTransition` 或 `CasConflict`。
+强类型 Fast 运行时直接区分 `InvalidEventCode`、`UnknownTransition`、`CasConflict` 和 `InvalidStateCode`；
+只有强类型 Fast 的构建错误使用 `Raw` 包装。
 
 `trigger_with` 仅在提交成功后调用一次回调，自转换也不例外。回调 panic 会向上传播，状态不会回滚。
 并发回调没有全局顺序，回调中重新读取状态还可能看到后续提交；记录审计时应使用回调参数中的 `old` 和 `new`。

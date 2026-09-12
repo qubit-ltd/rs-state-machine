@@ -1,6 +1,6 @@
 # Qubit State Machine User Guide
 
-[中文版](user_guide.zh_CN.md) · Applies to version 0.9
+[中文版](user_guide.zh_CN.md) · Applies to version 0.10
 
 ## Purpose and Audience
 
@@ -98,15 +98,21 @@ must be complete and unique. All three machine types provide
 `diagnose_graph()` for offline reachability analysis; it does not change build
 validity.
 
+Fast builders allocate `state_count * event_count` cells and default to a
+limit of `1_048_576`. Set `max_table_cells(limit)` to tune this bound; a
+larger table requires roughly `8 * state_count * event_count` bytes for its
+primary `u64` storage, excluding flags and container overhead.
+
 ## Errors and Diagnostics
 
 Build errors cover missing definitions, conflicting duplicate transitions, an invalid initial state,
 and transitions that violate the registered state or terminal-state rules.
 At runtime, Standard returns `UnknownState`, `UnknownTransition`, or
 `CasFailure`; the latter retains the CAS failure kind and attempt count,
-including exhausted conflicts or soft budgets. Fast returns the corresponding
-`FastStateMachineError` variants, including `CasConflict` when its retry policy
-is exhausted. Typed Fast additionally reports invalid codebook membership.
+including exhausted conflicts or soft budgets. Fast returns `UnknownState`,
+`UnknownTransition`, or `CasConflict`. Typed Fast reports `InvalidEventCode`,
+`UnknownTransition`, `CasConflict`, or `InvalidStateCode` directly; only Typed
+Fast build errors use the `Raw` wrapper.
 
 `trigger_with` invokes its callback once after a successful commit, including a
 self-transition. A callback panic propagates and does not roll back the state.

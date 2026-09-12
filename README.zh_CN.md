@@ -14,7 +14,7 @@ executor 的 `max_attempts()`、`max_operation_elapsed()` 和 `max_total_elapsed
 
 `qubit-state-machine` 是一个小型 Rust 有限状态机库，适用于生命周期、工作流和任务状态跟踪代码。
 
-0.9 版本要求配置有效初态；如果多次调用 `initial_state(...)`，最后一次设置生效。终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
+0.10 版本要求配置有效初态；如果多次调用 `initial_state(...)`，最后一次设置生效。终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
 
 标准版默认使用 16 次立即 CAS 尝试，不设置墙钟时间预算。`CasStrategy::LatencyFirst` 使用较小的立即重试预算和软性耗时限制；同步执行一旦开始某次尝试，实际耗时仍可能超过软性预算。CAS 终止失败仍与业务上的未定义转换区分。
 
@@ -85,7 +85,7 @@ assert!(machine.is_terminal_state(state.load()));
 
 ## 并发与错误边界
 
-`trigger` 返回详细错误；`try_trigger`/`try_trigger_with` 将未知状态、未定义转换和 CAS 耗尽都压成 `false`。对必须区分业务拒绝与执行失败的路径，使用 `trigger` 并匹配错误。Typed 入口会额外拒绝未列入值表的事件，其他错误通过 `TypedFastStateMachineError::Raw` 保留。
+`trigger` 返回详细错误；`try_trigger`/`try_trigger_with` 将未知状态、未定义转换和 CAS 耗尽都压成 `false`。对必须区分业务拒绝与执行失败的路径，使用 `trigger` 并匹配错误。强类型 Fast 的运行时错误直接区分事件编码无效、未定义转换、CAS 冲突和状态编码无效；只有构建错误通过 `TypedFastStateMachineBuildError::Raw` 保留底层 Fast 构建错误。
 
 CAS 只原子提交状态；冲突重试会针对新观察状态重新计算该事件的后继，不保证仍从最早读到的状态出发，也不保证检测循环中的 ABA。回调在提交后执行一次，允许重入，并发顺序不保证；回调可能看到更晚的状态，但参数和返回值仍描述本次提交。回调 panic 会传播，状态不会回滚。
 
@@ -363,7 +363,7 @@ assert_eq!(*state.load(), DoorState::Closed);
 | 类型 | 用途 |
 | --- | --- |
 | `Transition` | 描述 `source --event--> target` 的不可变值。 |
-| `FastStateMachine` | 针对整数编码场景的高吞吐状态机。 |
+| `FastStateMachine` | 使用稠密整数编码和平铺转换表；默认容量上限为 `1_048_576` 个单元格。 |
 | `FastStateMachineBuilder` | 用于声明状态数、事件数、转移表和 CAS 策略。 |
 | `FastStateMachineError` | `FastStateMachine` 的运行时错误。 |
 | `FastStateMachineBuildError` | 构建 `FastStateMachine` 时的配置校验错误。 |
