@@ -285,9 +285,11 @@ impl FastStateMachineBuilder {
     /// - `state_count`: Exclusive upper bound for source and target state
     ///   codes.
     /// - `event_count`: Exclusive upper bound for event codes.
+    /// - `terminal_states`: Final state codes used to reject outgoing edges.
     ///
     /// # Returns
-    /// `Ok(())` when every transition is in range and deterministic.
+    /// `Ok(count)` with the number of unique `(source, event)` transitions
+    /// when every rule is in range and deterministic.
     ///
     /// # Errors
     /// Returns a range error, duplicate-transition error, or capacity error if
