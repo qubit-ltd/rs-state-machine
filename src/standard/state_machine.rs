@@ -15,6 +15,7 @@ use std::hash::Hash;
 use qubit_atomic::AtomicRef;
 use qubit_cas::CasDecision;
 use qubit_cas::CasError;
+use qubit_cas::CasErrorKind;
 use qubit_cas::CasExecutor;
 use qubit_cas::CasSuccess;
 
@@ -811,12 +812,79 @@ where
     /// conflicts.
     #[inline]
     fn state_error_from_cas_error(error: CasError<S, StateMachineError<S, E>>) -> StateMachineError<S, E> {
-        match error.error() {
-            Some(error) => *error,
-            None => StateMachineError::CasFailure {
-                kind: error.kind(),
-                attempts: error.attempts(),
-            },
+        Self::state_error_from_parts(error.kind(), error.attempts(), error.error().copied())
+    }
+
+    fn state_error_from_parts(
+        kind: CasErrorKind,
+        attempts: u32,
+        business: Option<StateMachineError<S, E>>,
+    ) -> StateMachineError<S, E> {
+        match business {
+            Some(error) => error,
+            None => StateMachineError::CasFailure { kind, attempts },
         }
+    }
+}
+
+#[cfg(test)]
+mod error_projection_tests {
+    use std::sync::Arc;
+
+    use qubit_atomic::AtomicRef;
+    use qubit_cas::CasDecision;
+    use qubit_cas::CasErrorKind;
+    use qubit_cas::CasExecutor;
+
+    use super::StateMachine;
+    use crate::StateMachineError;
+
+    #[test]
+    fn test_budget_projection_preserves_kind_and_attempts() {
+        for kind in [CasErrorKind::OperationBudgetExceeded, CasErrorKind::TotalBudgetExceeded] {
+            assert_eq!(
+                StateMachine::<u8, u8>::state_error_from_parts(kind, 7, None),
+                StateMachineError::CasFailure { kind, attempts: 7 },
+            );
+        }
+    }
+
+    #[test]
+    fn test_business_projection_preserves_original_error() {
+        let business = StateMachineError::UnknownState { state: 7u8 };
+        assert_eq!(
+            StateMachine::<u8, u8>::state_error_from_parts(CasErrorKind::Abort, 1, Some(business),),
+            business,
+        );
+    }
+
+    #[test]
+    fn test_real_executor_errors_reach_projection() {
+        let executor = CasExecutor::<u8, StateMachineError<u8, u8>>::builder()
+            .max_attempts(1)
+            .no_delay()
+            .build()
+            .expect("valid executor");
+        let state = AtomicRef::from_value(0u8);
+        let business = StateMachineError::UnknownState { state: 7 };
+        let aborted = executor
+            .execute_result(&state, |_: &u8| {
+                CasDecision::<u8, (), StateMachineError<u8, u8>>::abort(business)
+            })
+            .unwrap_err();
+        assert_eq!(StateMachine::<u8, u8>::state_error_from_cas_error(aborted), business);
+
+        let conflict = executor
+            .execute_result(&state, |_: &u8| {
+                state.store(Arc::new(1u8));
+                CasDecision::update(2u8, ())
+            })
+            .unwrap_err();
+        let kind = conflict.kind();
+        assert_eq!(conflict.attempts(), 1);
+        assert_eq!(
+            StateMachine::<u8, u8>::state_error_from_cas_error(conflict),
+            StateMachineError::CasFailure { kind, attempts: 1 },
+        );
     }
 }
