@@ -102,9 +102,11 @@ validity.
 
 Build errors cover missing definitions, conflicting duplicate transitions, an invalid initial state,
 and transitions that violate the registered state or terminal-state rules.
-At runtime, `UnknownState` and `UnknownTransition` describe invalid business
-operations. `CasFailure` retains the CAS failure kind and attempt count,
-including exhausted conflicts or budgets.
+At runtime, Standard returns `UnknownState`, `UnknownTransition`, or
+`CasFailure`; the latter retains the CAS failure kind and attempt count,
+including exhausted conflicts or soft budgets. Fast returns the corresponding
+`FastStateMachineError` variants, including `CasConflict` when its retry policy
+is exhausted. Typed Fast additionally reports invalid codebook membership.
 
 `trigger_with` invokes its callback once after a successful commit, including a
 self-transition. A callback panic propagates and does not roll back the state.
@@ -116,7 +118,7 @@ audit record.
 
 - If `build` fails, check that the initial state is registered. Repeated
   `initial_state(...)` calls are allowed and the last value wins; terminal
-  terminal states have no outgoing transitions, and every transition endpoint
+  states have no outgoing transitions, and every transition endpoint
   is registered.
 - If triggering fails, match the detailed error before deciding whether a CAS
   conflict or a business rejection is retryable.

@@ -36,9 +36,10 @@ There are three public entry points:
   the Fast engine.
 
 The Standard machine defaults to 16 immediate CAS attempts with no wall-clock
-budget. Explicitly choose `CasStrategy::LatencyFirst` when a time-bounded retry
-window is required; a terminal CAS failure remains distinct from a rejected
-transition.
+budget. `CasStrategy::LatencyFirst` uses a smaller immediate retry budget and
+soft elapsed-time limits; synchronous execution may still exceed a soft budget
+once an attempt has been admitted. A terminal CAS failure remains distinct from
+a rejected transition.
 
 All three entry points keep transition tables immutable after construction and
 execute event triggers through CAS-backed state updates. Each also exposes

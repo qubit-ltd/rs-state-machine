@@ -16,7 +16,7 @@ executor 的 `max_attempts()`、`max_operation_elapsed()` 和 `max_total_elapsed
 
 0.9 版本要求配置有效初态；如果多次调用 `initial_state(...)`，最后一次设置生效。终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
 
-标准版默认使用 16 次立即 CAS 尝试，不设置墙钟时间预算。需要时间上限时，请显式选择 `CasStrategy::LatencyFirst`；CAS 终止失败仍与业务上的未定义转换区分。
+标准版默认使用 16 次立即 CAS 尝试，不设置墙钟时间预算。`CasStrategy::LatencyFirst` 使用较小的立即重试预算和软性耗时限制；同步执行一旦开始某次尝试，实际耗时仍可能超过软性预算。CAS 终止失败仍与业务上的未定义转换区分。
 
 它提供不可变的状态转换规则和构建阶段校验。标准版通过 `qubit-cas` 更新
 `qubit_atomic::AtomicRef`，Fast 版则直接更新
@@ -115,7 +115,6 @@ qubit-atomic = "0.13"
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.9", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
 ```
 
