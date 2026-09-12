@@ -83,6 +83,8 @@ pub use fast::DenseCode;
 #[cfg(feature = "fast")]
 pub use fast::FAST_STATE_MACHINE_DEFAULT_CAS_POLICY;
 #[cfg(feature = "fast")]
+pub use fast::FAST_STATE_MACHINE_DEFAULT_MAX_TABLE_CELLS;
+#[cfg(feature = "fast")]
 pub use fast::FastStateMachine;
 #[cfg(feature = "fast")]
 pub use fast::FastStateMachineBuildError;

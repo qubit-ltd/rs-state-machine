@@ -69,6 +69,19 @@ pub enum FastStateMachineBuildError {
         event_count: u64,
     },
 
+    /// The transition table exceeds the configured cell budget.
+    #[error("transition table needs {cells} cells ({state_count} * {event_count}), exceeding limit {limit}")]
+    TransitionTableLimitExceeded {
+        /// Number of states.
+        state_count: u64,
+        /// Number of events.
+        event_count: u64,
+        /// Required cells.
+        cells: u64,
+        /// Configured maximum.
+        limit: u64,
+    },
+
     /// An initial state code exceeds the configured state count.
     #[error("initial state is out of range: {state} >= {state_count}")]
     InitialStateOutOfRange {

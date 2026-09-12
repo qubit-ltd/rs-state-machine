@@ -189,6 +189,13 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
         self
     }
 
+    /// Sets the maximum number of dense transition-table cells.
+    #[inline(always)]
+    pub fn max_table_cells(mut self, limit: u64) -> Self {
+        self.raw = self.raw.max_table_cells(limit);
+        self
+    }
+
     /// Validates encoding tables and constructs the shared dense engine.
     ///
     /// # Returns
