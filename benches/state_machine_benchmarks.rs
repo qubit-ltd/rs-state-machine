@@ -259,8 +259,8 @@ impl Driver for TypedFastStateMachine<BenchState, BenchEvent> {
         self.trigger(cell, event)
             .map(DenseCode::code)
             .map_err(|error| match error {
-                TypedFastStateMachineError::Raw(FastStateMachineError::UnknownTransition { .. }) => Failure::Rejected,
-                TypedFastStateMachineError::Raw(FastStateMachineError::CasConflict { .. }) => Failure::Conflict,
+                TypedFastStateMachineError::UnknownTransition { .. } => Failure::Rejected,
+                TypedFastStateMachineError::CasConflict { .. } => Failure::Conflict,
                 _ => Failure::Unexpected,
             })
     }

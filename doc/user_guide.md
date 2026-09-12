@@ -33,7 +33,7 @@ The Standard-only setup keeps the dependency surface small:
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.9", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.10", default-features = false, features = ["standard"] }
 qubit-atomic = "0.13"
 qubit-cas = "0.9"
 ```
