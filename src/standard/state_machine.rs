@@ -815,6 +815,18 @@ where
         Self::state_error_from_parts(error.kind(), error.attempts(), error.error().copied())
     }
 
+    /// Projects a terminal CAS result while preserving an earlier business
+    /// error.
+    ///
+    /// # Parameters
+    /// - `kind`: Terminal CAS failure kind.
+    /// - `attempts`: Number of CAS attempts performed.
+    /// - `business`: Optional state-machine rejection produced by the decision
+    ///   closure.
+    ///
+    /// # Returns
+    /// The supplied business error when present; otherwise a `CasFailure` with
+    /// the terminal kind and attempt count.
     fn state_error_from_parts(
         kind: CasErrorKind,
         attempts: u32,
