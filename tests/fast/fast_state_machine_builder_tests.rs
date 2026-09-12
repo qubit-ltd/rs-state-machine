@@ -203,6 +203,7 @@ fn test_builder_rejects_unallocatable_transition_table() {
         .state_count(u64::MAX)
         .event_count(1)
         .initial_state(0)
+        .max_table_cells(u64::MAX)
         .build()
         .expect_err("unallocatable transition table must be rejected");
 
@@ -375,4 +376,36 @@ fn test_builder_accepts_exact_duplicate_transition() {
 fn test_builder_default_policy_constant_is_reexported_and_reasonable() {
     let policy = FAST_STATE_MACHINE_DEFAULT_CAS_POLICY;
     assert_eq!(policy, FastCasPolicy::spin(16));
+}
+
+#[test]
+fn test_builder_rejects_table_above_explicit_limit_before_allocation() {
+    let error = FastStateMachine::builder()
+        .state_count(2)
+        .event_count(2)
+        .initial_state(0)
+        .max_table_cells(3)
+        .build()
+        .expect_err("four cells exceed a three-cell limit");
+    assert_eq!(
+        error,
+        FastStateMachineBuildError::TransitionTableLimitExceeded {
+            state_count: 2,
+            event_count: 2,
+            cells: 4,
+            limit: 3,
+        }
+    );
+}
+
+#[test]
+fn test_builder_accepts_table_at_explicit_limit() {
+    let machine = FastStateMachine::builder()
+        .state_count(2)
+        .event_count(2)
+        .initial_state(0)
+        .max_table_cells(4)
+        .build()
+        .expect("four cells fit exactly");
+    assert_eq!(machine.state_count(), 2);
 }
