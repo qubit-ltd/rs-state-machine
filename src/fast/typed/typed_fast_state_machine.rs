@@ -154,9 +154,15 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Panics
     /// Panics if an internal committed code violates the validated codebook.
     #[inline]
-    pub fn trigger(&self, state: &TypedFastState<S>, event: E) -> Result<S, TypedFastStateMachineError> {
-        let code = checked_code(event).ok_or(TypedFastStateMachineError::InvalidEventCode { code: event.code() })?;
-        let next = self.raw.trigger(&state.raw, code)?;
+    pub fn trigger(&self, state: &TypedFastState<S>, event: E) -> Result<S, TypedFastStateMachineError<S, E>> {
+        let code = checked_code(event).ok_or(TypedFastStateMachineError::InvalidEventCode {
+            event,
+            code: event.code(),
+        })?;
+        let next = self
+            .raw
+            .trigger(&state.raw, code)
+            .map_err(|error| Self::map_raw_error(error, event))?;
         Ok(decode(next).expect("validated transition target must decode"))
     }
 
@@ -188,17 +194,23 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
         state: &TypedFastState<S>,
         event: E,
         on_success: F,
-    ) -> Result<S, TypedFastStateMachineError>
+    ) -> Result<S, TypedFastStateMachineError<S, E>>
     where
         F: FnOnce(S, S),
     {
-        let code = checked_code(event).ok_or(TypedFastStateMachineError::InvalidEventCode { code: event.code() })?;
-        let next = self.raw.trigger_with(&state.raw, code, |old, new| {
-            on_success(
-                decode(old).expect("validated previous state must decode"),
-                decode(new).expect("validated transition target must decode"),
-            );
+        let code = checked_code(event).ok_or(TypedFastStateMachineError::InvalidEventCode {
+            event,
+            code: event.code(),
         })?;
+        let next = self
+            .raw
+            .trigger_with(&state.raw, code, |old, new| {
+                on_success(
+                    decode(old).expect("validated previous state must decode"),
+                    decode(new).expect("validated transition target must decode"),
+                );
+            })
+            .map_err(|error| Self::map_raw_error(error, event))?;
         Ok(decode(next).expect("validated transition target must decode"))
     }
 
@@ -403,6 +415,17 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
                 .into_iter()
                 .map(|code| decode(code).expect("validated state must decode"))
                 .collect(),
+        }
+    }
+
+    fn map_raw_error(error: crate::FastStateMachineError, event: E) -> TypedFastStateMachineError<S, E> {
+        use crate::FastStateMachineError as Raw;
+        match error {
+            Raw::UnknownState { state } => TypedFastStateMachineError::InvalidStateCode { code: state },
+            Raw::UnknownTransition { source_state, .. } => decode(source_state)
+                .map(|source_state| TypedFastStateMachineError::UnknownTransition { source_state, event })
+                .unwrap_or(TypedFastStateMachineError::InvalidStateCode { code: source_state }),
+            Raw::CasConflict { attempts } => TypedFastStateMachineError::CasConflict { attempts },
         }
     }
 }

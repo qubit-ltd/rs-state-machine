@@ -22,6 +22,8 @@ use super::FastStateMachineBuildError;
 /// The default keeps construction lightweight and gives a reasonably balanced
 /// fast-path retry budget for hot transition loops.
 pub const FAST_STATE_MACHINE_DEFAULT_CAS_POLICY: FastCasPolicy = FastCasPolicy::spin(16);
+/// Default maximum number of dense transition-table cells.
+pub const FAST_STATE_MACHINE_DEFAULT_MAX_TABLE_CELLS: u64 = 1_048_576;
 
 /// Builder for dense, `u64`-coded state machine rules.
 ///
@@ -58,6 +60,7 @@ pub struct FastStateMachineBuilder {
     transitions: Vec<(u64, u64, u64)>,
     /// Retry policy used for runtime CAS conflicts.
     cas_policy: FastCasPolicy,
+    max_table_cells: u64,
 }
 
 impl FastStateMachineBuilder {
@@ -75,6 +78,7 @@ impl FastStateMachineBuilder {
             terminal_states: Vec::new(),
             transitions: Vec::new(),
             cas_policy: FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
+            max_table_cells: FAST_STATE_MACHINE_DEFAULT_MAX_TABLE_CELLS,
         }
     }
 
@@ -176,6 +180,13 @@ impl FastStateMachineBuilder {
         self
     }
 
+    /// Sets the maximum number of cells allocated by the dense table.
+    #[inline(always)]
+    pub const fn max_table_cells(mut self, limit: u64) -> Self {
+        self.max_table_cells = limit;
+        self
+    }
+
     /// Builds and validates an immutable fast state machine.
     ///
     /// Configuration ranges and duplicate transitions are validated before the
@@ -224,6 +235,14 @@ impl FastStateMachineBuilder {
                     state_count,
                     event_count,
                 })?;
+        if transition_count > self.max_table_cells {
+            return Err(FastStateMachineBuildError::TransitionTableLimitExceeded {
+                state_count,
+                event_count,
+                cells: transition_count,
+                limit: self.max_table_cells,
+            });
+        }
         let transition_capacity = Self::storage_capacity(transition_count, state_count, event_count)?;
         let state_capacity = Self::storage_capacity(state_count, state_count, event_count)?;
 

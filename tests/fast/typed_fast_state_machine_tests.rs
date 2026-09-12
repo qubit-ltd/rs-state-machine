@@ -347,7 +347,10 @@ fn test_typed_omitted_values_cannot_impersonate_registered_values() {
         assert_eq!(machine.transition_target(value, Partial::Good), None);
         assert_eq!(machine.transition_target(Partial::Good, value), None);
         let state = machine.create_state();
-        let expected = TypedFastStateMachineError::InvalidEventCode { code: value.code() };
+        let expected = TypedFastStateMachineError::InvalidEventCode {
+            event: value,
+            code: value.code(),
+        };
         assert_eq!(machine.trigger(&state, value), Err(expected));
         assert_eq!(
             machine.trigger_with(&state, value, |_, _| panic!("invalid event callback")),
@@ -369,27 +372,23 @@ fn test_typed_error_sources_and_diagnostics() {
     use std::error::Error;
 
     use qubit_state_machine::FastStateMachineBuildError;
-    use qubit_state_machine::FastStateMachineError;
     use qubit_state_machine::TypedFastStateMachineBuildError;
     use qubit_state_machine::TypedFastStateMachineError;
-    for error in [
-        FastStateMachineError::UnknownState { state: 99 },
-        FastStateMachineError::UnknownTransition {
-            source_state: 0,
-            event: 1,
-        },
-        FastStateMachineError::CasConflict { attempts: 7 },
-    ] {
-        let typed = TypedFastStateMachineError::from(error);
-        assert_eq!(typed.to_string(), error.to_string());
-        assert_eq!(typed, TypedFastStateMachineError::Raw(error));
-        assert_eq!(typed.source().is_some(), error.source().is_some());
-    }
+    let typed = TypedFastStateMachineError::UnknownTransition {
+        source_state: State::Pending,
+        event: Event::Finish,
+    };
+    assert_eq!(typed.to_string(), "unknown transition: Pending --Finish--> ?");
+    assert!(typed.source().is_none());
     let raw = FastStateMachineBuildError::InitialStateNotConfigured;
     assert_eq!(TypedFastStateMachineBuildError::from(raw).to_string(), raw.to_string());
     assert_eq!(
-        TypedFastStateMachineError::InvalidEventCode { code: 3 }.to_string(),
-        "event value with code 3 is not in its codebook"
+        TypedFastStateMachineError::<State, Event>::InvalidEventCode {
+            event: Event::Finish,
+            code: 3
+        }
+        .to_string(),
+        "event Finish with code 3 is not in its codebook"
     );
     assert_eq!(
         TypedFastStateMachineBuildError::EmptyCodebook { domain: "state" }.to_string(),
@@ -416,21 +415,27 @@ fn test_typed_error_sources_and_diagnostics() {
 
 #[test]
 fn test_typed_error_classification() {
-    use qubit_state_machine::FastStateMachineError as Raw;
     use qubit_state_machine::TypedFastStateMachineError as Error;
 
     for (error, rejected, conflicted) in [
-        (Error::InvalidEventCode { code: 99 }, false, false),
-        (Error::Raw(Raw::UnknownState { state: 99 }), false, false),
         (
-            Error::Raw(Raw::UnknownTransition {
-                source_state: 1,
-                event: 2,
-            }),
+            Error::InvalidEventCode {
+                event: Event::Finish,
+                code: 99,
+            },
+            false,
+            false,
+        ),
+        (Error::InvalidStateCode { code: 99 }, false, false),
+        (
+            Error::UnknownTransition {
+                source_state: State::Running,
+                event: Event::Finish,
+            },
             true,
             false,
         ),
-        (Error::Raw(Raw::CasConflict { attempts: 7 }), false, true),
+        (Error::CasConflict { attempts: 7 }, false, true),
     ] {
         assert_eq!(error.is_unknown_transition(), rejected);
         assert_eq!(error.is_cas_conflict(), conflicted);

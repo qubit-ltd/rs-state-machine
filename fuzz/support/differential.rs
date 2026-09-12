@@ -144,12 +144,10 @@ pub fn run_differential(data: &[u8]) {
             );
             assert_eq!(
                 actual_typed,
-                Err(TypedFastStateMachineError::Raw(
-                    FastStateMachineError::UnknownTransition {
-                        source_state: current,
-                        event
-                    }
-                ))
+                Err(TypedFastStateMachineError::UnknownTransition {
+                    source_state: DiffState::VALUES[current as usize],
+                    event: DiffEvent::VALUES[event as usize],
+                })
             );
             assert!(fast_callback.is_empty());
         }
