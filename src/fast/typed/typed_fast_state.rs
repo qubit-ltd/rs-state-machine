@@ -20,6 +20,9 @@ use super::dense_code::decode;
 /// through machines with that same state type, even if their rules differ.
 /// It has no machine identity, raw access, setter, default, or clone operation.
 ///
+/// # Type Parameters
+/// - `S`: Finite state type implementing [`DenseCode`].
+///
 /// # Examples
 ///
 /// ```
