@@ -87,8 +87,9 @@ assert!(!machine.try_trigger(&state, JobEvent::Start));
 ## 错误与诊断
 
 构建错误涵盖缺少定义、目标不同的冲突重复转换、初态无效，以及违反状态注册或终态规则的转换。
-运行时的 `UnknownState` 和 `UnknownTransition` 表示业务操作不符合规则；`CasFailure` 保留 CAS 失败类别和尝试次数，
-包括冲突或预算耗尽的情况。
+标准版运行时会返回 `UnknownState`、`UnknownTransition` 或 `CasFailure`；后者保留 CAS 失败类别和尝试次数，
+包括冲突或软性耗时预算耗尽的情况。Fast 版返回对应的 `FastStateMachineError` 变体，重试策略耗尽时为
+`CasConflict`。强类型 Fast 版还会报告值不属于编码表的错误。
 
 `trigger_with` 仅在提交成功后调用一次回调，自转换也不例外。回调 panic 会向上传播，状态不会回滚。
 并发回调没有全局顺序，回调中重新读取状态还可能看到后续提交；记录审计时应使用回调参数中的 `old` 和 `new`。

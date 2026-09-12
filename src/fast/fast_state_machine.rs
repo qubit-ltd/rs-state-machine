@@ -84,7 +84,7 @@ impl FastStateMachine {
     ///
     /// # Returns
     /// The configured state-space size (length of the transition table rows).
-    #[must_use = "iterate over the configured transitions"]
+    #[must_use = "use the configured state count"]
     #[inline(always)]
     pub const fn state_count(&self) -> u64 {
         self.state_count

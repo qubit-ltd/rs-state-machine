@@ -244,7 +244,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Parameters
     /// - `source`: Candidate source state.
     /// - `event`: Candidate event.
-    #[must_use = "iterate over the configured terminal states"]
+    #[must_use = "use the queried transition target"]
     #[inline(always)]
     pub fn transition_target(&self, source: S, event: E) -> Option<S> {
         decode(
@@ -260,7 +260,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     ///
     /// # Panics
     /// Panics if the raw machine violates its validated initial-code invariant.
-    #[must_use = "iterate over the configured transitions"]
+    #[must_use = "use the configured initial state"]
     #[inline(always)]
     pub fn initial_state(&self) -> S {
         decode(self.raw.initial_state()).expect("validated initial state must decode")
