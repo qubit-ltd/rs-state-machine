@@ -44,6 +44,9 @@ pub trait DenseCode: Copy + Eq + Debug + Send + Sync + 'static {
 
 /// Encodes `value` only when its declared table entry equals the value.
 ///
+/// # Parameters
+/// - `value`: Finite codebook member to encode.
+///
 /// # Returns
 /// `Some(code)` for a valid encoding, or `None` for an omitted or invalid
 /// value.
@@ -55,6 +58,9 @@ pub(super) fn checked_code<T: DenseCode>(value: T) -> Option<u64> {
 }
 
 /// Decodes `code` through the finite value table.
+///
+/// # Parameters
+/// - `code`: Dense index to decode.
 ///
 /// # Returns
 /// The table value, or `None` if the code cannot index the table.
