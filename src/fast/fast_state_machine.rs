@@ -76,7 +76,7 @@ impl FastStateMachine {
     ///
     /// # Returns
     /// A new, empty [`super::FastStateMachineBuilder`].
-    #[inline(always)]
+    #[inline]
     pub fn builder() -> super::FastStateMachineBuilder {
         super::FastStateMachineBuilder::new()
     }
@@ -88,7 +88,7 @@ impl FastStateMachine {
     /// # Returns
     /// The configured state-space size (length of the transition table rows).
     #[must_use = "use the configured state count"]
-    #[inline(always)]
+    #[inline]
     pub const fn state_count(&self) -> u64 {
         self.state_count
     }
@@ -101,7 +101,7 @@ impl FastStateMachine {
     /// The configured event-space size (length of each row in the transition
     /// table).
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn event_count(&self) -> u64 {
         self.event_count
     }
@@ -111,7 +111,7 @@ impl FastStateMachine {
     /// # Returns
     /// Only valid transition values; unset dense table cells are omitted.
     #[must_use = "iterate over the configured transitions"]
-    #[inline(always)]
+    #[inline]
     pub fn transitions(&self) -> impl Iterator<Item = crate::Transition<u64, u64>> + '_ {
         (0..self.state_count).flat_map(move |source| {
             (0..self.event_count).filter_map(move |event| {
@@ -160,7 +160,7 @@ impl FastStateMachine {
     /// # Returns
     /// The configured Fast CAS policy.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn cas_policy(&self) -> FastCasPolicy {
         self.cas.policy()
     }
@@ -170,7 +170,7 @@ impl FastStateMachine {
     /// # Returns
     /// The code used by every new independent state cell.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn initial_state(&self) -> u64 {
         self.initial_state
     }
@@ -180,7 +180,7 @@ impl FastStateMachine {
     /// # Returns
     /// Codes whose validated rule set forbids outgoing transitions.
     #[must_use = "iterate over the configured terminal states"]
-    #[inline(always)]
+    #[inline]
     pub fn terminal_states(&self) -> impl Iterator<Item = u64> + '_ {
         self.terminal_states
             .iter()
@@ -196,7 +196,7 @@ impl FastStateMachine {
     /// # Returns
     /// `true` if `state < state_count()`, otherwise `false`.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn contains_state(&self, state: u64) -> bool {
         state < self.state_count
     }
@@ -210,7 +210,7 @@ impl FastStateMachine {
     /// `true` if `state` is in range and marked initial; `false` if out of
     /// range or not initial.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn is_initial_state(&self, state: u64) -> bool {
         state == self.initial_state
     }
@@ -224,7 +224,7 @@ impl FastStateMachine {
     /// `true` if `state` is in range and marked final; `false` if out of range
     /// or not final.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn is_terminal_state(&self, state: u64) -> bool {
         self.state_index(state)
             .and_then(|index| self.terminal_states.get(index))
@@ -237,7 +237,7 @@ impl FastStateMachine {
     /// # Returns
     /// The count of distinct `(source, event)` pairs with a configured target.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn transition_count(&self) -> usize {
         self.transition_count
     }
@@ -263,7 +263,7 @@ impl FastStateMachine {
     /// `Some(target)` when a transition is configured; `None` if `source` or
     /// `event` is out of range, or if no transition exists for that pair.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn transition_target(&self, source: u64, event: u64) -> Option<u64> {
         if !self.contains_state(source) {
             return None;
@@ -310,7 +310,6 @@ impl FastStateMachine {
     /// * [`FastStateMachineError::UnknownTransition`] — no transition for
     ///   `(current, event)`.
     /// * [`FastStateMachineError::CasConflict`] — CAS retries exhausted.
-    #[inline(always)]
     pub fn trigger(&self, state: &FastCasState, event: u64) -> FastStateMachineResult {
         let (_old_state, new_state) = self.change_state(state, event)?;
         Ok(new_state)
@@ -366,7 +365,7 @@ impl FastStateMachine {
     /// CAS retries were exhausted. A successful self-transition also returns
     /// `true`.
     #[must_use = "the boolean result reports whether the transition committed"]
-    #[inline(always)]
+    #[inline]
     pub fn try_trigger(&self, state: &FastCasState, event: u64) -> bool {
         self.trigger(state, event).is_ok()
     }
@@ -394,7 +393,7 @@ impl FastStateMachine {
     /// A panic from `on_success` propagates after the state transition has
     /// already been committed.
     #[must_use = "the boolean result reports whether the transition committed"]
-    #[inline(always)]
+    #[inline]
     pub fn try_trigger_with<F>(&self, state: &FastCasState, event: u64, on_success: F) -> bool
     where
         F: FnOnce(u64, u64),

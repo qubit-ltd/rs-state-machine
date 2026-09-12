@@ -45,6 +45,7 @@ impl TypedFastStateMachineError {
     /// # Returns
     /// `true` only for a wrapped unknown-transition error.
     #[must_use]
+    #[inline]
     pub const fn is_unknown_transition(&self) -> bool {
         matches!(self, Self::Raw(FastStateMachineError::UnknownTransition { .. }))
     }
@@ -54,6 +55,7 @@ impl TypedFastStateMachineError {
     /// # Returns
     /// `true` only for a wrapped CAS-conflict error.
     #[must_use]
+    #[inline]
     pub const fn is_cas_conflict(&self) -> bool {
         matches!(self, Self::Raw(FastStateMachineError::CasConflict { .. }))
     }

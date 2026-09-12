@@ -39,6 +39,10 @@ pub trait DenseCode: Copy + Eq + Debug + Send + Sync + 'static {
     ///
     /// The returned code must equal this value's index in `VALUES`; builders
     /// reject tables that do not satisfy this invariant.
+    ///
+    /// # Returns
+    /// The stable dense code assigned to this value.
+    #[must_use]
     fn code(self) -> u64;
 }
 
@@ -50,7 +54,7 @@ pub trait DenseCode: Copy + Eq + Debug + Send + Sync + 'static {
 /// # Returns
 /// `Some(code)` for a valid encoding, or `None` for an omitted or invalid
 /// value.
-#[inline(always)]
+#[inline]
 pub(super) fn checked_code<T: DenseCode>(value: T) -> Option<u64> {
     let code = value.code();
     let index = usize::try_from(code).ok()?;
@@ -64,7 +68,7 @@ pub(super) fn checked_code<T: DenseCode>(value: T) -> Option<u64> {
 ///
 /// # Returns
 /// The table value, or `None` if the code cannot index the table.
-#[inline(always)]
+#[inline]
 pub(super) fn decode<T: DenseCode>(code: u64) -> Option<T> {
     T::VALUES.get(usize::try_from(code).ok()?).copied()
 }

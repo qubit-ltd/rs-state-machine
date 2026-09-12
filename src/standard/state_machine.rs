@@ -135,7 +135,7 @@ where
     ///     .expect("single-state machine should build");
     /// assert!(machine.contains_state(State::New));
     /// ```
-    #[inline(always)]
+    #[inline]
     pub fn builder() -> StateMachineBuilder<S, E> {
         StateMachineBuilder::new()
     }
@@ -168,7 +168,7 @@ where
     /// # Returns
     /// A reference to the executor used by runtime transitions.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn cas_executor(&self) -> &CasExecutor<S, StateMachineError<S, E>> {
         &self.cas_executor
     }
@@ -232,7 +232,7 @@ where
     /// assert_eq!(machine.states().len(), 2);
     /// ```
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn states(&self) -> &HashSet<S> {
         &self.states
     }
@@ -259,7 +259,7 @@ where
     /// assert_eq!(machine.initial_state(), State::New);
     /// ```
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn initial_state(&self) -> S {
         self.initial_state
     }
@@ -287,7 +287,7 @@ where
     /// assert!(machine.terminal_states().contains(&State::Done));
     /// ```
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub const fn terminal_states(&self) -> &HashSet<S> {
         &self.terminal_states
     }
@@ -325,7 +325,7 @@ where
     /// }));
     /// ```
     #[must_use = "iterate over the configured transitions"]
-    #[inline(always)]
+    #[inline]
     pub fn transitions(&self) -> impl Iterator<Item = Transition<S, E>> + '_ {
         self.transition_map
             .iter()
@@ -358,7 +358,7 @@ where
     /// assert!(!machine.contains_state(State::Detached));
     /// ```
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn contains_state(&self, state: S) -> bool {
         self.states.contains(&state)
     }
@@ -389,7 +389,7 @@ where
     /// assert!(!machine.is_initial_state(State::Running));
     /// ```
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn is_initial_state(&self, state: S) -> bool {
         self.initial_state == state
     }
@@ -421,7 +421,7 @@ where
     /// assert!(!machine.is_terminal_state(State::Running));
     /// ```
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn is_terminal_state(&self, state: S) -> bool {
         self.terminal_states.contains(&state)
     }
@@ -431,7 +431,7 @@ where
     /// # Returns
     /// The number of unique states in the immutable rule table.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn state_count(&self) -> usize {
         self.states.len()
     }
@@ -441,7 +441,7 @@ where
     /// # Returns
     /// The number of unique `(source, event)` transition pairs.
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn transition_count(&self) -> usize {
         self.transition_map.len()
     }
@@ -490,7 +490,7 @@ where
     /// assert_eq!(machine.transition_target(State::New, Event::Finish), None);
     /// ```
     #[must_use]
-    #[inline(always)]
+    #[inline]
     pub fn transition_target(&self, source: S, event: E) -> Option<S> {
         self.transition_map.get(&(source, event)).copied()
     }
@@ -543,7 +543,6 @@ where
     /// assert_eq!(machine.trigger(&state, Event::Start).unwrap(), State::Running);
     /// assert_eq!(*state.load(), State::Running);
     /// ```
-    #[inline(always)]
     pub fn trigger(&self, state: &AtomicRef<S>, event: E) -> StateMachineResult<S, E> {
         let (_, new_state) = self.change_state(state, event)?;
         Ok(new_state)
@@ -662,7 +661,7 @@ where
     /// assert!(machine.try_trigger(&state, Event::Start));
     /// ```
     #[must_use = "the boolean result reports whether the transition committed"]
-    #[inline(always)]
+    #[inline]
     pub fn try_trigger(&self, state: &AtomicRef<S>, event: E) -> bool {
         self.trigger(state, event).is_ok()
     }
@@ -724,7 +723,7 @@ where
     /// assert_eq!(callback_count, 1);
     /// ```
     #[must_use = "the boolean result reports whether the transition committed"]
-    #[inline(always)]
+    #[inline]
     pub fn try_trigger_with<F>(&self, state: &AtomicRef<S>, event: E, on_success: F) -> bool
     where
         F: FnOnce(S, S),
