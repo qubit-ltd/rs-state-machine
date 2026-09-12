@@ -66,6 +66,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
     /// # Returns
     /// A builder with the default Fast CAS policy and no configured initial
     /// state.
+    #[inline]
     pub fn new() -> Self {
         Self {
             raw: FastStateMachineBuilder::new()
@@ -168,6 +169,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
     ///
     /// # Returns
     /// The updated builder, with the same validation as `transition`.
+    #[inline(always)]
     pub fn transition_value(self, value: Transition<S, E>) -> Self {
         self.transition(value.source(), value.event(), value.target())
     }

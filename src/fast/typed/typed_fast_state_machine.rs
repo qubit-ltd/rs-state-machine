@@ -29,6 +29,10 @@ use crate::Transition;
 /// state; intermediate ABA changes and callback ordering are not detected or
 /// enforced.
 ///
+/// # Type Parameters
+/// - `S`: Finite state type implementing [`DenseCode`].
+/// - `E`: Finite event type implementing [`DenseCode`].
+///
 /// # Examples
 ///
 /// ```
@@ -114,6 +118,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// A builder whose state and event counts come from `S::VALUES` and
     /// `E::VALUES`.
+    #[inline(always)]
     pub fn builder() -> TypedFastStateMachineBuilder<S, E> {
         TypedFastStateMachineBuilder::new()
     }
@@ -123,6 +128,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// A new atomic cell initialized to this machine's initial state.
     #[must_use = "use the independent state cell"]
+    #[inline(always)]
     pub fn create_state(&self) -> TypedFastState<S> {
         TypedFastState {
             raw: self.raw.create_state(),
