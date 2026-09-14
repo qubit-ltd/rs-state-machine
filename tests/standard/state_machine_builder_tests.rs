@@ -220,6 +220,23 @@ fn test_builder_build_rejects_unregistered_terminal_state() {
 }
 
 #[test]
+fn test_builder_reports_first_unregistered_terminal_in_configuration_order() {
+    for _ in 0..64 {
+        let error = StateMachine::<JobState, JobEvent>::builder()
+            .add_state(JobState::Running)
+            .initial_state(JobState::Running)
+            .terminal_states(&[JobState::Done, JobState::Failed, JobState::Done])
+            .build()
+            .expect_err("both terminal states are unregistered");
+
+        assert_eq!(
+            error,
+            StateMachineBuildError::TerminalStateNotRegistered { state: JobState::Done }
+        );
+    }
+}
+
+#[test]
 fn test_builder_build_rejects_transition_with_unknown_source() {
     let builder = StateMachine::builder()
         .add_state(JobState::Running)
