@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: qubit-ltd/rs-dependency-policy/.github/actions/check@63f6eaeef2a10e31790e630846bac2d8a2195c1e
+      - uses: qubit-ltd/rs-dependency-policy/.github/actions/check@230684e69896eccf7617174966e10d5decbfa115
 
   rust-ci:
     uses: qubit-ltd/rs-ci/.github/workflows/rust-ci.yml@ac84c7b4a439f703a6dee46faec805105ab5d714
