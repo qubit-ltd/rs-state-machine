@@ -7,15 +7,11 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-The standard state machine uses `qubit-cas` 0.11. Inject limits, budgets, and
-backoff with `cas_executor`, or choose a preset with the builder's
-`cas_strategy`. Inspect the actual installed configuration through
-`machine.cas_executor()` using `max_attempts()`, `max_operation_elapsed()`,
-and `max_total_elapsed()`. Terminal CAS kinds are preserved in
-`StateMachineError::CasFailure`.
-
 `qubit-state-machine` is a small Rust finite state machine crate for lifecycle,
-workflow, and task-state tracking code.
+workflow, and task-state tracking code. Define allowed events once, share the
+immutable rules across tasks, and keep each task's current state in its own
+atomic cell. This makes rejected transitions explicit while leaving scheduling
+and result storage to the caller.
 
 Version 0.10 requires a valid initial state; if `initial_state(...)` is called
 more than once, the last value wins. Terminal states cannot have outgoing
@@ -31,7 +27,7 @@ machine updates `qubit_fast_cas::FastCasState` values directly.
 There are three public entry points:
 
 - `StateMachine` for clear, generic APIs suitable for enum-like state/event types.
-- `FastStateMachine` for high-throughput, integer-coded state/event processing.
+- `FastStateMachine` for dense, integer-coded state/event processing.
 - `TypedFastStateMachine<S, E>` for compile-time state/event domains backed by
   the Fast engine.
 
@@ -40,6 +36,12 @@ budget. `CasStrategy::LatencyFirst` uses a smaller immediate retry budget and
 soft elapsed-time limits; synchronous execution may still exceed a soft budget
 once an attempt has been admitted. A terminal CAS failure remains distinct from
 a rejected transition.
+
+Inject custom Standard limits, budgets, and backoff with `cas_executor`, or
+choose a preset with `cas_strategy`. Inspect the installed configuration through
+`machine.cas_executor()` using `max_attempts()`, `max_operation_elapsed()`,
+and `max_total_elapsed()`. Terminal CAS kinds are preserved in
+`StateMachineError::CasFailure`.
 
 All three entry points keep transition tables immutable after construction and
 execute event triggers through CAS-backed state updates. Each also exposes
@@ -56,8 +58,7 @@ Use `qubit-state-machine` when you need:
 - event-driven state updates through `trigger` and `try_trigger`
 - success callbacks that observe the old and new state after an update
 - simple state tracking for services, jobs, devices, or UI logic
-- predictable low-latency path performance through [`FastStateMachine`] with dense
-  integer state/event transitions
+- dense integer lookup for workloads where measured dispatch cost matters
 
 ## Typed Fast State Machine
 
@@ -94,7 +95,7 @@ assert!(machine.is_terminal_state(state.load()));
 | Entry point | Intended use and cost |
 | --- | --- |
 | `StateMachine` | Generic `Copy + Eq + Hash + Debug` states; HashMap lookup and an Arc allocation per candidate update. |
-| `FastStateMachine` | Integer protocols with explicit contiguous code ranges, dense lookup, and integer CAS. |
+| `FastStateMachine` | Integer protocols with explicit contiguous code ranges, dense lookup, and integer CAS. Measure it against your workload. |
 | `TypedFastStateMachine` | Enum lifecycles using the same Fast engine with typed membership checks and no per-transition heap allocation. Measure actual overhead with the benchmarks. |
 
 All three keep immutable rules separate from independent cells. Raw Fast remains a supported integer entry point, not a compatibility shim. Typed cells are created by a machine and expose reads, without setters or raw access; machines with the same state type can share a cell, without machine identity binding.
@@ -219,7 +220,8 @@ fully configured generic CAS executor is needed.
 Use `FastStateMachine` when you need low-latency dispatch loops and can model
 states/events as dense integer ranges. It trades some ergonomics (explicit bounds,
 integer conventions) for constant-time, memory-local transition lookup and tighter
-hot-path control.
+hot-path control. See the [benchmark method and measured examples](doc/performance.md)
+before drawing performance conclusions for your workload.
 
 ## Fast State Machine
 
@@ -383,7 +385,7 @@ contains the complete public API documentation.
 | Type | Purpose |
 | --- | --- |
 | `Transition` | Immutable value describing `source --event--> target`. |
-| `FastStateMachine` | Dense integer-coded transition machine for high-throughput scenarios. |
+| `FastStateMachine` | Dense integer-coded transition machine for measured dispatch-sensitive scenarios. |
 | `FastStateMachineBuilder` | Builder for state/event code counts, transition table, and CAS policy. |
 | `FastStateMachineError` | Runtime error from fast transition execution. |
 | `FastStateMachineBuildError` | Build-time validation error for fast transition table configuration. |
