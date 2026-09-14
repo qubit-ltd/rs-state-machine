@@ -9,13 +9,13 @@
 #
 ################################################################################
 #
-# Sync and update Git submodules from the repository root.
-# Run from repo root: ./update-submodule.sh
-# By default, updates submodules to the latest commit on their remote tracking
-# branches.
+# Delegate submodule synchronization to the shared rs-ci implementation.
 #
 
 set -euo pipefail
+
+PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+exec "$PROJECT_ROOT/.infra/tools/rs-ci/update-submodule.sh" "$@"
 
 usage() {
     cat <<'EOF_USAGE'
