@@ -218,6 +218,49 @@ fn test_typed_builder_preserves_raw_errors() {
     assert!(!machine.try_trigger(&machine.create_state(), Event::Finish));
 }
 
+#[test]
+fn test_typed_builder_enforces_table_cell_limit() {
+    use qubit_state_machine::FastStateMachineBuildError;
+    use qubit_state_machine::TypedFastStateMachineBuildError;
+
+    let rejected = TypedFastStateMachine::<State, Event>::builder()
+        .initial_state(State::Pending)
+        .max_table_cells(5)
+        .build();
+    assert_eq!(
+        rejected.expect_err("three states and two events need six cells"),
+        TypedFastStateMachineBuildError::Raw(FastStateMachineBuildError::TransitionTableLimitExceeded {
+            state_count: 3,
+            event_count: 2,
+            cells: 6,
+            limit: 5,
+        })
+    );
+
+    let accepted = TypedFastStateMachine::<State, Event>::builder()
+        .initial_state(State::Pending)
+        .max_table_cells(6)
+        .build()
+        .expect("the inclusive limit permits six cells");
+    assert_eq!(accepted.state_count(), 3);
+    assert_eq!(accepted.event_count(), 2);
+}
+
+#[test]
+fn test_typed_graph_diagnostics_reports_unreachable_and_nonterminal_states() {
+    let machine = TypedFastStateMachine::<State, Event>::builder()
+        .initial_state(State::Pending)
+        .terminal_state(State::Done)
+        .transition(State::Pending, Event::Finish, State::Done)
+        .transition(State::Running, Event::Start, State::Running)
+        .build()
+        .expect("graph with an unreachable loop is valid");
+
+    let report = machine.diagnose_graph();
+    assert_eq!(report.unreachable_states(), &[State::Running]);
+    assert_eq!(report.states_without_terminal_path(), &[State::Running]);
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Empty;
 impl DenseCode for Empty {
