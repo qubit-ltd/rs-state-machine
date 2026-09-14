@@ -61,6 +61,8 @@ where
     pub(crate) initial_state: Option<S>,
     /// Registered terminal states.
     pub(crate) terminal_states: HashSet<S>,
+    /// Terminal states in first-registration order for deterministic errors.
+    terminal_state_order: Vec<S>,
     /// Transition definitions in builder insertion order.
     pub(crate) transitions: Vec<Transition<S, E>>,
     /// CAS executor installed when the immutable machine is built.
@@ -82,6 +84,7 @@ where
             states: HashSet::new(),
             initial_state: None,
             terminal_states: HashSet::new(),
+            terminal_state_order: Vec::new(),
             transitions: Vec::new(),
             cas_executor: CasExecutor::builder()
                 .max_attempts(STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS)
@@ -151,7 +154,9 @@ where
     /// The updated builder.
     #[inline]
     pub fn terminal_state(mut self, state: S) -> Self {
-        self.terminal_states.insert(state);
+        if self.terminal_states.insert(state) {
+            self.terminal_state_order.push(state);
+        }
         self
     }
 
@@ -164,7 +169,9 @@ where
     /// The updated builder.
     #[inline]
     pub fn terminal_states(mut self, states: &[S]) -> Self {
-        self.terminal_states.extend(states.iter().copied());
+        for &state in states {
+            self = self.terminal_state(state);
+        }
         self
     }
 
@@ -264,9 +271,9 @@ where
     /// `Ok(())` when all configured state sets refer to registered states.
     ///
     /// # Errors
-    /// Returns the first unregistered final state encountered.
+    /// Returns the first unregistered final state in configuration order.
     fn validate_registered_states(&self) -> Result<(), StateMachineBuildError<S, E>> {
-        for state in &self.terminal_states {
+        for state in &self.terminal_state_order {
             if !self.states.contains(state) {
                 return Err(StateMachineBuildError::TerminalStateNotRegistered { state: *state });
             }
