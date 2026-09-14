@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
-标准状态机使用 `qubit-cas` 0.9，通过 `cas_executor` 注入次数、预算及退避配置；
+标准状态机使用 `qubit-cas` 0.11，通过 `cas_executor` 注入次数、预算及退避配置；
 也可用 builder 上的 `cas_strategy` 选择预设。实际配置通过
 executor 的 `max_attempts()`、`max_operation_elapsed()` 和 `max_total_elapsed()` 查询。CAS 终止类型保留在
 `StateMachineError::CasFailure` 中。
@@ -99,7 +99,7 @@ CAS 只原子提交状态；冲突重试会针对新观察状态重新计算该�
 ```toml
 [dependencies]
 qubit-state-machine = "0.10"
-qubit-atomic = "0.13"
+qubit-atomic = "0.17"
 qubit-fast-cas = "0.3"
 ```
 
@@ -108,7 +108,7 @@ qubit-fast-cas = "0.3"
 ```toml
 [dependencies]
 qubit-state-machine = { version = "0.10", default-features = false, features = ["standard"] }
-qubit-atomic = "0.13"
+qubit-atomic = "0.17"
 ```
 
 仅使用 Fast 版，并避免引入 `qubit-cas`：
