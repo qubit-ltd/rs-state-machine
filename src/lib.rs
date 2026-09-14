@@ -127,3 +127,11 @@ mod readme_en {}
 #[cfg(all(doctest, feature = "standard", feature = "fast"))]
 #[doc = include_str!("../README.zh_CN.md")]
 mod readme_zh_cn {}
+
+#[cfg(all(doctest, feature = "standard", feature = "fast"))]
+#[doc = include_str!("../doc/user_guide.md")]
+mod user_guide_en {}
+
+#[cfg(all(doctest, feature = "standard", feature = "fast"))]
+#[doc = include_str!("../doc/user_guide.zh_CN.md")]
+mod user_guide_zh_cn {}

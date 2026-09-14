@@ -33,8 +33,8 @@ Fast 构建器按 `state_count * event_count` 分配转换表，默认上限为 
 ```toml
 [dependencies]
 qubit-state-machine = { version = "0.10", default-features = false, features = ["standard"] }
-qubit-atomic = "0.13"
-qubit-cas = "0.9"
+qubit-atomic = "0.17"
+qubit-cas = "0.11"
 ```
 
 项目要求 Rust 1.94 或更新版本。默认 feature 集同时启用 `standard` 和 `fast`。
@@ -87,6 +87,51 @@ assert!(!machine.try_trigger(&state, JobEvent::Start));
 当状态和事件可以编码为连续的 `u64`，且适合使用平铺转换表时，选择 `FastStateMachine`。
 需要编译期区分状态和事件类型时，选择 `TypedFastStateMachine<S, E>`；其 `DenseCode::VALUES` 必须完整且不重复。
 三种 machine 都提供 `diagnose_graph()` 做离线可达性分析，但该分析不会改变构建是否合法。
+
+### 强类型 Fast 任务生命周期
+
+固定的任务生命周期可以让状态和事件分别使用独立类型。`build` 会校验稠密编码表，
+然后每个任务由 machine 创建独立状态单元。与 `rs-executor` 的做法一样，
+需要区分业务上不允许的转换和意外 CAS 失败时使用 `trigger`：
+
+```rust
+use qubit_state_machine::DenseCode;
+use qubit_state_machine::TypedFastStateMachine;
+use qubit_state_machine::TypedFastStateMachineError;
+
+#[repr(u64)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Status { Pending, Running, Done }
+impl DenseCode for Status {
+    const VALUES: &'static [Self] = &[Self::Pending, Self::Running, Self::Done];
+    fn code(self) -> u64 { self as u64 }
+}
+
+#[repr(u64)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Event { Start, Complete }
+impl DenseCode for Event {
+    const VALUES: &'static [Self] = &[Self::Start, Self::Complete];
+    fn code(self) -> u64 { self as u64 }
+}
+
+let machine = TypedFastStateMachine::<Status, Event>::builder()
+    .initial_state(Status::Pending)
+    .terminal_state(Status::Done)
+    .transition(Status::Pending, Event::Start, Status::Running)
+    .transition(Status::Running, Event::Complete, Status::Done)
+    .build().expect("valid task lifecycle");
+let state = machine.create_state();
+assert_eq!(machine.trigger(&state, Event::Start).expect("start"), Status::Running);
+assert_eq!(machine.trigger(&state, Event::Complete).expect("complete"), Status::Done);
+assert!(matches!(
+    machine.trigger(&state, Event::Start),
+    Err(TypedFastStateMachineError::UnknownTransition { .. })
+));
+```
+
+CAS 提交只发布状态编码。若任务完成时还要发布结果，调用方仍须单独协调；
+进入 `Done` 并不保证此时已经能读取结果。
 
 ## 错误与诊断
 

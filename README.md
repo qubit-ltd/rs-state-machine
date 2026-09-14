@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-The standard state machine uses `qubit-cas` 0.9. Inject limits, budgets, and
+The standard state machine uses `qubit-cas` 0.11. Inject limits, budgets, and
 backoff with `cas_executor`, or choose a preset with the builder's
 `cas_strategy`. Inspect the actual installed configuration through
 `machine.cas_executor()` using `max_attempts()`, `max_operation_elapsed()`,
@@ -115,7 +115,7 @@ types from their owning crates:
 ```toml
 [dependencies]
 qubit-state-machine = "0.10"
-qubit-atomic = "0.13"
+qubit-atomic = "0.17"
 qubit-fast-cas = "0.3"
 ```
 
@@ -124,7 +124,7 @@ Use only the standard implementation:
 ```toml
 [dependencies]
 qubit-state-machine = { version = "0.10", default-features = false, features = ["standard"] }
-qubit-atomic = "0.13"
+qubit-atomic = "0.17"
 ```
 
 Use only the Fast implementation without pulling in `qubit-cas`:

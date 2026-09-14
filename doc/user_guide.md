@@ -34,8 +34,8 @@ The Standard-only setup keeps the dependency surface small:
 ```toml
 [dependencies]
 qubit-state-machine = { version = "0.10", default-features = false, features = ["standard"] }
-qubit-atomic = "0.13"
-qubit-cas = "0.9"
+qubit-atomic = "0.17"
+qubit-cas = "0.11"
 ```
 
 Use Rust 1.94 or newer. The default feature set enables both `standard` and
@@ -102,6 +102,53 @@ Fast builders allocate `state_count * event_count` cells and default to a
 limit of `1_048_576`. Set `max_table_cells(limit)` to tune this bound; a
 larger table requires roughly `8 * state_count * event_count` bytes for its
 primary `u64` storage, excluding flags and container overhead.
+
+### Typed Fast Task Lifecycle
+
+For a fixed task lifecycle, give states and events separate types. The machine
+validates their dense codebooks during `build`, then creates one state cell per
+task. As in `rs-executor`, use `trigger` when an undefined business transition
+must be distinguished from an unexpected CAS failure:
+
+```rust
+use qubit_state_machine::DenseCode;
+use qubit_state_machine::TypedFastStateMachine;
+use qubit_state_machine::TypedFastStateMachineError;
+
+#[repr(u64)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Status { Pending, Running, Done }
+impl DenseCode for Status {
+    const VALUES: &'static [Self] = &[Self::Pending, Self::Running, Self::Done];
+    fn code(self) -> u64 { self as u64 }
+}
+
+#[repr(u64)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Event { Start, Complete }
+impl DenseCode for Event {
+    const VALUES: &'static [Self] = &[Self::Start, Self::Complete];
+    fn code(self) -> u64 { self as u64 }
+}
+
+let machine = TypedFastStateMachine::<Status, Event>::builder()
+    .initial_state(Status::Pending)
+    .terminal_state(Status::Done)
+    .transition(Status::Pending, Event::Start, Status::Running)
+    .transition(Status::Running, Event::Complete, Status::Done)
+    .build().expect("valid task lifecycle");
+let state = machine.create_state();
+assert_eq!(machine.trigger(&state, Event::Start).expect("start"), Status::Running);
+assert_eq!(machine.trigger(&state, Event::Complete).expect("complete"), Status::Done);
+assert!(matches!(
+    machine.trigger(&state, Event::Start),
+    Err(TypedFastStateMachineError::UnknownTransition { .. })
+));
+```
+
+Only the state code is published by the CAS commit. If a completed task also
+publishes a result, coordinate that result separately; reaching `Done` alone
+does not prove the result is already available.
 
 ## Errors and Diagnostics
 

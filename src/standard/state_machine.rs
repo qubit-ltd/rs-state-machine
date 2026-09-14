@@ -35,7 +35,7 @@ use crate::Transition;
 /// - `S`: Copyable, hashable state type stored in [`AtomicRef`].
 /// - `E`: Copyable, hashable event type used to select transitions.
 ///
-/// # Common usage
+/// # Examples
 ///
 /// Define the valid states and events, build an immutable transition table, and
 /// keep each object's current state in an [`AtomicRef`].
