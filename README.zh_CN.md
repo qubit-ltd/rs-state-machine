@@ -7,12 +7,9 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![English Document](https://img.shields.io/badge/Document-English-blue.svg)](README.md)
 
-标准状态机使用 `qubit-cas` 0.11，通过 `cas_executor` 注入次数、预算及退避配置；
-也可用 builder 上的 `cas_strategy` 选择预设。实际配置通过
-executor 的 `max_attempts()`、`max_operation_elapsed()` 和 `max_total_elapsed()` 查询。CAS 终止类型保留在
-`StateMachineError::CasFailure` 中。
-
-`qubit-state-machine` 是一个小型 Rust 有限状态机库，适用于生命周期、工作流和任务状态跟踪代码。
+`qubit-state-machine` 为任务、服务等有限生命周期提供明确的状态转换规则。
+规则构建后可由多个任务共享，每个任务持有独立的原子状态单元；不允许的事件会被明确拒绝，
+而调度和结果存储仍由调用方负责。
 
 0.10 版本要求配置有效初态；如果多次调用 `initial_state(...)`，最后一次设置生效。终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
 
@@ -25,11 +22,15 @@ executor 的 `max_attempts()`、`max_operation_elapsed()` 和 `max_total_elapsed
 库内同时提供三个公开入口：
 
 - `StateMachine`：适合可读性优先、以枚举语义建模状态/事件的场景。
-- `FastStateMachine`：适合高吞吐、热点路径对延迟要求更严格的场景。
+- `FastStateMachine`：适合能使用连续整数编码的状态和事件。
 - `TypedFastStateMachine<S, E>`：在 Fast 内核上提供编译期区分的状态与事件类型。
 
 这三个入口都在构建后冻结转换规则，并通过 CAS 机制更新共享状态；均提供
 `diagnose_graph()` 做离线可达性分析。标准版的迭代顺序不保证，Fast 版本按 code 顺序返回。
+
+标准版使用 `qubit-cas` 0.11。可通过 `cas_executor` 注入重试次数、时间预算及退避配置，
+或用 `cas_strategy` 选择预设；实际配置可从 `machine.cas_executor()` 查询。
+CAS 终止类型保留在 `StateMachineError::CasFailure` 中。
 
 ## 为什么使用
 
@@ -41,7 +42,7 @@ executor 的 `max_attempts()`、`max_operation_elapsed()` 和 `max_total_elapsed
 - 通过 `trigger` 和 `try_trigger` 执行事件驱动的状态更新
 - 在状态更新成功后通过回调观察旧状态和新状态
 - 为服务、任务、设备或 UI 逻辑提供简单、轻量的状态跟踪能力
-- 在高频触发场景中使用 `FastStateMachine` 获取更紧凑的转移性能
+- 在需要测量调度成本的场景中使用稠密整数查表
 
 ## 强类型 Fast 状态机
 
@@ -201,7 +202,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 如果状态空间稀疏、已有 `AtomicRef`，或需要完整的 `qubit-cas` 配置，使用 `StateMachine`。
 
 如果你面对的是高频触发路径、并且状态和事件可以表达为稠密 `u64` 编码，
-使用 `FastStateMachine`。它通过可计算下标的扁平转移表换取更稳定的热点路径性能。
+可以考虑 `FastStateMachine`。它通过可计算下标的扁平转移表查找目标状态。
+请先参考[基准方法与实测示例](doc/performance.zh_CN.md)，再根据自身负载判断收益。
 
 三种入口都支持 `diagnose_graph()`。该方法只做离线可达性分析，不改变构建合法性，
 并报告不可达状态和无法到达显式终态的状态；无终态模型仍可构建。
