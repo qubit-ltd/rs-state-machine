@@ -1,1 +1,6 @@
 format = 1
+
+[[exceptions]]
+rule = "test-redirect"
+path = "tests/fuzz_contracts_tests.rs"
+reason = "This integration test intentionally reuses the shared fuzz support harness."
