@@ -1,6 +1,6 @@
 # Qubit State Machine User Guide
 
-[中文版](user_guide.zh_CN.md) · Applies to version 0.10
+[中文版](user_guide.zh_CN.md) · Applies to version 0.11
 
 ## Purpose and Audience
 
@@ -33,9 +33,9 @@ The Standard-only setup keeps the dependency surface small:
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.10", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.11", default-features = false, features = ["standard"] }
 qubit-atomic = "0.17"
-qubit-cas = "0.11"
+qubit-cas = "0.12"
 ```
 
 Use Rust 1.94 or newer. The default feature set enables both `standard` and

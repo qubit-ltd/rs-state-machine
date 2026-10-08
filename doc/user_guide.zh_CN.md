@@ -1,6 +1,6 @@
 # Qubit State Machine 用户手册
 
-[English](user_guide.md) · 适用于 0.10 版本
+[English](user_guide.md) · 适用于 0.11 版本
 
 ## 手册目标与读者
 
@@ -32,9 +32,9 @@ Fast 构建器按 `state_count * event_count` 分配转换表，默认上限为 
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.10", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.11", default-features = false, features = ["standard"] }
 qubit-atomic = "0.17"
-qubit-cas = "0.11"
+qubit-cas = "0.12"
 ```
 
 项目要求 Rust 1.94 或更新版本。默认 feature 集同时启用 `standard` 和 `fast`。

@@ -11,7 +11,7 @@
 规则构建后可由多个任务共享，每个任务持有独立的原子状态单元；不允许的事件会被明确拒绝，
 而调度和结果存储仍由调用方负责。
 
-0.10 版本要求配置有效初态；如果多次调用 `initial_state(...)`，最后一次设置生效。终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
+0.11 版本要求配置有效初态；如果多次调用 `initial_state(...)`，最后一次设置生效。终态不能有出边。`create_state()` 创建独立的当前状态单元，外部创建的单元不绑定到某个 machine。回调在成功提交后执行一次；并发回调顺序不保证，回调可能观察到已经超出 `new_state` 参数的后续状态。
 
 标准版默认使用 16 次立即 CAS 尝试，不设置墙钟时间预算。`CasStrategy::LatencyFirst` 使用较小的立即重试预算和软性耗时限制；同步执行一旦开始某次尝试，实际耗时仍可能超过软性预算。CAS 终止失败仍与业务上的未定义转换区分。
 
@@ -28,7 +28,7 @@
 这三个入口都在构建后冻结转换规则，并通过 CAS 机制更新共享状态；均提供
 `diagnose_graph()` 做离线可达性分析。标准版的迭代顺序不保证，Fast 版本按 code 顺序返回。
 
-标准版使用 `qubit-cas` 0.11。可通过 `cas_executor` 注入重试次数、时间预算及退避配置，
+标准版使用 `qubit-cas` 0.12。可通过 `cas_executor` 注入重试次数、时间预算及退避配置，
 或用 `cas_strategy` 选择预设；实际配置可从 `machine.cas_executor()` 查询。
 CAS 终止类型保留在 `StateMachineError::CasFailure` 中。
 
@@ -99,7 +99,7 @@ CAS 只原子提交状态；冲突重试会针对新观察状态重新计算该�
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.10"
+qubit-state-machine = "0.11"
 qubit-atomic = "0.17"
 qubit-fast-cas = "0.3"
 ```
@@ -108,7 +108,7 @@ qubit-fast-cas = "0.3"
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.10", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.11", default-features = false, features = ["standard"] }
 qubit-atomic = "0.17"
 ```
 
@@ -116,7 +116,7 @@ qubit-atomic = "0.17"
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.10", default-features = false, features = ["fast"] }
+qubit-state-machine = { version = "0.11", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
 ```
 

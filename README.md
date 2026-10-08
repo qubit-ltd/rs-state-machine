@@ -13,7 +13,7 @@ immutable rules across tasks, and keep each task's current state in its own
 atomic cell. This makes rejected transitions explicit while leaving scheduling
 and result storage to the caller.
 
-Version 0.10 requires a valid initial state; if `initial_state(...)` is called
+Version 0.11 requires a valid initial state; if `initial_state(...)` is called
 more than once, the last value wins. Terminal states cannot have outgoing
 transitions. `create_state()` creates an independent current-state
 cell; externally created cells are not bound to a machine. Callbacks run once
@@ -115,7 +115,7 @@ types from their owning crates:
 
 ```toml
 [dependencies]
-qubit-state-machine = "0.10"
+qubit-state-machine = "0.11"
 qubit-atomic = "0.17"
 qubit-fast-cas = "0.3"
 ```
@@ -124,7 +124,7 @@ Use only the standard implementation:
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.10", default-features = false, features = ["standard"] }
+qubit-state-machine = { version = "0.11", default-features = false, features = ["standard"] }
 qubit-atomic = "0.17"
 ```
 
@@ -132,7 +132,7 @@ Use only the Fast implementation without pulling in `qubit-cas`:
 
 ```toml
 [dependencies]
-qubit-state-machine = { version = "0.10", default-features = false, features = ["fast"] }
+qubit-state-machine = { version = "0.11", default-features = false, features = ["fast"] }
 qubit-fast-cas = "0.3"
 ```
 
