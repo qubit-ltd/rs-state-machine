@@ -127,9 +127,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-cas"
-version = "0.12.0"
+version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8108f85fb3834053df2c82552615b8a6b5078b6fa0f2578211ed4261506c48ed"
+checksum = "565f96056ccfb0447794cce38f032533c59e02aae28f9dfd18e6e1f6e62f6004"
 dependencies = [
  "qubit-atomic",
  "qubit-error",
