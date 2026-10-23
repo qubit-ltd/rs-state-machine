@@ -5,17 +5,15 @@
 //
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
-
 //! Builder-level configuration must preserve last-setter precedence.
 
 use qubit_atomic::AtomicRef;
 use qubit_cas::CasDecision;
 use qubit_cas::CasExecutor;
 use qubit_cas::CasStrategy;
-
-use crate::STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS;
-use crate::StateMachine;
-use crate::StateMachineError;
+use qubit_state_machine::STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS;
+use qubit_state_machine::StateMachine;
+use qubit_state_machine::StateMachineError;
 
 #[test]
 fn test_default_executor_is_attempt_bounded_without_time_budgets() {
@@ -26,11 +24,10 @@ fn test_default_executor_is_attempt_bounded_without_time_budgets() {
         .build()
         .expect("valid machine");
     let executor = machine.cas_executor();
-    let limits = executor;
     assert_eq!(STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS, 16);
-    assert_eq!(limits.max_attempts(), STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS);
-    assert_eq!(limits.max_operation_elapsed(), None);
-    assert_eq!(limits.max_total_elapsed(), None);
+    assert_eq!(executor.max_attempts(), STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS);
+    assert_eq!(executor.max_operation_elapsed(), None);
+    assert_eq!(executor.max_total_elapsed(), None);
     assert_eq!(executor.attempt_timeout(), None);
     assert_eq!(executor.flow_timeout(), None);
 }
@@ -48,21 +45,20 @@ fn test_injection_and_strategy_replace_whole_executor() {
         } else {
             builder.cas_strategy(CasStrategy::LatencyFirst).cas_executor(executor)
         };
-        let limits = &builder.cas_executor;
+        let machine = builder.build().expect("valid machine");
+        let executor = machine.cas_executor();
         if strategy_last {
             let profile = CasStrategy::LatencyFirst.profile();
-            assert_eq!(limits.max_attempts(), profile.max_attempts());
-            assert_eq!(limits.max_operation_elapsed(), Some(profile.max_operation_elapsed()));
-            assert_eq!(limits.max_total_elapsed(), profile.max_total_elapsed());
+            assert_eq!(executor.max_attempts(), profile.max_attempts());
+            assert_eq!(executor.max_operation_elapsed(), Some(profile.max_operation_elapsed()));
+            assert_eq!(executor.max_total_elapsed(), profile.max_total_elapsed());
         } else {
-            assert_eq!(limits.max_attempts(), 1);
-            assert_eq!(limits.max_operation_elapsed(), None);
-            assert_eq!(limits.max_total_elapsed(), None);
-        }
-        if !strategy_last {
+            assert_eq!(executor.max_attempts(), 1);
+            assert_eq!(executor.max_operation_elapsed(), None);
+            assert_eq!(executor.max_total_elapsed(), None);
+
             let state = AtomicRef::from_value(0u8);
-            let error = builder
-                .cas_executor
+            let error = executor
                 .execute_result(&state, |_: &u8| {
                     CasDecision::<u8, (), StateMachineError<u8, u8>>::retry(StateMachineError::UnknownState {
                         state: 0,
