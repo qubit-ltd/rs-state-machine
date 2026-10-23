@@ -6,11 +6,28 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 //
+//! Tests for typed fast state machine behavior.
+
 #![cfg(feature = "fast")]
+
+use std::error::Error as StdError;
+use std::panic::AssertUnwindSafe;
+use std::panic::catch_unwind;
+use std::sync::Arc;
+use std::sync::Mutex;
+use std::sync::mpsc;
+use std::time::Duration;
+
+use qubit_fast_cas::FastCasPolicy;
 use qubit_fast_cas::FastCasState;
 use qubit_state_machine::DenseCode;
+use qubit_state_machine::FastStateMachineBuildError;
+use qubit_state_machine::Transition;
 use qubit_state_machine::TypedFastState;
 use qubit_state_machine::TypedFastStateMachine;
+use qubit_state_machine::TypedFastStateMachineBuildError;
+use qubit_state_machine::TypedFastStateMachineBuilder;
+use qubit_state_machine::TypedFastStateMachineError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum State {
@@ -18,17 +35,20 @@ enum State {
     Running,
     Done,
 }
+
 impl DenseCode for State {
     const VALUES: &'static [Self] = &[Self::Pending, Self::Running, Self::Done];
     fn code(self) -> u64 {
         self as u64
     }
 }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Event {
     Start,
     Finish,
 }
+
 impl DenseCode for Event {
     const VALUES: &'static [Self] = &[Self::Start, Self::Finish];
     fn code(self) -> u64 {
@@ -79,9 +99,6 @@ fn create_machine() -> TypedFastStateMachine<State, Event> {
 
 #[test]
 fn test_typed_queries_policy_and_duplicate_edges() {
-    use qubit_fast_cas::FastCasPolicy;
-    use qubit_state_machine::Transition;
-    use qubit_state_machine::TypedFastStateMachineBuilder;
     let machine = TypedFastStateMachineBuilder::<State, Event>::default()
         .initial_state(State::Running)
         .initial_state(State::Pending)
@@ -136,8 +153,6 @@ fn test_typed_state_independence_and_same_state_type_other_machine() {
 
 #[test]
 fn test_typed_callback_reentry_panic_and_failure() {
-    use std::panic::AssertUnwindSafe;
-    use std::panic::catch_unwind;
     let machine = create_machine();
     let state = machine.create_state();
     assert_eq!(
@@ -180,8 +195,6 @@ fn test_typed_self_edge_commits_callback_once() {
 
 #[test]
 fn test_typed_builder_preserves_raw_errors() {
-    use qubit_state_machine::FastStateMachineBuildError;
-    use qubit_state_machine::TypedFastStateMachineBuildError;
     assert_eq!(
         TypedFastStateMachine::<State, Event>::builder()
             .build()
@@ -220,9 +233,6 @@ fn test_typed_builder_preserves_raw_errors() {
 
 #[test]
 fn test_typed_builder_enforces_table_cell_limit() {
-    use qubit_state_machine::FastStateMachineBuildError;
-    use qubit_state_machine::TypedFastStateMachineBuildError;
-
     let rejected = TypedFastStateMachine::<State, Event>::builder()
         .initial_state(State::Pending)
         .max_table_cells(5)
@@ -263,6 +273,7 @@ fn test_typed_graph_diagnostics_reports_unreachable_and_nonterminal_states() {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Empty;
+
 impl DenseCode for Empty {
     const VALUES: &'static [Self] = &[];
     fn code(self) -> u64 {
@@ -287,22 +298,21 @@ impl<const CASE: u8> DenseCode for Broken<CASE> {
 
 #[test]
 fn test_typed_invalid_codebooks_fail_before_rule_validation() {
-    use qubit_state_machine::TypedFastStateMachineBuildError as Error;
     assert_eq!(
         TypedFastStateMachine::<Empty, Event>::builder()
             .build()
             .expect_err("empty states"),
-        Error::EmptyCodebook { domain: "state" }
+        TypedFastStateMachineBuildError::EmptyCodebook { domain: "state" }
     );
     assert_eq!(
         TypedFastStateMachine::<State, Empty>::builder()
             .build()
             .expect_err("empty events"),
-        Error::EmptyCodebook { domain: "event" }
+        TypedFastStateMachineBuildError::EmptyCodebook { domain: "event" }
     );
     assert!(matches!(
         TypedFastStateMachine::<Broken<0>, Event>::builder().build(),
-        Err(Error::InvalidCodebook {
+        Err(TypedFastStateMachineBuildError::InvalidCodebook {
             domain: "state",
             index: 0,
             code: 1
@@ -310,7 +320,7 @@ fn test_typed_invalid_codebooks_fail_before_rule_validation() {
     ));
     assert!(matches!(
         TypedFastStateMachine::<State, Broken<1>>::builder().build(),
-        Err(Error::InvalidCodebook {
+        Err(TypedFastStateMachineBuildError::InvalidCodebook {
             domain: "event",
             index: 1,
             code: 0
@@ -318,11 +328,11 @@ fn test_typed_invalid_codebooks_fail_before_rule_validation() {
     ));
     assert!(matches!(
         TypedFastStateMachine::<Broken<2>, Event>::builder().build(),
-        Err(Error::InvalidCodebook { code: u64::MAX, .. })
+        Err(TypedFastStateMachineBuildError::InvalidCodebook { code: u64::MAX, .. })
     ));
     assert!(matches!(
         TypedFastStateMachine::<Broken<3>, Event>::builder().build(),
-        Err(Error::InvalidCodebook { index: 1, code: 0, .. })
+        Err(TypedFastStateMachineBuildError::InvalidCodebook { index: 1, code: 0, .. })
     ));
 }
 
@@ -332,6 +342,7 @@ enum Partial {
     Missing,
     OutOfRange,
 }
+
 impl DenseCode for Partial {
     const VALUES: &'static [Self] = &[Self::Good];
     fn code(self) -> u64 {
@@ -341,8 +352,6 @@ impl DenseCode for Partial {
 
 #[test]
 fn test_typed_omitted_values_cannot_impersonate_registered_values() {
-    use qubit_state_machine::TypedFastStateMachineBuildError;
-    use qubit_state_machine::TypedFastStateMachineError;
     for value in [Partial::Missing, Partial::OutOfRange] {
         let expected = TypedFastStateMachineBuildError::ValueNotInCodebook {
             domain: "state",
@@ -412,17 +421,12 @@ fn test_typed_omitted_values_cannot_impersonate_registered_values() {
 
 #[test]
 fn test_typed_error_sources_and_diagnostics() {
-    use std::error::Error;
-
-    use qubit_state_machine::FastStateMachineBuildError;
-    use qubit_state_machine::TypedFastStateMachineBuildError;
-    use qubit_state_machine::TypedFastStateMachineError;
     let typed = TypedFastStateMachineError::UnknownTransition {
         source_state: State::Pending,
         event: Event::Finish,
     };
     assert_eq!(typed.to_string(), "unknown transition: Pending --Finish--> ?");
-    assert!(typed.source().is_none());
+    assert!(StdError::source(&typed).is_none());
     let raw = FastStateMachineBuildError::InitialStateNotConfigured;
     assert_eq!(TypedFastStateMachineBuildError::from(raw).to_string(), raw.to_string());
     assert_eq!(
@@ -458,27 +462,25 @@ fn test_typed_error_sources_and_diagnostics() {
 
 #[test]
 fn test_typed_error_classification() {
-    use qubit_state_machine::TypedFastStateMachineError as Error;
-
     for (error, rejected, conflicted) in [
         (
-            Error::InvalidEventCode {
+            TypedFastStateMachineError::InvalidEventCode {
                 event: Event::Finish,
                 code: 99,
             },
             false,
             false,
         ),
-        (Error::InvalidStateCode { code: 99 }, false, false),
+        (TypedFastStateMachineError::InvalidStateCode { code: 99 }, false, false),
         (
-            Error::UnknownTransition {
+            TypedFastStateMachineError::UnknownTransition {
                 source_state: State::Running,
                 event: Event::Finish,
             },
             true,
             false,
         ),
-        (Error::CasConflict { attempts: 7 }, false, true),
+        (TypedFastStateMachineError::CasConflict { attempts: 7 }, false, true),
     ] {
         assert_eq!(error.is_unknown_transition(), rejected);
         assert_eq!(error.is_cas_conflict(), conflicted);
@@ -487,10 +489,6 @@ fn test_typed_error_classification() {
 
 #[test]
 fn test_typed_callbacks_can_observe_later_state_and_finish_out_of_order() {
-    use std::sync::Arc;
-    use std::sync::Mutex;
-    use std::sync::mpsc;
-    use std::time::Duration;
     let machine = Arc::new(create_machine());
     let state = Arc::new(machine.create_state());
     let order = Arc::new(Mutex::new(Vec::new()));

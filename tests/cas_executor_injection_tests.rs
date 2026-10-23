@@ -9,6 +9,11 @@
 //! Standard state machine configuration and post-commit callback contracts.
 #![cfg(feature = "standard")]
 
+use std::sync::Barrier;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+use std::thread;
+
 use qubit_atomic::AtomicRef;
 use qubit_cas::CasExecutor;
 use qubit_state_machine::StateMachine;
@@ -19,6 +24,7 @@ enum State {
     New,
     Running,
 }
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Event {
     Start,
@@ -52,8 +58,6 @@ fn test_injected_executor_and_success_callback_work() {
 
 #[test]
 fn test_concurrent_self_transitions_only_invoke_callbacks_for_commits() {
-    use std::sync::atomic::AtomicUsize;
-    use std::sync::atomic::Ordering;
     let machine = StateMachine::builder()
         .add_state(State::New)
         .initial_state(State::New)
@@ -63,8 +67,8 @@ fn test_concurrent_self_transitions_only_invoke_callbacks_for_commits() {
         .expect("self transition");
     let state = AtomicRef::from_value(State::New);
     let callbacks = AtomicUsize::new(0);
-    let gate = std::sync::Barrier::new(4);
-    let successes = std::thread::scope(|scope| {
+    let gate = Barrier::new(4);
+    let successes = thread::scope(|scope| {
         let mut threads = Vec::new();
         for _ in 0..4 {
             let machine = &machine;

@@ -14,10 +14,11 @@ use super::GraphDiagnostics;
 ///
 /// # Parameters
 /// - `adjacency`: Directed adjacency lists indexed by vertex.
-/// - `seeds`: Vertices from which traversal starts.
+/// - `seeds`: In-range vertices from which traversal starts.
 ///
 /// # Returns
-/// A boolean vector whose entries are `true` for reachable vertices.
+/// A boolean vector with one entry per vertex; entries are `true` exactly for
+/// vertices reachable from a seed. Every seed and edge target must be in range.
 fn mark_reachable(adjacency: &[Vec<usize>], seeds: impl IntoIterator<Item = usize>) -> Vec<bool> {
     let mut seen = vec![false; adjacency.len()];
     let mut stack = Vec::new();
@@ -41,14 +42,18 @@ fn mark_reachable(adjacency: &[Vec<usize>], seeds: impl IntoIterator<Item = usiz
 /// Computes reachability findings for a finite directed state graph.
 ///
 /// # Parameters
-/// - `state_count`: Number of vertices in the graph.
-/// - `initial`: Initial vertex used for forward reachability.
-/// - `terminals`: Vertices considered explicit terminal states.
-/// - `edges`: Directed state transitions.
+/// - `state_count`: Number of vertices; all supplied indices must be below it.
+/// - `initial`: In-range initial vertex used for forward reachability.
+/// - `terminals`: In-range vertices considered explicit terminal states.
+/// - `edges`: Directed transitions whose source and target are in range.
 ///
 /// # Returns
 /// A report containing unreachable states and states with no path to a
 /// terminal.
+///
+/// The caller must provide a nonempty graph and valid vertex indices. The
+/// function performs no validation before indexing the adjacency lists.
+#[must_use]
 pub(crate) fn analyze_graph(
     state_count: usize,
     initial: usize,

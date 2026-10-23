@@ -11,6 +11,10 @@ use thiserror::Error;
 
 /// Error returned when a typed event cannot commit a transition.
 ///
+/// # Type Parameters
+/// - `S`: Finite state type accepted by [`super::DenseCode`].
+/// - `E`: Finite event type accepted by [`super::DenseCode`].
+///
 /// # Examples
 ///
 /// ```

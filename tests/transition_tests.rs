@@ -19,7 +19,7 @@ fn test_transition_is_available_without_machine_features() {
 }
 
 #[test]
-fn test_transition_hash_and_equality_use_all_fields() {
+fn test_transition_equality_uses_all_fields() {
     let first = Transition::new(1_u8, 2_u8, 3_u8);
     let same = Transition::new(1_u8, 2_u8, 3_u8);
     let different = Transition::new(3_u8, 2_u8, 1_u8);

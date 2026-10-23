@@ -114,14 +114,14 @@ pub fn run_fast_builder(data: &[u8]) -> BuilderOutcome {
             );
         }
     }
-    let state = machine.create_state();
+    let unchanged_state = machine.create_state();
     for event in 0..event_count + 2 {
         // Each probe starts at the real initial state instead of bypassing the machine.
-        let state = machine.create_state();
+        let probe_state = machine.create_state();
         let expected = model.get(&(0, event)).copied();
-        assert_eq!(machine.trigger(&state, event).ok(), expected);
+        assert_eq!(machine.trigger(&probe_state, event).ok(), expected);
     }
-    assert_eq!(state.load(), 0);
+    assert_eq!(unchanged_state.load(), 0);
     BuilderOutcome::Built {
         checked_pairs: (state_count * event_count) as usize,
     }
@@ -194,14 +194,14 @@ pub fn run_standard_builder(data: &[u8]) -> BuilderOutcome {
             );
         }
     }
-    let state = machine.create_state();
+    let unchanged_state = machine.create_state();
     for event in 0..event_count + 2 {
         // Each probe starts at the real initial state instead of bypassing the machine.
-        let state = machine.create_state();
+        let probe_state = machine.create_state();
         let expected = model.get(&(0, event)).copied();
-        assert_eq!(machine.trigger(&state, event).ok(), expected);
+        assert_eq!(machine.trigger(&probe_state, event).ok(), expected);
     }
-    assert_eq!(*state.load(), 0);
+    assert_eq!(*unchanged_state.load(), 0);
     BuilderOutcome::Built {
         checked_pairs: (state_count * event_count) as usize,
     }

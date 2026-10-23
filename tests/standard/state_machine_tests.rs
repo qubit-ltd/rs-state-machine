@@ -319,6 +319,7 @@ mod runtime_contracts {
 
     use qubit_state_machine::StateMachine;
     use qubit_state_machine::StateMachineBuildError;
+
     type Machine = StateMachine<u64, u64>;
 
     /// Builds the same three-state lifecycle for each backend.
@@ -340,11 +341,19 @@ mod runtime_contracts {
             Err(StateMachineBuildError::InitialStateNotConfigured)
         ));
         for target in [0, 1] {
-            assert!(
-                matches!(Machine::builder().add_states(&[0, 1, 2]).initial_state(0).terminal_state(0)
-                .transition(0, 0, target).build(),
-                Err(StateMachineBuildError::TerminalStateHasOutgoingTransition { state: 0, event: 0, target: actual }) if actual == target)
-            );
+            assert!(matches!(
+                Machine::builder()
+                    .add_states(&[0, 1, 2])
+                    .initial_state(0)
+                    .terminal_state(0)
+                    .transition(0, 0, target)
+                    .build(),
+                Err(StateMachineBuildError::TerminalStateHasOutgoingTransition {
+                    state: 0,
+                    event: 0,
+                    target: actual,
+                }) if actual == target
+            ));
         }
         let terminal = Machine::builder()
             .add_states(&[0, 1, 2])

@@ -77,29 +77,6 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
         }
     }
 
-    /// Encodes an input, retaining the first invalid input for `build`.
-    ///
-    /// # Parameters
-    /// - `value`: State or event to check.
-    /// - `domain`: Either `state` or `event` for diagnostics.
-    ///
-    /// # Returns
-    /// `Some(code)` for valid membership, or `None` after recording an error.
-    fn encode<T: DenseCode>(&mut self, value: T, domain: &'static str) -> Option<u64> {
-        match checked_code(value) {
-            Some(code) => Some(code),
-            None => {
-                if self.input_error.is_none() {
-                    self.input_error = Some(TypedFastStateMachineBuildError::ValueNotInCodebook {
-                        domain,
-                        code: value.code(),
-                    });
-                }
-                None
-            }
-        }
-    }
-
     /// Sets the unique initial `state`; the last valid setting wins.
     ///
     /// # Parameters
@@ -224,6 +201,32 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
             raw: self.raw.build()?,
             marker: PhantomData,
         })
+    }
+
+    /// Encodes an input, retaining the first invalid input for `build`.
+    ///
+    /// # Type Parameters
+    /// - `T`: Finite codebook type whose value is being encoded.
+    ///
+    /// # Parameters
+    /// - `value`: State or event to check.
+    /// - `domain`: Either `state` or `event` for diagnostics.
+    ///
+    /// # Returns
+    /// `Some(code)` for valid membership, or `None` after recording an error.
+    fn encode<T: DenseCode>(&mut self, value: T, domain: &'static str) -> Option<u64> {
+        match checked_code(value) {
+            Some(code) => Some(code),
+            None => {
+                if self.input_error.is_none() {
+                    self.input_error = Some(TypedFastStateMachineBuildError::ValueNotInCodebook {
+                        domain,
+                        code: value.code(),
+                    });
+                }
+                None
+            }
+        }
     }
 }
 

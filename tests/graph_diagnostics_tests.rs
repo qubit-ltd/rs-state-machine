@@ -7,10 +7,13 @@
 // =============================================================================
 
 #[cfg(feature = "fast")]
-#[test]
-fn fast_graph_diagnostics_report_unreachable_and_nonterminal_states() {
-    use qubit_state_machine::FastStateMachine;
+use qubit_state_machine::FastStateMachine;
+#[cfg(feature = "standard")]
+use qubit_state_machine::StateMachine;
 
+#[cfg(feature = "fast")]
+#[test]
+fn test_fast_graph_diagnostics_report_unreachable_and_nonterminal_states() {
     let machine = FastStateMachine::builder()
         .state_count(5)
         .event_count(2)
@@ -29,9 +32,7 @@ fn fast_graph_diagnostics_report_unreachable_and_nonterminal_states() {
 
 #[cfg(feature = "standard")]
 #[test]
-fn standard_graph_diagnostics_report_unreachable_and_nonterminal_states() {
-    use qubit_state_machine::StateMachine;
-
+fn test_standard_graph_diagnostics_report_unreachable_and_nonterminal_states() {
     let machine = StateMachine::builder()
         .add_states(&[0_u8, 1, 2, 3, 4])
         .initial_state(0)

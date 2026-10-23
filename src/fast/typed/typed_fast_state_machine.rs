@@ -18,6 +18,7 @@ use super::TypedFastStateMachineError;
 use super::dense_code::checked_code;
 use super::dense_code::decode;
 use crate::FastStateMachine;
+use crate::FastStateMachineError as Raw;
 use crate::Transition;
 
 /// Immutable dense rules for finite state `S` and event `E` types.
@@ -427,8 +428,7 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// A typed runtime error preserving business rejection, invalid state
     /// codes, or exhausted CAS attempts.
-    fn map_raw_error(error: crate::FastStateMachineError, event: E) -> TypedFastStateMachineError<S, E> {
-        use crate::FastStateMachineError as Raw;
+    fn map_raw_error(error: Raw, event: E) -> TypedFastStateMachineError<S, E> {
         match error {
             Raw::UnknownState { state } => TypedFastStateMachineError::InvalidStateCode { code: state },
             Raw::UnknownTransition { source_state, .. } => decode(source_state)
