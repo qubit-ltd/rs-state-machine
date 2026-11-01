@@ -120,12 +120,14 @@ qubit-state-machine = { version = "0.11", default-features = false, features = [
 qubit-fast-cas = "0.3"
 ```
 
-从全新克隆运行仓库本地 CI 包装脚本前，先初始化已固定版本的 CI 子模块：
+在 crate 根目录运行本地 CI 包装脚本：
 
 ```bash
-git submodule update --init --recursive
 ./.infra/bin/ci-check.sh
 ```
+
+包装脚本会自动引导共享的 rs-infra 工具，并缓存源码和可执行文件。
+首次运行可能需要联网并构建工具管理器，无需初始化 CI 子模块。
 
 ## 快速开始：任务处理
 

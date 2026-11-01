@@ -136,13 +136,15 @@ qubit-state-machine = { version = "0.11", default-features = false, features = [
 qubit-fast-cas = "0.3"
 ```
 
-To run the repository's local CI wrapper from a fresh clone, initialize the
-version-pinned CI submodule first:
+Run the local CI wrapper from the crate root:
 
 ```bash
-git submodule update --init --recursive
 ./.infra/bin/ci-check.sh
 ```
+
+The wrapper bootstraps the shared rs-infra tools and caches their sources and
+binaries. A first run may need network access and build the tool manager;
+initializing a CI submodule is not required.
 
 ## Quick Start: Job Processing
 

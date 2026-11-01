@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.11.0
+
+### Changed
+
+- Updated the Standard implementation's `qubit-cas` dependency from 0.11 to
+  0.12.
+
+### Compatibility notes
+
+- Applications injecting a Standard `CasExecutor` through `cas_executor(...)`
+  should use `qubit-cas = "0.12"` so the executor type matches this crate's
+  dependency, and adapt their calls to that dependency's public API.
+- Fast-only users do not need the Standard CAS dependency for this upgrade.
+
 ## 0.10.0 - 2026-09-13
 
 ### Changed
