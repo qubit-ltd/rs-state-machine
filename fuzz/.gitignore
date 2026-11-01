@@ -2,6 +2,6 @@
 /coverage/
 /target/
 
-# Ignore cargo-fuzz's generated hexadecimal corpus entries; keep named
-# regression seeds under fuzz/corpus tracked explicitly.
-/corpus/*/[0-9a-f]*
+# Ignore libFuzzer corpus entries named by a 40-character lowercase SHA-1.
+# Keep descriptive regression seed names visible to Git; reserve hash names.
+/corpus/*/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]
