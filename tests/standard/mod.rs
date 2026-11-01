@@ -8,6 +8,7 @@
 //! Tests for standard state machine modules.
 
 mod cas_configuration_tests;
+mod retry_interleaving_tests;
 mod state_machine_build_error_tests;
 mod state_machine_builder_tests;
 mod state_machine_error_tests;
