@@ -276,13 +276,7 @@ fn test_typed_graph_diagnostics_boundary_cases() {
     let cases = [
         ("no terminals", vec![], vec![], vec![1_u64, 2], vec![0_u64, 1, 2]),
         ("initial is terminal", vec![], vec![0], vec![1, 2], vec![1, 2]),
-        (
-            "closed cycle",
-            vec![(0, 0, 1), (1, 0, 0)],
-            vec![2],
-            vec![2],
-            vec![0, 1],
-        ),
+        ("closed cycle", vec![(0, 0, 1), (1, 0, 0)], vec![2], vec![2], vec![0, 1]),
         (
             "cycle with exit",
             vec![(0, 0, 1), (1, 0, 0), (1, 1, 2)],
@@ -292,25 +286,16 @@ fn test_typed_graph_diagnostics_boundary_cases() {
         ),
     ];
     for (name, edges, terminals, unreachable, without_path) in cases {
-        let mut builder = TypedFastStateMachine::<State, Event>::builder()
-            .initial_state(State::Pending);
+        let mut builder = TypedFastStateMachine::<State, Event>::builder().initial_state(State::Pending);
         for terminal in terminals {
             builder = builder.terminal_state(State::VALUES[terminal]);
         }
         for (source, event, target) in edges {
-            builder = builder.transition(
-                State::VALUES[source],
-                Event::VALUES[event],
-                State::VALUES[target],
-            );
+            builder = builder.transition(State::VALUES[source], Event::VALUES[event], State::VALUES[target]);
         }
         let machine = builder.build().expect(name);
         let report = machine.diagnose_graph();
-        let actual_unreachable: Vec<_> = report
-            .unreachable_states()
-            .iter()
-            .map(|state| state.code())
-            .collect();
+        let actual_unreachable: Vec<_> = report.unreachable_states().iter().map(|state| state.code()).collect();
         let actual_without_path: Vec<_> = report
             .states_without_terminal_path()
             .iter()
