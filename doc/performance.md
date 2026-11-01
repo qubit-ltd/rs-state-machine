@@ -30,6 +30,35 @@ cargo bench --bench state_machine_benchmarks --all-features transition_target --
 cargo bench --bench state_machine_benchmarks --all-features task_lifecycle -- --noplot
 ```
 
+## Shared-toggle contention statistics
+
+Each `shared_toggle_t{workers}` Criterion invocation also writes one raw
+`rsm_shared_toggle_v1` record to stderr after all of its batches finish. Save
+the records separately for each run; Criterion calibration and warm-up invoke
+the same benchmark closure, so the log includes those calls as well as measured
+sampling calls. These are per-invocation counters, not Criterion samples or
+confidence estimates.
+
+```bash
+cargo bench --locked --bench state_machine_benchmarks --all-features shared_toggle -- --noplot 2>target/shared-toggle-run1.log
+```
+
+The tab-separated record reports `batches`, total `calls`, each outcome count,
+and summed `elapsed_ns`. Calls are `batches * workers * 4096`; each call is
+classified as committed, rejected, conflict, or unexpected. The rates are
+`calls_per_second = calls / (elapsed_ns / 1_000_000_000)`,
+`commits_per_second = committed / (elapsed_ns / 1_000_000_000)`, and
+`conflict_ratio = conflicts / calls`. A zero elapsed time makes either rate
+`unavailable`; zero calls makes the conflict ratio `unavailable`.
+
+The returned Criterion duration sums only the measured worker intervals from
+`measure_shared_toggle`. Counter aggregation and stderr formatting happen
+after each interval and before the duration is returned, so log I/O is outside
+that duration. Criterion's own calibration and warm-up calls still produce
+records. To combine records, sum counts and elapsed time first, then recompute
+the ratios; do not average the printed rates. Keep the original logs and record
+the source revision, toolchain, CPU, and operating system for each run.
+
 ## Example results
 
 Measured on 2026-09-14 with the benchmark implementation at revision

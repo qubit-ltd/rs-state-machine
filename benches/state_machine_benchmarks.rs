@@ -41,6 +41,8 @@ use qubit_state_machine::TypedFastStateMachine;
 #[cfg(feature = "fast")]
 use qubit_state_machine::TypedFastStateMachineError;
 
+const SHARED_TOGGLE_CALLS_PER_WORKER: usize = 4096;
+
 /// Fixture rule selection, fixed outside timed iterations.
 #[derive(Clone, Copy)]
 enum Mode {
@@ -387,7 +389,7 @@ fn measure_shared_toggle<D: Driver>(driver: &D, cell: &D::Cell, event: D::Event,
                 ready.wait();
                 start.wait();
                 let mut counts = Counts::default();
-                for _ in 0..4096 {
+                for _ in 0..SHARED_TOGGLE_CALLS_PER_WORKER {
                     match driver.apply(cell, event) {
                         Ok(_) => counts.committed += 1,
                         Err(Failure::Rejected) => counts.rejected += 1,
@@ -468,14 +470,58 @@ fn benchmark_driver<D: Driver>(c: &mut Criterion, name: &str, alternating: D, se
         group.bench_function(&scenario, |b| {
             b.iter_custom(|iterations| {
                 let mut duration = Duration::ZERO;
+                let mut batches = 0u128;
+                let mut committed = 0u128;
+                let mut rejected = 0u128;
+                let mut conflicts = 0u128;
+                let mut unexpected = 0u128;
                 for _ in 0..iterations {
                     let state = alternating.cell();
-                    let (elapsed, counts) = measure_shared_toggle(&alternating, &state, start_event, workers);
+                    let (elapsed, counts) =
+                        measure_shared_toggle(&alternating, &state, start_event, workers);
+                    let calls = workers * SHARED_TOGGLE_CALLS_PER_WORKER;
+                    assert_eq!(
+                        counts.committed
+                            + counts.rejected
+                            + counts.conflicts
+                            + counts.unexpected,
+                        calls,
+                        "each shared-toggle call must have exactly one outcome"
+                    );
                     assert_eq!(counts.rejected + counts.unexpected, 0);
-                    assert_eq!(counts.committed + counts.conflicts, workers * 4096);
+                    assert_eq!(counts.committed + counts.conflicts, calls);
                     assert_eq!(D::load(&state), (counts.committed as u64) % 2);
                     duration += elapsed;
+                    batches += 1;
+                    committed += counts.committed as u128;
+                    rejected += counts.rejected as u128;
+                    conflicts += counts.conflicts as u128;
+                    unexpected += counts.unexpected as u128;
                 }
+                let calls =
+                    batches * workers as u128 * SHARED_TOGGLE_CALLS_PER_WORKER as u128;
+                let elapsed_ns = duration.as_nanos();
+                assert_eq!(calls, committed + rejected + conflicts + unexpected);
+                let rate = |count: u128| {
+                    if elapsed_ns == 0 {
+                        "unavailable".to_owned()
+                    } else {
+                        format!(
+                            "{:.6}",
+                            count as f64 / (elapsed_ns as f64 / 1_000_000_000.0)
+                        )
+                    }
+                };
+                let conflict_ratio = if calls == 0 {
+                    "unavailable".to_owned()
+                } else {
+                    format!("{:.9}", conflicts as f64 / calls as f64)
+                };
+                eprintln!(
+                    "rsm_shared_toggle_v1\tdriver={name}\tscenario={scenario}\tworkers={workers}\tbatches={batches}\tcalls={calls}\tcommitted={committed}\trejected={rejected}\tconflicts={conflicts}\tunexpected={unexpected}\telapsed_ns={elapsed_ns}\tcalls_per_second={}\tcommits_per_second={}\tconflict_ratio={conflict_ratio}",
+                    rate(calls),
+                    rate(committed),
+                );
                 duration
             })
         });

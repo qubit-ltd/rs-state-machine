@@ -23,6 +23,31 @@ cargo bench --bench state_machine_benchmarks --all-features transition_target --
 cargo bench --bench state_machine_benchmarks --all-features task_lifecycle -- --noplot
 ```
 
+## 共享 toggle 竞争统计
+
+每次 `shared_toggle_t{workers}` Criterion 调用在全部批次结束后，还会向
+stderr 写入一条 `rsm_shared_toggle_v1` 原始统计记录。每次运行分别保存记录；
+Criterion 校准与预热也会调用同一 benchmark 闭包，因此日志同时包含这些调用
+和正式采样调用。它们是每次闭包调用的计数，不是 Criterion 样本或置信区间。
+
+```bash
+cargo bench --locked --bench state_machine_benchmarks --all-features shared_toggle -- --noplot 2>target/shared-toggle-run1.log
+```
+
+制表符分隔的记录包含 `batches`、调用总数 `calls`、各结果计数及累计
+`elapsed_ns`。调用数为 `batches * workers * 4096`；每次调用恰好归入
+committed、rejected、conflict、unexpected 之一。速率公式为
+`calls_per_second = calls / (elapsed_ns / 1_000_000_000)`、
+`commits_per_second = committed / (elapsed_ns / 1_000_000_000)`，以及
+`conflict_ratio = conflicts / calls`。耗时为零时两种速率记为
+`unavailable`；调用数为零时冲突比例记为 `unavailable`。
+
+返回给 Criterion 的耗时只累计 `measure_shared_toggle` 的 worker 测量区间。
+每段区间结束后才汇总计数并格式化 stderr 记录，因此日志 I/O 不计入该耗时；
+Criterion 校准和预热仍会产生记录。合并多条记录时，先分别求计数与耗时总和，
+再重算比例，不要对输出速率取平均。每次运行同时记录源码版本、工具链、CPU
+和操作系统，并保留原始日志。
+
 ## 实测示例
 
 测量日期为 2026-09-14，基准实现来自提交 `f2c4a7d`。环境：Rust 1.94.0、
