@@ -39,7 +39,7 @@ fn test_injection_and_strategy_replace_whole_executor() {
             .max_attempts(1)
             .build()
             .expect("valid executor");
-        let builder = StateMachine::<u8, u8>::builder();
+        let builder = StateMachine::<u8, u8>::builder().add_state(0).initial_state(0);
         let builder = if strategy_last {
             builder.cas_executor(executor).cas_strategy(CasStrategy::LatencyFirst)
         } else {
