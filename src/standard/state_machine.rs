@@ -179,6 +179,14 @@ where
     /// # Returns
     /// A report listing registered states unreachable from the initial state
     /// and states unable to reach an explicit terminal state.
+    ///
+    /// # Performance
+    /// Each call recomputes the report without caching. It scans the transition
+    /// `HashMap` and builds state-index mappings and forward and reverse
+    /// adjacency lists. The hash-container scan depends on its capacity; the
+    /// mapping and graph traversal take O(S + T), where S is the registered
+    /// state count and T is the configured transition count. Additional space
+    /// is O(S + T). Use this method for offline or infrequent diagnostics.
     #[must_use]
     pub fn diagnose_graph(&self) -> crate::GraphDiagnostics<S> {
         let states: Vec<S> = self.states.iter().copied().collect();
@@ -325,6 +333,11 @@ where
     ///     transition == Transition::new(State::New, Event::Start, State::Running)
     /// }));
     /// ```
+    ///
+    /// # Performance
+    /// The iterator is lazy and scans the transition `HashMap` when fully
+    /// consumed. The scan cost depends on the map's capacity, and iteration
+    /// order is not guaranteed. No result collection is allocated.
     #[must_use = "iterate over the configured transitions"]
     #[inline]
     pub fn transitions(&self) -> impl Iterator<Item = Transition<S, E>> + '_ {

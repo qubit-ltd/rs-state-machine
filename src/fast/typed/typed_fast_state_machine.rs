@@ -386,6 +386,11 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     ///
     /// # Panics
     /// Iteration panics if an internal rule contains an invalid code.
+    ///
+    /// # Performance
+    /// The iterator is lazy and scans the dense state_count * event_count
+    /// table when fully consumed, including unset cells. Full traversal is
+    /// O(state_count * event_count); no result collection is allocated.
     #[must_use = "iterate over the configured transitions"]
     #[inline]
     pub fn transitions(&self) -> impl Iterator<Item = Transition<S, E>> + '_ {
@@ -402,6 +407,14 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     ///
     /// # Returns
     /// Reachability findings expressed as typed state values.
+    ///
+    /// # Performance
+    /// Each call recomputes the report without caching. It scans the dense
+    /// transition table and builds forward and reverse adjacency lists. Time
+    /// is O(S * A + S + T), with O(S + T) additional space, where S is the
+    /// state count, A the event count, and T the configured transition count.
+    /// The typed report also collects typed findings. Use it for offline or
+    /// infrequent diagnostics.
     #[must_use]
     pub fn diagnose_graph(&self) -> crate::GraphDiagnostics<S> {
         let report = self.raw.diagnose_graph();

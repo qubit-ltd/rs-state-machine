@@ -110,6 +110,11 @@ impl FastStateMachine {
     ///
     /// # Returns
     /// Only valid transition values; unset dense table cells are omitted.
+    ///
+    /// # Performance
+    /// The iterator is lazy and scans the dense state_count * event_count
+    /// table when fully consumed, including unset cells. Full traversal is
+    /// O(state_count * event_count); no result collection is allocated.
     #[must_use = "iterate over the configured transitions"]
     #[inline]
     pub fn transitions(&self) -> impl Iterator<Item = crate::Transition<u64, u64>> + '_ {
@@ -126,6 +131,13 @@ impl FastStateMachine {
     /// # Returns
     /// A report listing codes unreachable from the initial state and codes
     /// unable to reach an explicit terminal state.
+    ///
+    /// # Performance
+    /// Each call recomputes the report without caching. It scans the dense
+    /// transition table and builds forward and reverse adjacency lists. Time
+    /// is O(S * A + S + T), with O(S + T) additional space, where S is the
+    /// state count, A the event count, and T the configured transition count.
+    /// Use it for offline or infrequent diagnostics.
     #[must_use]
     pub fn diagnose_graph(&self) -> crate::GraphDiagnostics<u64> {
         let index = |code: u64| usize::try_from(code).expect("validated state code fits usize");

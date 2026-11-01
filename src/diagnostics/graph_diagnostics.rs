@@ -8,6 +8,10 @@
 
 /// Offline reachability findings for a validated finite state machine.
 ///
+/// If no explicit terminal state is configured, every registered state is
+/// reported as having no terminal path. This is diagnostic information and
+/// does not invalidate the machine.
+///
 /// # Type Parameters
 /// - `S`: State value returned in each finding.
 ///
