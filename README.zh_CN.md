@@ -217,6 +217,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 行优先（row-major）布局，索引计算为：
 `index = source * event_count + event`。
 
+默认转换表容量上限为 `1_048_576` 个单元格（`state_count * event_count`）。
+在了解内存成本后，可通过 `max_table_cells(limit)` 调整上限；超限时构建返回
+`FastStateMachineBuildError::TransitionTableLimitExceeded`。
+
 ```rust
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
 use qubit_fast_cas::{FastCasPolicy, FastCasState};
