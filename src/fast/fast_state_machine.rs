@@ -428,6 +428,8 @@ impl FastStateMachine {
     /// error.
     fn change_state(&self, state: &FastCasState, event: u64) -> Result<(u64, u64), FastStateMachineError> {
         match self.cas.execute::<u64, FastStateMachineError, _>(state, |current| {
+            #[cfg(test)]
+            retry_interleaving_tests::before_decision(current);
             match self.next_state(current, event) {
                 Ok(new_state) => FastCasDecision::update(new_state, new_state),
                 Err(error) => FastCasDecision::abort(error),
@@ -496,5 +498,400 @@ impl FastStateMachine {
         }
         let index = source.checked_mul(self.event_count)?.checked_add(event)?;
         usize::try_from(index).ok()
+    }
+}
+
+#[cfg(test)]
+mod retry_interleaving_tests {
+    use std::cell::RefCell;
+    use std::sync::Arc;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    use qubit_fast_cas::FastCasPolicy;
+
+    use super::super::typed::DenseCode;
+    use super::super::typed::TypedFastStateMachine;
+    use super::super::typed::TypedFastStateMachineError;
+    use super::FastStateMachine;
+    use super::FastStateMachineError;
+
+    const CHANNEL_TIMEOUT: Duration = Duration::from_secs(5);
+    const A: u64 = 0;
+    const B: u64 = 1;
+    const C: u64 = 2;
+    const D: u64 = 3;
+    const WORK: u64 = 0;
+    const ADVANCE: u64 = 1;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum State {
+        A,
+        B,
+        C,
+        D,
+    }
+
+    impl DenseCode for State {
+        const VALUES: &'static [Self] = &[Self::A, Self::B, Self::C, Self::D];
+
+        fn code(self) -> u64 {
+            match self {
+                Self::A => A,
+                Self::B => B,
+                Self::C => C,
+                Self::D => D,
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    enum Event {
+        Work,
+        Advance,
+    }
+
+    impl DenseCode for Event {
+        const VALUES: &'static [Self] = &[Self::Work, Self::Advance];
+
+        fn code(self) -> u64 {
+            match self {
+                Self::Work => WORK,
+                Self::Advance => ADVANCE,
+            }
+        }
+    }
+
+    struct Gate {
+        pause_decisions: usize,
+        decisions: usize,
+        observed: Vec<u64>,
+        failed: bool,
+        entered: mpsc::Sender<u64>,
+        release: mpsc::Receiver<()>,
+    }
+
+    thread_local! {
+        static GATE: RefCell<Option<Gate>> = const { RefCell::new(None) };
+    }
+
+    struct GateGuard;
+
+    impl GateGuard {
+        fn install(gate: Gate) -> Self {
+            GATE.with(|slot| {
+                let previous = slot.replace(Some(gate));
+                assert!(previous.is_none(), "retry gate already installed on worker");
+            });
+            Self
+        }
+
+        fn take_result(&self) -> (Vec<u64>, bool) {
+            GATE.with(|slot| {
+                let slot = slot.borrow_mut();
+                let gate = slot.as_ref().expect("retry gate is installed");
+                (gate.observed.clone(), gate.failed)
+            })
+        }
+    }
+
+    impl Drop for GateGuard {
+        fn drop(&mut self) {
+            GATE.with(|slot| {
+                slot.borrow_mut().take();
+            });
+        }
+    }
+
+    pub(super) fn before_decision(current: u64) {
+        GATE.with(|slot| {
+            let mut slot = slot.borrow_mut();
+            let Some(gate) = slot.as_mut() else {
+                return;
+            };
+            gate.decisions += 1;
+            gate.observed.push(current);
+            if gate.decisions <= gate.pause_decisions
+                && (gate.entered.send(current).is_err() || gate.release.recv_timeout(CHANNEL_TIMEOUT).is_err())
+            {
+                gate.failed = true;
+            }
+        });
+    }
+
+    fn raw_machine(policy: FastCasPolicy, retry_work: bool, exhaust_work: bool) -> FastStateMachine {
+        let mut builder = FastStateMachine::builder()
+            .state_count(4)
+            .event_count(2)
+            .initial_state(A)
+            .transition(A, WORK, if exhaust_work { D } else { C })
+            .transition(A, ADVANCE, B)
+            .cas_policy(policy);
+        if retry_work || exhaust_work {
+            builder = builder.transition(B, WORK, D);
+        }
+        if exhaust_work {
+            builder = builder.transition(B, ADVANCE, C).transition(C, WORK, D);
+        }
+        builder.build().expect("test transition rules are valid")
+    }
+
+    fn typed_machine(
+        policy: FastCasPolicy,
+        retry_work: bool,
+        exhaust_work: bool,
+    ) -> TypedFastStateMachine<State, Event> {
+        let mut builder = TypedFastStateMachine::<State, Event>::builder()
+            .initial_state(State::A)
+            .transition(State::A, Event::Work, if exhaust_work { State::D } else { State::C })
+            .transition(State::A, Event::Advance, State::B)
+            .cas_policy(policy);
+        if retry_work || exhaust_work {
+            builder = builder.transition(State::B, Event::Work, State::D);
+        }
+        if exhaust_work {
+            builder =
+                builder
+                    .transition(State::B, Event::Advance, State::C)
+                    .transition(State::C, Event::Work, State::D);
+        }
+        builder.build().expect("test transition rules are valid")
+    }
+
+    struct WorkerResult<R> {
+        result: R,
+        callback_args: Vec<(u64, u64)>,
+        observed: Vec<u64>,
+        final_state: u64,
+    }
+
+    fn run_raw(
+        machine: Arc<FastStateMachine>,
+        pause_decisions: usize,
+        advances: usize,
+    ) -> WorkerResult<Result<u64, FastStateMachineError>> {
+        let state = Arc::new(machine.create_state());
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let (result_tx, result_rx) = mpsc::channel();
+        let worker_machine = Arc::clone(&machine);
+        let worker_state = Arc::clone(&state);
+        let worker = std::thread::spawn(move || {
+            let guard = GateGuard::install(Gate {
+                pause_decisions,
+                decisions: 0,
+                observed: Vec::new(),
+                failed: false,
+                entered: entered_tx,
+                release: release_rx,
+            });
+            let mut callback_args = Vec::new();
+            let result = worker_machine.trigger_with(&worker_state, WORK, |old, new| callback_args.push((old, new)));
+            let (observed, gate_failed) = guard.take_result();
+            let _ = result_tx.send((result, callback_args, observed, gate_failed));
+        });
+
+        let mut coordination_error = None;
+        for index in 0..advances {
+            let observed = match entered_rx.recv_timeout(CHANNEL_TIMEOUT) {
+                Ok(observed) => observed,
+                Err(error) => {
+                    coordination_error = Some(format!("worker did not reach decision point: {error}"));
+                    break;
+                }
+            };
+            if observed != A + index as u64 {
+                coordination_error = Some(format!("worker read unexpected state {observed}"));
+            }
+            let expected = A + index as u64 + 1;
+            if machine.trigger(&state, ADVANCE) != Ok(expected) {
+                coordination_error = Some(format!("competing transition did not reach {expected}"));
+            }
+            if release_tx.send(()).is_err() {
+                coordination_error = Some("worker left its decision point before release".to_owned());
+                break;
+            }
+        }
+        drop(release_tx);
+        let received = result_rx.recv_timeout(CHANNEL_TIMEOUT);
+        let joined = worker.join();
+        assert!(
+            coordination_error.is_none(),
+            "controlled interleaving failed: {coordination_error:?}"
+        );
+        assert!(joined.is_ok(), "worker thread completes without panicking");
+        let (result, callback_args, observed, gate_failed) = received.expect("worker reports target result");
+        assert!(!gate_failed, "worker gate did not time out or lose its coordinator");
+        WorkerResult {
+            result,
+            callback_args,
+            observed,
+            final_state: state.load(),
+        }
+    }
+
+    fn run_typed(
+        machine: Arc<TypedFastStateMachine<State, Event>>,
+        pause_decisions: usize,
+        advances: usize,
+    ) -> WorkerResult<Result<State, TypedFastStateMachineError<State, Event>>> {
+        let state = Arc::new(machine.create_state());
+        let (entered_tx, entered_rx) = mpsc::channel();
+        let (release_tx, release_rx) = mpsc::channel();
+        let (result_tx, result_rx) = mpsc::channel();
+        let worker_machine = Arc::clone(&machine);
+        let worker_state = Arc::clone(&state);
+        let worker = std::thread::spawn(move || {
+            let guard = GateGuard::install(Gate {
+                pause_decisions,
+                decisions: 0,
+                observed: Vec::new(),
+                failed: false,
+                entered: entered_tx,
+                release: release_rx,
+            });
+            let mut callback_args = Vec::new();
+            let result = worker_machine.trigger_with(&worker_state, Event::Work, |old, new| {
+                callback_args.push((old.code(), new.code()));
+            });
+            let (observed, gate_failed) = guard.take_result();
+            let _ = result_tx.send((result, callback_args, observed, gate_failed));
+        });
+
+        let mut coordination_error = None;
+        for index in 0..advances {
+            let observed = match entered_rx.recv_timeout(CHANNEL_TIMEOUT) {
+                Ok(observed) => observed,
+                Err(error) => {
+                    coordination_error = Some(format!("worker did not reach decision point: {error}"));
+                    break;
+                }
+            };
+            if observed != A + index as u64 {
+                coordination_error = Some(format!("worker read unexpected state {observed}"));
+            }
+            let expected = [State::B, State::C][index];
+            if machine.trigger(&state, Event::Advance) != Ok(expected) {
+                coordination_error = Some(format!("competing transition did not reach {expected:?}"));
+            }
+            if release_tx.send(()).is_err() {
+                coordination_error = Some("worker left its decision point before release".to_owned());
+                break;
+            }
+        }
+        drop(release_tx);
+        let received = result_rx.recv_timeout(CHANNEL_TIMEOUT);
+        let joined = worker.join();
+        assert!(
+            coordination_error.is_none(),
+            "controlled interleaving failed: {coordination_error:?}"
+        );
+        assert!(joined.is_ok(), "worker thread completes without panicking");
+        let (result, callback_args, observed, gate_failed) = received.expect("worker reports target result");
+        assert!(!gate_failed, "worker gate did not time out or lose its coordinator");
+        WorkerResult {
+            result,
+            callback_args,
+            observed,
+            final_state: state.load().code(),
+        }
+    }
+
+    #[test]
+    fn test_raw_fast_retry_rejects_invalidated_event() {
+        let machine = Arc::new(raw_machine(FastCasPolicy::spin(2), false, false));
+        let result = run_raw(machine, 1, 1);
+        assert_eq!(result.observed, [A, B]);
+        assert_eq!(
+            result.result,
+            Err(FastStateMachineError::UnknownTransition {
+                source_state: B,
+                event: WORK
+            })
+        );
+        assert_eq!(result.callback_args, []);
+        assert_eq!(result.final_state, B);
+    }
+
+    #[test]
+    fn test_typed_fast_retry_rejects_invalidated_event() {
+        let machine = Arc::new(typed_machine(FastCasPolicy::spin(2), false, false));
+        let result = run_typed(machine, 1, 1);
+        assert_eq!(result.observed, [A, B]);
+        assert_eq!(
+            result.result,
+            Err(TypedFastStateMachineError::UnknownTransition {
+                source_state: State::B,
+                event: Event::Work
+            })
+        );
+        assert_eq!(result.callback_args, []);
+        assert_eq!(result.final_state, B);
+    }
+
+    #[test]
+    fn test_raw_fast_retry_recomputes_target() {
+        let machine = Arc::new(raw_machine(FastCasPolicy::spin(2), true, false));
+        let result = run_raw(machine, 1, 1);
+        assert_eq!(result.observed, [A, B]);
+        assert_eq!(result.result, Ok(D));
+        assert_eq!(result.callback_args, [(B, D)]);
+        assert_eq!(result.final_state, D);
+    }
+
+    #[test]
+    fn test_typed_fast_retry_recomputes_target() {
+        let machine = Arc::new(typed_machine(FastCasPolicy::spin(2), true, false));
+        let result = run_typed(machine, 1, 1);
+        assert_eq!(result.observed, [A, B]);
+        assert_eq!(result.result, Ok(State::D));
+        assert_eq!(result.callback_args, [(B, D)]);
+        assert_eq!(result.final_state, D);
+    }
+
+    #[test]
+    fn test_raw_fast_single_attempt_conflict() {
+        let machine = Arc::new(raw_machine(FastCasPolicy::once(), true, false));
+        let result = run_raw(machine, 1, 1);
+        assert_eq!(result.observed, [A]);
+        assert_eq!(result.result, Err(FastStateMachineError::CasConflict { attempts: 1 }));
+        assert_eq!(result.callback_args, []);
+        assert_eq!(result.final_state, B);
+    }
+
+    #[test]
+    fn test_typed_fast_single_attempt_conflict() {
+        let machine = Arc::new(typed_machine(FastCasPolicy::once(), true, false));
+        let result = run_typed(machine, 1, 1);
+        assert_eq!(result.observed, [A]);
+        assert_eq!(
+            result.result,
+            Err(TypedFastStateMachineError::CasConflict { attempts: 1 })
+        );
+        assert_eq!(result.callback_args, []);
+        assert_eq!(result.final_state, B);
+    }
+
+    #[test]
+    fn test_raw_fast_retry_budget_exhausted() {
+        let machine = Arc::new(raw_machine(FastCasPolicy::spin(2), false, true));
+        let result = run_raw(machine, 2, 2);
+        assert_eq!(result.observed, [A, B]);
+        assert_eq!(result.result, Err(FastStateMachineError::CasConflict { attempts: 2 }));
+        assert_eq!(result.callback_args, []);
+        assert_eq!(result.final_state, C);
+    }
+
+    #[test]
+    fn test_typed_fast_retry_budget_exhausted() {
+        let machine = Arc::new(typed_machine(FastCasPolicy::spin(2), false, true));
+        let result = run_typed(machine, 2, 2);
+        assert_eq!(result.observed, [A, B]);
+        assert_eq!(
+            result.result,
+            Err(TypedFastStateMachineError::CasConflict { attempts: 2 })
+        );
+        assert_eq!(result.callback_args, []);
+        assert_eq!(result.final_state, C);
     }
 }
