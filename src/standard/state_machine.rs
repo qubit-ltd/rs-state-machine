@@ -490,7 +490,6 @@ where
     /// );
     /// assert_eq!(machine.transition_target(State::New, Event::Finish), None);
     /// ```
-    #[must_use]
     #[inline]
     pub fn transition_target(&self, source: S, event: E) -> Option<S> {
         self.transition_map.get(&(source, event)).copied()

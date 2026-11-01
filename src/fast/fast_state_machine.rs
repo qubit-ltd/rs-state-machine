@@ -262,7 +262,6 @@ impl FastStateMachine {
     /// # Returns
     /// `Some(target)` when a transition is configured; `None` if `source` or
     /// `event` is out of range, or if no transition exists for that pair.
-    #[must_use]
     #[inline]
     pub fn transition_target(&self, source: u64, event: u64) -> Option<u64> {
         if !self.contains_state(source) {
