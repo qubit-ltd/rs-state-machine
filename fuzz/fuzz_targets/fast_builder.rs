@@ -10,7 +10,7 @@
 //! Exercises the shared fast builder model.
 use libfuzzer_sys::fuzz_target;
 #[allow(dead_code)]
-#[path = "../support/mod.rs"]
+#[path = "../../support/mod.rs"]
 mod support;
 fuzz_target!(|data: &[u8]| {
     let _outcome = support::run_fast_builder(data);

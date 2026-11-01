@@ -8,7 +8,7 @@
 
 //! Ensures fuzz entry points cannot silently reject every input.
 #[cfg(any(feature = "fast", feature = "standard"))]
-#[path = "../fuzz/support/mod.rs"]
+#[path = "../support/mod.rs"]
 mod support;
 
 #[cfg(feature = "fast")]

@@ -13,7 +13,7 @@
 use libfuzzer_sys::fuzz_target;
 
 #[allow(dead_code)]
-#[path = "../support/mod.rs"]
+#[path = "../../support/mod.rs"]
 mod support;
 
 fuzz_target!(|data: &[u8]| {
