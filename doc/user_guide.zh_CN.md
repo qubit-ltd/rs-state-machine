@@ -90,6 +90,15 @@ assert!(!machine.try_trigger(&state, JobEvent::Start));
 
 ### 强类型 Fast 任务生命周期
 
+这是一个独立的 Fast-only 示例；此处依赖配置会替换上面的标准版配置。
+如果要在同一项目中运行两种示例，请同时启用 `standard` 和 `fast`，并保留标准版示例直接使用的
+`qubit-atomic` 与 `qubit-cas` 依赖。
+
+```toml
+[dependencies]
+qubit-state-machine = { version = "0.11", default-features = false, features = ["fast"] }
+```
+
 固定的任务生命周期可以让状态和事件分别使用独立类型。`build` 会校验稠密编码表，
 然后每个任务由 machine 创建独立状态单元。与 `rs-executor` 的做法一样，
 需要区分业务上不允许的转换和意外 CAS 失败时使用 `trigger`：
@@ -99,6 +108,7 @@ use qubit_state_machine::DenseCode;
 use qubit_state_machine::TypedFastStateMachine;
 use qubit_state_machine::TypedFastStateMachineError;
 
+fn main() {
 #[repr(u64)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Status { Pending, Running, Done }
@@ -128,6 +138,7 @@ assert!(matches!(
     machine.trigger(&state, Event::Start),
     Err(TypedFastStateMachineError::UnknownTransition { .. })
 ));
+}
 ```
 
 CAS 提交只发布状态编码。若任务完成时还要发布结果，调用方仍须单独协调；

@@ -105,6 +105,16 @@ primary `u64` storage, excluding flags and container overhead.
 
 ### Typed Fast Task Lifecycle
 
+This is a standalone Fast-only example. Its dependency configuration replaces
+the Standard-only configuration above. To use both examples in one project,
+enable both `standard` and `fast` and keep the Standard example's direct
+`qubit-atomic` and `qubit-cas` dependencies.
+
+```toml
+[dependencies]
+qubit-state-machine = { version = "0.11", default-features = false, features = ["fast"] }
+```
+
 For a fixed task lifecycle, give states and events separate types. The machine
 validates their dense codebooks during `build`, then creates one state cell per
 task. As in `rs-executor`, use `trigger` when an undefined business transition
@@ -115,6 +125,7 @@ use qubit_state_machine::DenseCode;
 use qubit_state_machine::TypedFastStateMachine;
 use qubit_state_machine::TypedFastStateMachineError;
 
+fn main() {
 #[repr(u64)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Status { Pending, Running, Done }
@@ -144,6 +155,7 @@ assert!(matches!(
     machine.trigger(&state, Event::Start),
     Err(TypedFastStateMachineError::UnknownTransition { .. })
 ));
+}
 ```
 
 Only the state code is published by the CAS commit. If a completed task also

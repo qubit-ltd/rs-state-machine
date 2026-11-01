@@ -126,9 +126,10 @@ where
 
     /// Registers one initial state.
     ///
-    /// The state must also be registered through [`add_state`](Self::add_state)
-    /// or [`add_states`](Self::add_states) before [`build`](Self::build) is
-    /// called.
+    /// This method must be called at least once before [`build`](Self::build).
+    /// If called more than once, the last configured state is used. The state
+    /// must also be registered through [`add_state`](Self::add_state) or
+    /// [`add_states`](Self::add_states) before `build` is called.
     ///
     /// # Parameters
     /// - `state`: Initial state to add.
@@ -145,7 +146,10 @@ where
     ///
     /// The state must also be registered through [`add_state`](Self::add_state)
     /// or [`add_states`](Self::add_states) before [`build`](Self::build) is
-    /// called.
+    /// called. A terminal state cannot be the source of any transition,
+    /// including a self-transition. This restriction is checked by `build`,
+    /// regardless of whether the terminal state or its transitions were
+    /// configured first.
     ///
     /// # Parameters
     /// - `state`: Final state to add.
@@ -161,6 +165,13 @@ where
     }
 
     /// Registers multiple terminal states.
+    ///
+    /// Each state must also be registered through
+    /// [`add_state`](Self::add_state) or [`add_states`](Self::add_states)
+    /// before [`build`](Self::build) is called. As with
+    /// [`terminal_state`](Self::terminal_state), none of these states may
+    /// have outgoing transitions, including self-transitions; the
+    /// check is performed by `build` regardless of configuration order.
     ///
     /// # Parameters
     /// - `states`: Final states to add.
@@ -210,7 +221,10 @@ where
     /// Source and target states must be registered before
     /// [`build`](Self::build) is called. Adding the same transition more than
     /// once is allowed. Adding the same `(source, event)` with a different
-    /// target is rejected during build.
+    /// target is rejected during build. The source cannot be a terminal state;
+    /// the target may be terminal, as configured with
+    /// [`terminal_state`](Self::terminal_state) or
+    /// [`terminal_states`](Self::terminal_states).
     ///
     /// # Parameters
     /// - `source`: State before the event is applied.
@@ -225,6 +239,11 @@ where
     }
 
     /// Registers one transition value.
+    ///
+    /// Its source and target must be registered before [`build`](Self::build).
+    /// The source cannot be a terminal state, while the target may be terminal
+    /// as configured with [`terminal_state`](Self::terminal_state) or
+    /// [`terminal_states`](Self::terminal_states).
     ///
     /// # Parameters
     /// - `transition`: Transition to add to the state machine definition.
@@ -243,9 +262,22 @@ where
     /// A validated immutable state machine.
     ///
     /// # Errors
-    /// Returns a [`StateMachineBuildError`] when the initial or terminal state,
-    /// transition source, or transition target is not registered, or when two
-    /// transitions map the same `(source, event)` pair to different targets.
+    /// Returns a [`StateMachineBuildError`] when no initial state was
+    /// configured ([`StateMachineBuildError::InitialStateNotConfigured`]), or
+    /// when the initial state
+    /// ([`StateMachineBuildError::InitialStateNotRegistered`]), a terminal
+    /// state ([`StateMachineBuildError::TerminalStateNotRegistered`]), a
+    /// transition source
+    /// ([`StateMachineBuildError::TransitionSourceNotRegistered`]), or a
+    /// transition target
+    /// ([`StateMachineBuildError::TransitionTargetNotRegistered`]) is not
+    /// registered. It also returns an error if a
+    /// transition leaves a terminal state
+    /// ([`StateMachineBuildError::TerminalStateHasOutgoingTransition`]), or if
+    /// two transitions map the same `(source, event)` pair to different
+    /// targets ([`StateMachineBuildError::DuplicateTransition`]).
+    /// Terminal-state restrictions are checked here regardless of
+    /// configuration order.
     pub fn build(self) -> Result<StateMachine<S, E>, StateMachineBuildError<S, E>> {
         let initial_state = self
             .initial_state
