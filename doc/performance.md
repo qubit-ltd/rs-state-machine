@@ -109,4 +109,50 @@ the pre-measurement diff covered 10 files (421 insertions, 36 deletions).
 The three complete Criterion outputs were saved as
 `target/rsm-lifecycle-054a6b95-run{1,2,3}.log` during this run. Historical
 lifecycle values above use a different timing boundary and are not directly
-comparable.
+comparable. This historical record has no recoverable source snapshot or
+persistent raw output, so it cannot be independently verified. The `target/`
+paths describe local files from that run; they are not a persistent archive.
+
+## Archived task-lifecycle measurements (2026-11-01 UTC)
+
+This new set uses the source at commit
+`9e8a7ed176659358f11be6186c0f6f2f475cc8a3`. Each value is the Criterion
+`mean.point_estimate` in ns/op, read from the archived estimates JSON for that
+run. Criterion used 20 samples, a 300 ms warm-up, and a 1 s measurement period.
+Cell construction and final destruction are outside the measured interval;
+allocations and releases performed inside transitions remain included.
+
+| Driver | Run 1 | Run 2 | Run 3 |
+| --- | ---: | ---: | ---: |
+| Direct AtomicU64 baseline | 16.727 | 26.468 | 13.762 |
+| Raw Fast | 21.296 | 31.774 | 22.467 |
+| Typed Fast | 23.758 | 24.779 | 23.028 |
+| Standard | 1359.656 | 1676.236 | 1129.600 |
+
+The persistent evidence is in
+[`performance-evidence/lifecycle-rsm001-20261101T122148Z/`](performance-evidence/lifecycle-rsm001-20261101T122148Z/):
+[metadata](performance-evidence/lifecycle-rsm001-20261101T122148Z/metadata.md),
+[run 1 output](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-1.txt),
+[run 2 output](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-2.txt),
+[run 3 output](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-3.txt),
+[run 1 estimates](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-1-estimates.json),
+[run 2 estimates](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-2-estimates.json),
+[run 3 estimates](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-3-estimates.json), and
+[SHA-256 manifest](performance-evidence/lifecycle-rsm001-20261101T122148Z/checksums.sha256).
+An earlier wrapper attempt whose exit code could not be recorded is retained
+separately in
+[`performance-evidence/lifecycle-rsm001/`](performance-evidence/lifecycle-rsm001/)
+and is not included in this table.
+
+To repeat the measurement, check out the commit in the metadata, use the listed
+Rust and Cargo toolchain and environment, then run this command three separate
+times from the crate root and retain each complete output:
+
+```bash
+cargo bench --locked --bench state_machine_benchmarks --all-features task_lifecycle -- --noplot
+```
+
+Verify the source input hashes against the manifest before and after the runs.
+Matching the source and method makes the measurement reproducible; it does not
+guarantee the same values under different machine load or environments. These
+measurements are not a correctness or performance threshold.

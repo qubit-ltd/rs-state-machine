@@ -1,0 +1,47 @@
+    Finished `bench` profile [optimized] target(s) in 0.11s
+     Running benches/state_machine_benchmarks.rs (target/release/deps/state_machine_benchmarks-65a71483e0a97c2b)
+Gnuplot not found, using plotters backend
+Benchmarking atomic_baseline/task_lifecycle
+Benchmarking atomic_baseline/task_lifecycle: Warming up for 300.00 ms
+Benchmarking atomic_baseline/task_lifecycle: Collecting 20 samples in estimated 1.0000 s (52M iterations)
+Benchmarking atomic_baseline/task_lifecycle: Analyzing
+atomic_baseline/task_lifecycle
+                        time:   [17.644 ns 19.884 ns 23.435 ns]
+                        change: [+23.172% +58.236% +94.711%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+Benchmarking fast_state_machine/task_lifecycle
+Benchmarking fast_state_machine/task_lifecycle: Warming up for 300.00 ms
+Benchmarking fast_state_machine/task_lifecycle: Collecting 20 samples in estimated 1.0000 s (39M iterations)
+Benchmarking fast_state_machine/task_lifecycle: Analyzing
+fast_state_machine/task_lifecycle
+                        time:   [25.688 ns 30.931 ns 38.105 ns]
+                        change: [+29.357% +49.202% +69.699%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+
+Benchmarking typed_fast_state_machine/task_lifecycle
+Benchmarking typed_fast_state_machine/task_lifecycle: Warming up for 300.00 ms
+Benchmarking typed_fast_state_machine/task_lifecycle: Collecting 20 samples in estimated 1.0000 s (37M iterations)
+Benchmarking typed_fast_state_machine/task_lifecycle: Analyzing
+typed_fast_state_machine/task_lifecycle
+                        time:   [23.977 ns 27.051 ns 30.160 ns]
+                        change: [−4.1345% +4.2975% +14.106%] (p = 0.41 > 0.05)
+                        No change in performance detected.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
+Benchmarking standard_state_machine/task_lifecycle
+Benchmarking standard_state_machine/task_lifecycle: Warming up for 300.00 ms
+Benchmarking standard_state_machine/task_lifecycle: Collecting 20 samples in estimated 1.0001 s (576k iterations)
+Benchmarking standard_state_machine/task_lifecycle: Analyzing
+standard_state_machine/task_lifecycle
+                        time:   [1.6957 µs 2.1847 µs 2.5589 µs]
+                        change: [−0.1416% +23.284% +51.110%] (p = 0.09 > 0.05)
+                        No change in performance detected.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+

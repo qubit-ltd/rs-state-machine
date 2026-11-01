@@ -91,4 +91,43 @@ Ubuntu 24.04.4 LTS、Linux 7.0.0-30-generic、Intel Core i5-9600K
 `e150c902a109cd0be9bfdc470acc8d0c00edd37b9860184c5b389abd7470019f`。
 本次运行的三份完整 Criterion 输出保存在
 `target/rsm-lifecycle-054a6b95-run{1,2,3}.log`。上方历史生命周期结果使用不同计时边界，
-不可直接比较。
+不可直接比较。这条历史记录没有可恢复的源码快照和持久原始输出，因此无法独立核查。
+其中的 `target/` 路径只描述当时本机文件，不是持久归档。
+
+## 已归档的 task_lifecycle 测量（2026-11-01 UTC）
+
+这组新测量使用提交
+`9e8a7ed176659358f11be6186c0f6f2f475cc8a3` 对应的源码。每个数值均取自对应归档
+estimates JSON 中 Criterion 的 `mean.point_estimate`，单位为纳秒／次。Criterion 使用
+20 个采样、300 毫秒预热和 1 秒测量时间。状态单元的创建与最终销毁不计入测量；
+转换内部的分配与释放仍计入。
+
+| 实现 | 第 1 次 | 第 2 次 | 第 3 次 |
+| --- | ---: | ---: | ---: |
+| 直接 AtomicU64 基线 | 16.727 | 26.468 | 13.762 |
+| Raw Fast | 21.296 | 31.774 | 22.467 |
+| Typed Fast | 23.758 | 24.779 | 23.028 |
+| Standard | 1359.656 | 1676.236 | 1129.600 |
+
+持久证据位于
+[`performance-evidence/lifecycle-rsm001-20261101T122148Z/`](performance-evidence/lifecycle-rsm001-20261101T122148Z/)，包括
+[元数据](performance-evidence/lifecycle-rsm001-20261101T122148Z/metadata.md)、
+[第 1 次完整输出](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-1.txt)、
+[第 2 次完整输出](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-2.txt)、
+[第 3 次完整输出](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-3.txt)、
+[第 1 次估计 JSON](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-1-estimates.json)、
+[第 2 次估计 JSON](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-2-estimates.json)、
+[第 3 次估计 JSON](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-3-estimates.json) 和
+[SHA-256 摘要](performance-evidence/lifecycle-rsm001-20261101T122148Z/checksums.sha256)。
+此前有一次包装器未能记录退出码，相关记录单独保存在
+[`performance-evidence/lifecycle-rsm001/`](performance-evidence/lifecycle-rsm001/)，不计入本表。
+
+复测时，先检出元数据中的提交并使用其中列出的 Rust、Cargo 工具链和环境，然后在
+crate 根目录将以下命令分别运行三次，保存每次完整输出：
+
+```bash
+cargo bench --locked --bench state_machine_benchmarks --all-features task_lifecycle -- --noplot
+```
+
+运行前后按摘要文件核对源码输入。相同源码和测量方法便于复测，但机器负载或环境不同，
+数值仍可能不同。这些数据不是正确性或性能门槛。
