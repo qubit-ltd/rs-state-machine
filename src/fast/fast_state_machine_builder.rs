@@ -112,6 +112,11 @@ impl FastStateMachineBuilder {
 
     /// Registers one initial state code.
     ///
+    /// This setting is required before [`Self::build`]. Calling this method
+    /// more than once replaces the previously configured initial state; only
+    /// the last value is validated, when the builder is built. The selected
+    /// code must be less than the final [`Self::state_count`].
+    ///
     /// # Parameters
     /// - `state`: Initial state code, which must be less than `state_count`.
     ///
@@ -125,6 +130,11 @@ impl FastStateMachineBuilder {
 
     /// Registers one final state code.
     ///
+    /// A terminal state cannot be the source of any transition, including a
+    /// self-transition. This restriction is checked by [`Self::build`], so it
+    /// applies regardless of whether the terminal state or its outgoing
+    /// transition is configured first. See also [`Self::transition`].
+    ///
     /// # Parameters
     /// - `state`: Final state code, which must be less than `state_count`.
     ///
@@ -137,6 +147,11 @@ impl FastStateMachineBuilder {
     }
 
     /// Registers multiple final state codes.
+    ///
+    /// None of these terminal states may have an outgoing transition,
+    /// including a self-transition. [`Self::build`] checks this restriction
+    /// after all configuration has been collected, regardless of call order.
+    /// See also [`Self::transition`].
     ///
     /// # Parameters
     /// - `states`: Final state codes, each of which must be less than
@@ -154,7 +169,9 @@ impl FastStateMachineBuilder {
     ///
     /// Repeating the same `(source, event, target)` definition is allowed.
     /// Mapping one `(source, event)` pair to different targets is rejected by
-    /// [`Self::build`].
+    /// [`Self::build`]. A terminal state cannot be the source of a transition,
+    /// even a self-transition; the target may be terminal. See
+    /// [`Self::terminal_state`] and [`Self::terminal_states`].
     ///
     /// # Parameters
     /// - `source`: State code required before the event.
@@ -208,10 +225,43 @@ impl FastStateMachineBuilder {
     /// # Errors
     /// Returns [`FastStateMachineBuildError::StateCountNotConfigured`] or
     /// [`FastStateMachineBuildError::EventCountNotConfigured`] when a required
-    /// count is missing. Zero counts, out-of-range state/event codes,
-    /// conflicting transitions, `u64` multiplication overflow, platform index
-    /// limits, and allocation failure are reported by their corresponding
-    /// [`FastStateMachineBuildError`] variants.
+    /// count is missing, or
+    /// [`FastStateMachineBuildError::InitialStateNotConfigured`]
+    /// when [`Self::initial_state`] was not called. A configured terminal state
+    /// with an outgoing edge, including a self-transition, returns
+    /// [`FastStateMachineBuildError::TerminalStateHasOutgoingTransition`]. A
+    /// table larger than the configured cell budget returns
+    /// [`FastStateMachineBuildError::TransitionTableLimitExceeded`]. Zero
+    /// counts, out-of-range state/event codes, conflicting transitions, `u64`
+    /// multiplication overflow, platform index limits, and allocation failure
+    /// are reported by their corresponding [`FastStateMachineBuildError`]
+    /// variants.
+    ///
+    /// # Examples
+    ///
+    /// A terminal state cannot have an outgoing transition, including a
+    /// self-transition:
+    ///
+    /// ```
+    /// use qubit_state_machine::FastStateMachineBuildError;
+    /// use qubit_state_machine::FastStateMachineBuilder;
+    ///
+    /// let result = FastStateMachineBuilder::new()
+    ///     .state_count(1)
+    ///     .event_count(1)
+    ///     .initial_state(0)
+    ///     .terminal_state(0)
+    ///     .transition(0, 0, 0)
+    ///     .build();
+    /// assert_eq!(
+    ///     result.unwrap_err(),
+    ///     FastStateMachineBuildError::TerminalStateHasOutgoingTransition {
+    ///         state: 0,
+    ///         event: 0,
+    ///         target: 0,
+    ///     },
+    /// );
+    /// ```
     pub fn build(self) -> Result<FastStateMachine, FastStateMachineBuildError> {
         let state_count = self
             .state_count
