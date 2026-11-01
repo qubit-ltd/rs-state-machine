@@ -432,7 +432,7 @@ fn benchmark_driver<D: Driver>(c: &mut Criterion, name: &str, alternating: D, se
         b.iter(|| black_box(alternating.lookup(black_box(pending_state), black_box(start_event))))
     });
     let state = alternating.cell();
-    group.bench_function("try_trigger_alternating", |b| {
+    group.bench_function("trigger_alternating", |b| {
         b.iter(|| {
             black_box(
                 alternating
