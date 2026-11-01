@@ -21,9 +21,10 @@ measurements.
 From the crate root, run each command three separate times on an otherwise
 idle machine. Criterion uses 20 samples, a 300 ms warm-up, and a 1 s
 measurement period per scenario. The `task_lifecycle` measurement applies
-`Start` and `CompleteSucceeded` to one cell; its cell construction is outside
-the measured operation. Both commands use all features so all four drivers
-are present.
+`Start` and `CompleteSucceeded` to one cell. Cell construction and final
+destruction are outside the measured interval. Allocations and releases
+performed inside transitions remain included. Both commands use all features
+so all four drivers are present.
 
 ```bash
 cargo bench --bench state_machine_benchmarks --all-features transition_target -- --noplot
@@ -61,12 +62,15 @@ the source revision, toolchain, CPU, and operating system for each run.
 
 ## Example results
 
-Measured on 2026-09-14 with the benchmark implementation at revision
+Historical measurements from 2026-09-14 use the benchmark implementation at revision
 `f2c4a7d`: Rust 1.94.0, Ubuntu 24.04.4 LTS, Linux 7.0.0-30-generic,
 Intel Core i5-9600K (six cores, 3.70 GHz). The values below are Criterion
 mean point estimates in nanoseconds per operation from three separate
 invocations after a preliminary warm-up run. Lower is faster for these
-specific workloads.
+specific workloads. The historical `task_lifecycle` measurements include
+final cell destruction in the measured interval; their lifecycle values must
+not be directly compared with measurements using the corrected boundary. The
+lookup measurements retain their original measurement boundary.
 
 | Driver | Lookup run 1 | Run 2 | Run 3 | Lifecycle run 1 | Run 2 | Run 3 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -81,3 +85,28 @@ drivers use integer CAS; the direct baseline is not a replacement for rule
 validation or typed errors. The table does not establish performance under
 contention, with callbacks, or on another machine. Run the remaining benchmark
 scenarios and measure your own workload before choosing an implementation.
+
+## Corrected task-lifecycle measurements (2026-11-01 UTC)
+
+Three independent runs were collected with Criterion 0.8.2 using
+`cargo bench --locked --bench state_machine_benchmarks --all-features task_lifecycle -- --noplot`.
+Each cell is the Criterion mean point estimate in ns/op; each invocation used 20
+samples, a 300 ms warm-up, and a 1 s measurement period. The results are
+measurements, not a performance threshold.
+
+| Driver | Run 1 | Run 2 | Run 3 |
+| --- | ---: | ---: | ---: |
+| Direct AtomicU64 baseline | 13.704 | 14.849 | 15.104 |
+| Raw Fast | 20.960 | 23.509 | 21.063 |
+| Typed Fast | 22.127 | 27.574 | 22.290 |
+| Standard | 1081.9 | 1277.4 | 1097.5 |
+
+Environment: Rust 1.94.0 (`4a4ef493e3a1488c6e321570238084b38948f6db`), Linux
+7.0.0-38-generic x86_64, Intel Core i5-9600K (6 cores, 3.70 GHz). The source
+was an uncommitted working tree based on `e58629fb8216faa30c2749a194a1541b258ceb3a`;
+the pre-measurement diff covered 10 files (421 insertions, 36 deletions).
+`Cargo.lock` SHA-256: `e150c902a109cd0be9bfdc470acc8d0c00edd37b9860184c5b389abd7470019f`.
+The three complete Criterion outputs were saved as
+`target/rsm-lifecycle-054a6b95-run{1,2,3}.log` during this run. Historical
+lifecycle values above use a different timing boundary and are not directly
+comparable.

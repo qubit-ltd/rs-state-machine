@@ -455,12 +455,11 @@ fn benchmark_driver<D: Driver>(c: &mut Criterion, name: &str, alternating: D, se
         let verification = task.cell();
         assert_eq!(task.apply(&verification, start_event).expect("start commits"), 1);
         assert_eq!(task.apply(&verification, success_event).expect("success commits"), 2);
-        b.iter_batched(
+        b.iter_batched_ref(
             || task.cell(),
             |state| {
-                let _ = black_box(task.apply(&state, black_box(start_event)));
-                let _ = black_box(task.apply(&state, black_box(success_event)));
-                black_box(state);
+                let _ = black_box(task.apply(state, black_box(start_event)));
+                let _ = black_box(task.apply(state, black_box(success_event)));
             },
             BatchSize::SmallInput,
         )
