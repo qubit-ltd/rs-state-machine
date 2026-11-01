@@ -9,6 +9,11 @@
 //! Independent ordered-map models for bounded builder definitions.
 use std::collections::BTreeMap;
 
+#[cfg(feature = "fast")]
+use qubit_state_machine::FastStateMachineError;
+#[cfg(feature = "standard")]
+use qubit_state_machine::StateMachineError;
+
 /// Records whether an input reached post-build assertions.
 #[derive(Debug, PartialEq, Eq)]
 pub enum BuilderOutcome {
@@ -184,10 +189,11 @@ pub fn run_fast_builder(data: &[u8]) -> BuilderOutcome {
         let expected = model.get(&(initial_state, event)).copied();
         let mut callbacks = Vec::new();
         assert_eq!(
-            machine
-                .trigger_with(&probe_state, event, |old, new| callbacks.push((old, new)))
-                .ok(),
-            expected
+            machine.trigger_with(&probe_state, event, |old, new| callbacks.push((old, new))),
+            expected.ok_or(FastStateMachineError::UnknownTransition {
+                source_state: initial_state,
+                event,
+            })
         );
         assert_eq!(
             callbacks,
@@ -305,10 +311,11 @@ pub fn run_standard_builder(data: &[u8]) -> BuilderOutcome {
         let expected = model.get(&(initial_state, event)).copied();
         let mut callbacks = Vec::new();
         assert_eq!(
-            machine
-                .trigger_with(&probe_state, event, |old, new| callbacks.push((old, new)))
-                .ok(),
-            expected
+            machine.trigger_with(&probe_state, event, |old, new| callbacks.push((old, new))),
+            expected.ok_or(StateMachineError::UnknownTransition {
+                source_state: initial_state,
+                event,
+            })
         );
         assert_eq!(
             callbacks,
