@@ -15,6 +15,7 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use qubit_atomic::AtomicRef;
+use qubit_cas::CasErrorKind;
 use qubit_cas::CasExecutor;
 use qubit_state_machine::StateMachine;
 use qubit_state_machine::StateMachineError;
@@ -73,16 +74,16 @@ impl Hash for Event {
     }
 }
 
-fn machine(include_retried_work: bool) -> StateMachine<State, Event> {
+fn machine(include_retried_work: bool, max_attempts: u32) -> StateMachine<State, Event> {
     let executor = CasExecutor::<State, StateMachineError<State, Event>>::builder()
-        .max_attempts(2)
+        .max_attempts(max_attempts)
         .max_operation_elapsed(None)
         .max_total_elapsed(None)
         .flow_timeout(None)
         .attempt_timeout(None)
         .no_delay()
         .build()
-        .expect("two immediate attempts are valid");
+        .expect("positive immediate attempt budget is valid");
     let builder = StateMachine::builder()
         .add_states(&[State::A, State::B, State::C, State::D])
         .initial_state(State::A)
@@ -144,7 +145,7 @@ fn run_interleaving(machine: Arc<StateMachine<State, Event>>, state: Arc<AtomicR
 
 #[test]
 fn test_retry_rejects_event_invalidated_by_competing_commit() {
-    let machine = Arc::new(machine(false));
+    let machine = Arc::new(machine(false, 2));
     let state = Arc::new(AtomicRef::from_value(State::A));
 
     let (result, callback_args, work_hashes) = run_interleaving(machine, Arc::clone(&state));
@@ -163,7 +164,7 @@ fn test_retry_rejects_event_invalidated_by_competing_commit() {
 
 #[test]
 fn test_retry_recomputes_target_after_competing_commit() {
-    let machine = Arc::new(machine(true));
+    let machine = Arc::new(machine(true, 2));
     let state = Arc::new(AtomicRef::from_value(State::A));
 
     let (result, callback_args, work_hashes) = run_interleaving(machine, Arc::clone(&state));
@@ -172,4 +173,23 @@ fn test_retry_recomputes_target_after_competing_commit() {
     assert_eq!(*state.load(), State::D);
     assert_eq!(callback_args, [(State::B, State::D)]);
     assert!(work_hashes >= 3, "expected preflight, decision, and retry queries");
+}
+
+#[test]
+fn test_single_attempt_conflict_preserves_error_and_skips_callback() {
+    let machine = Arc::new(machine(true, 1));
+    let state = Arc::new(AtomicRef::from_value(State::A));
+    let (result, callback_args, work_hashes) = run_interleaving(machine, Arc::clone(&state));
+
+    assert_eq!(
+        result,
+        Err(StateMachineError::CasFailure {
+            kind: CasErrorKind::ConflictExhausted,
+            attempts: 1,
+        }),
+        "the public trigger preserves the terminal CAS failure"
+    );
+    assert_eq!(*state.load(), State::B, "the competing commit remains installed");
+    assert!(callback_args.is_empty(), "a failed commit must not call its callback");
+    assert_eq!(work_hashes, 2, "one attempt must not enter a retry decision");
 }
