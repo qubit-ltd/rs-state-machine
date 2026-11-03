@@ -217,6 +217,15 @@ fn test_builder_reference_acceptance_and_error_branches() {
 
 #[cfg(all(feature = "fast", feature = "standard"))]
 #[test]
+fn test_differential_invalid_events_preserve_trace() {
+    assert_eq!(
+        support::run_differential(&[1, 0, 1, 0, 0, 254, 255, 0]),
+        support::BuilderOutcome::Built { checked_pairs: 2 }
+    );
+}
+
+#[cfg(all(feature = "fast", feature = "standard"))]
+#[test]
 fn test_differential_all_two_by_two_tables_and_short_traces() {
     for encoding in 0..81 {
         let mut code = encoding;

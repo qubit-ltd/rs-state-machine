@@ -42,12 +42,41 @@ enum DiffEvent {
     E1,
     E2,
     Invalid,
+    OmittedAlias,
+    OmittedOutOfRange,
 }
 impl DenseCode for DiffEvent {
     const VALUES: &'static [Self] = &[Self::E0, Self::E1, Self::E2, Self::Invalid];
     fn code(self) -> u64 {
-        self as u64
+        match self {
+            Self::E0 | Self::OmittedAlias => 0,
+            Self::E1 => 1,
+            Self::E2 => 2,
+            Self::Invalid => 3,
+            Self::OmittedOutOfRange => u64::MAX,
+        }
     }
+}
+
+/// Checks that an event outside the declared codebook is rejected without
+/// invoking callbacks or changing the state through any typed trigger API.
+fn check_invalid_event(
+    machine: &TypedFastStateMachine<DiffState, DiffEvent>,
+    state: &qubit_state_machine::TypedFastState<DiffState>,
+    event: DiffEvent,
+) {
+    let before = state.load();
+    let expected = TypedFastStateMachineError::InvalidEventCode {
+        event,
+        code: event.code(),
+    };
+    assert_eq!(machine.trigger(state, event), Err(expected));
+    let mut callbacks = 0;
+    assert_eq!(machine.trigger_with(state, event, |_, _| callbacks += 1), Err(expected));
+    assert!(!machine.try_trigger(state, event));
+    assert!(!machine.try_trigger_with(state, event, |_, _| callbacks += 1));
+    assert_eq!(callbacks, 0);
+    assert_eq!(state.load(), before);
 }
 
 /// Checks a bounded table and every event in its trailing trace.
@@ -193,7 +222,21 @@ pub fn run_differential(data: &[u8]) -> super::BuilderOutcome {
     let fast_state = fast.create_state();
     let standard_state = standard.create_state();
     let mut current = initial_state;
+    check_invalid_event(&typed, &typed_state, DiffEvent::OmittedAlias);
+    check_invalid_event(&typed, &typed_state, DiffEvent::OmittedOutOfRange);
     for &byte in &data[offset + cells..] {
+        if byte == 254 || byte == 255 {
+            let invalid = if byte == 254 {
+                DiffEvent::OmittedAlias
+            } else {
+                DiffEvent::OmittedOutOfRange
+            };
+            check_invalid_event(&typed, &typed_state, invalid);
+            assert_eq!(typed_state.load().code(), current);
+            assert_eq!(fast_state.load(), current);
+            assert_eq!(*standard_state.load(), current);
+            continue;
+        }
         let event = u64::from(byte) % (event_count + 1);
         let expected = if event < event_count {
             table[(current * event_count + event) as usize]
