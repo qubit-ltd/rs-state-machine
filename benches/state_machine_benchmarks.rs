@@ -451,6 +451,18 @@ fn benchmark_driver<D: Driver>(c: &mut Criterion, name: &str, alternating: D, se
             )
         })
     });
+    // A stable business rejection exercises the Standard precheck path. The
+    // event is valid in the task fixture but has no transition from Pending.
+    let state = task.cell();
+    group.bench_function("business_rejection", |b| {
+        b.iter(|| {
+            assert!(matches!(
+                task.apply(black_box(&state), black_box(success_event)),
+                Err(Failure::Rejected)
+            ));
+            black_box(D::load(&state));
+        })
+    });
     group.bench_function("task_lifecycle", |b| {
         let verification = task.cell();
         assert_eq!(task.apply(&verification, start_event).expect("start commits"), 1);

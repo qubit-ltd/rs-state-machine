@@ -1,0 +1,31 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Finished `bench` profile [optimized] target(s) in 1.87s
+     Running benches/state_machine_benchmarks.rs (/tmp/qubit-rsm003-isolated-target-20261103/release/deps/state_machine_benchmarks-65a71483e0a97c2b)
+Gnuplot not found, using plotters backend
+Benchmarking standard_state_machine/self_transition
+Benchmarking standard_state_machine/self_transition: Warming up for 300.00 ms
+Benchmarking standard_state_machine/self_transition: Collecting 20 samples in estimated 1.0002 s (435k iterations)
+Benchmarking standard_state_machine/self_transition: Analyzing
+standard_state_machine/self_transition
+                        time:   [1.4677 µs 1.5601 µs 1.6761 µs]
+                        change: [+58.289% +88.840% +128.70%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Benchmarking standard_state_machine/business_rejection
+Benchmarking standard_state_machine/business_rejection: Warming up for 300.00 ms
+Benchmarking standard_state_machine/business_rejection: Collecting 20 samples in estimated 1.0001 s (1.5M iterations)
+Benchmarking standard_state_machine/business_rejection: Analyzing
+standard_state_machine/business_rejection
+                        time:   [203.85 ns 246.18 ns 291.15 ns]
+                        change: [+129.21% +183.17% +249.55%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Benchmarking standard_state_machine/task_lifecycle
+Benchmarking standard_state_machine/task_lifecycle: Warming up for 300.00 ms
+Benchmarking standard_state_machine/task_lifecycle: Collecting 20 samples in estimated 1.0004 s (93k iterations)
+Benchmarking standard_state_machine/task_lifecycle: Analyzing
+standard_state_machine/task_lifecycle
+                        time:   [5.9279 µs 7.0712 µs 8.1285 µs]
+                        change: [+226.38% +268.88% +309.96%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+

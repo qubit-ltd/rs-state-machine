@@ -1,0 +1,38 @@
+    Finished `bench` profile [optimized] target(s) in 0.07s
+     Running benches/state_machine_benchmarks.rs (/tmp/qubit-rsm003-isolated-target-20261103/release/deps/state_machine_benchmarks-65a71483e0a97c2b)
+Gnuplot not found, using plotters backend
+Benchmarking standard_state_machine/self_transition
+Benchmarking standard_state_machine/self_transition: Warming up for 300.00 ms
+Benchmarking standard_state_machine/self_transition: Collecting 20 samples in estimated 1.0001 s (1.2M iterations)
+Benchmarking standard_state_machine/self_transition: Analyzing
+standard_state_machine/self_transition
+                        time:   [812.26 ns 814.22 ns 815.65 ns]
+                        change: [−1.9365% −0.5814% +0.3151%] (p = 0.45 > 0.05)
+                        No change in performance detected.
+Found 4 outliers among 20 measurements (20.00%)
+  4 (20.00%) high mild
+Benchmarking standard_state_machine/business_rejection
+Benchmarking standard_state_machine/business_rejection: Warming up for 300.00 ms
+Benchmarking standard_state_machine/business_rejection: Collecting 20 samples in estimated 1.0000 s (9.4M iterations)
+Benchmarking standard_state_machine/business_rejection: Analyzing
+standard_state_machine/business_rejection
+                        time:   [107.07 ns 107.22 ns 107.39 ns]
+                        change: [+2.9270% +3.4576% +3.7877%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 6 outliers among 20 measurements (30.00%)
+  2 (10.00%) low severe
+  1 (5.00%) low mild
+  2 (10.00%) high mild
+  1 (5.00%) high severe
+Benchmarking standard_state_machine/task_lifecycle
+Benchmarking standard_state_machine/task_lifecycle: Warming up for 300.00 ms
+Benchmarking standard_state_machine/task_lifecycle: Collecting 20 samples in estimated 1.0001 s (554k iterations)
+Benchmarking standard_state_machine/task_lifecycle: Analyzing
+standard_state_machine/task_lifecycle
+                        time:   [1.6278 µs 1.6310 µs 1.6351 µs]
+                        change: [−1.7627% +0.6225% +5.1076%] (p = 0.81 > 0.05)
+                        No change in performance detected.
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+

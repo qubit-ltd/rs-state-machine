@@ -1,0 +1,37 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Finished `bench` profile [optimized] target(s) in 0.12s
+     Running benches/state_machine_benchmarks.rs (target/release/deps/state_machine_benchmarks-65a71483e0a97c2b)
+Gnuplot not found, using plotters backend
+Benchmarking standard_state_machine/self_transition
+Benchmarking standard_state_machine/self_transition: Warming up for 300.00 ms
+Benchmarking standard_state_machine/self_transition: Collecting 20 samples in estimated 1.0002 s (1.1M iterations)
+Benchmarking standard_state_machine/self_transition: Analyzing
+standard_state_machine/self_transition
+                        time:   [1.0325 µs 1.3120 µs 1.6386 µs]
+                        change: [+9.8097% +30.125% +56.670%] (p = 0.01 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+Benchmarking standard_state_machine/business_rejection
+Benchmarking standard_state_machine/business_rejection: Warming up for 300.00 ms
+Benchmarking standard_state_machine/business_rejection: Collecting 20 samples in estimated 1.0000 s (7.8M iterations)
+Benchmarking standard_state_machine/business_rejection: Analyzing
+standard_state_machine/business_rejection
+                        time:   [104.51 ns 105.98 ns 107.75 ns]
+                        change: [+2.5454% +8.7928% +17.232%] (p = 0.01 < 0.05)
+                        Performance has regressed.
+Found 4 outliers among 20 measurements (20.00%)
+  4 (20.00%) high severe
+Benchmarking standard_state_machine/task_lifecycle
+Benchmarking standard_state_machine/task_lifecycle: Warming up for 300.00 ms
+Benchmarking standard_state_machine/task_lifecycle: Collecting 20 samples in estimated 1.0004 s (499k iterations)
+Benchmarking standard_state_machine/task_lifecycle: Analyzing
+standard_state_machine/task_lifecycle
+                        time:   [1.6430 µs 1.6882 µs 1.7695 µs]
+                        change: [−9.7672% −5.0530% +0.6721%] (p = 0.08 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 20 measurements (15.00%)
+  1 (5.00%) high mild
+  2 (10.00%) high severe
+

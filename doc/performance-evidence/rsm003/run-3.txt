@@ -1,0 +1,32 @@
+    Finished `bench` profile [optimized] target(s) in 0.09s
+     Running benches/state_machine_benchmarks.rs (target/release/deps/state_machine_benchmarks-65a71483e0a97c2b)
+Gnuplot not found, using plotters backend
+Benchmarking standard_state_machine/self_transition
+Benchmarking standard_state_machine/self_transition: Warming up for 300.00 ms
+Benchmarking standard_state_machine/self_transition: Collecting 20 samples in estimated 1.0000 s (1.1M iterations)
+Benchmarking standard_state_machine/self_transition: Analyzing
+standard_state_machine/self_transition
+                        time:   [825.22 ns 826.83 ns 828.67 ns]
+                        change: [−59.133% −50.771% −40.771%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Benchmarking standard_state_machine/business_rejection
+Benchmarking standard_state_machine/business_rejection: Warming up for 300.00 ms
+Benchmarking standard_state_machine/business_rejection: Collecting 20 samples in estimated 1.0000 s (9.3M iterations)
+Benchmarking standard_state_machine/business_rejection: Analyzing
+standard_state_machine/business_rejection
+                        time:   [104.23 ns 104.58 ns 104.94 ns]
+                        change: [−26.346% −20.509% −13.628%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high mild
+Benchmarking standard_state_machine/task_lifecycle
+Benchmarking standard_state_machine/task_lifecycle: Warming up for 300.00 ms
+Benchmarking standard_state_machine/task_lifecycle: Collecting 20 samples in estimated 1.0001 s (539k iterations)
+Benchmarking standard_state_machine/task_lifecycle: Analyzing
+standard_state_machine/task_lifecycle
+                        time:   [1.7201 µs 1.8186 µs 1.9515 µs]
+                        change: [−17.620% −10.004% −1.7220%] (p = 0.04 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 20 measurements (10.00%)
+  2 (10.00%) high severe
+

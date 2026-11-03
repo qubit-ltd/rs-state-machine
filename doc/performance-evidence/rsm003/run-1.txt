@@ -1,0 +1,97 @@
+    Blocking waiting for file lock on package cache
+   Compiling proc-macro2 v1.0.107
+   Compiling quote v1.0.47
+   Compiling unicode-ident v1.0.24
+   Compiling thiserror v2.0.20
+   Compiling serde_core v1.0.229
+   Compiling crossbeam-utils v0.8.23
+   Compiling zerocopy v0.8.57
+   Compiling hashbrown v0.17.1
+   Compiling rustversion v1.0.23
+   Compiling crossbeam-epoch v0.9.21
+   Compiling zmij v1.0.23
+   Compiling serde v1.0.229
+   Compiling crossbeam-deque v0.8.8
+   Compiling find-msvc-tools v0.1.12
+   Compiling shlex v2.0.1
+   Compiling portable-atomic v1.15.0
+   Compiling autocfg v1.5.1
+   Compiling cfg-if v1.0.4
+   Compiling either v1.18.0
+   Compiling libc v0.2.189
+   Compiling rayon-core v1.13.0
+   Compiling serde_json v1.0.151
+   Compiling itoa v1.0.18
+   Compiling clap_lex v1.1.0
+   Compiling fastrand v2.5.0
+   Compiling ciborium-io v0.2.2
+   Compiling anstyle v1.0.14
+   Compiling regex-syntax v0.8.11
+   Compiling plotters-backend v0.3.7
+   Compiling memchr v2.8.3
+   Compiling qubit-function v0.18.1
+   Compiling same-file v1.0.6
+   Compiling cast v0.3.0
+   Compiling qubit-error v0.2.6
+   Compiling anes v0.1.6
+   Compiling oorandom v11.1.5
+   Compiling qubit-fast-cas v0.3.0
+   Compiling walkdir v2.5.0
+   Compiling cc v1.4.6
+   Compiling clap_builder v4.6.6
+   Compiling itertools v0.13.0
+   Compiling num-traits v0.2.19
+   Compiling plotters-svg v0.3.7
+   Compiling arc-swap v1.9.2
+   Compiling qubit-collections v0.2.0
+   Compiling syn v3.0.5
+   Compiling syn v2.0.119
+   Compiling qubit-atomic v0.17.1
+   Compiling plotters v0.3.7
+   Compiling alloca v0.4.0
+   Compiling regex-automata v0.4.18
+   Compiling rayon v1.12.0
+   Compiling page_size v0.6.0
+   Compiling criterion-plot v0.8.2
+   Compiling clap v4.6.6
+   Compiling thiserror-impl v2.0.20
+   Compiling serde_derive v1.0.229
+   Compiling regex v1.13.1
+   Compiling qubit-clock v0.13.0
+   Compiling zerocopy-derive v0.8.57
+   Compiling qubit-budget v0.7.0
+   Compiling qubit-retry v0.26.0
+   Compiling qubit-cas v0.12.1
+   Compiling qubit-state-machine v0.11.0 (/data/working/qubit/rust-common/.worktrees/rs-state-machine/rsm-implementation-20261103)
+   Compiling tinytemplate v1.2.1
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+   Compiling ciborium v0.2.2
+   Compiling criterion v0.8.2
+    Finished `bench` profile [optimized] target(s) in 34.60s
+     Running benches/state_machine_benchmarks.rs (target/release/deps/state_machine_benchmarks-65a71483e0a97c2b)
+Gnuplot not found, using plotters backend
+Benchmarking standard_state_machine/self_transition
+Benchmarking standard_state_machine/self_transition: Warming up for 300.00 ms
+Benchmarking standard_state_machine/self_transition: Collecting 20 samples in estimated 1.0001 s (866k iterations)
+Benchmarking standard_state_machine/self_transition: Analyzing
+standard_state_machine/self_transition
+                        time:   [982.57 ns 1.0751 µs 1.2348 µs]
+Found 2 outliers among 20 measurements (10.00%)
+  1 (5.00%) high mild
+  1 (5.00%) high severe
+Benchmarking standard_state_machine/business_rejection
+Benchmarking standard_state_machine/business_rejection: Warming up for 300.00 ms
+Benchmarking standard_state_machine/business_rejection: Collecting 20 samples in estimated 1.0000 s (9.1M iterations)
+Benchmarking standard_state_machine/business_rejection: Analyzing
+standard_state_machine/business_rejection
+                        time:   [106.78 ns 109.52 ns 112.68 ns]
+Benchmarking standard_state_machine/task_lifecycle
+Benchmarking standard_state_machine/task_lifecycle: Warming up for 300.00 ms
+Benchmarking standard_state_machine/task_lifecycle: Collecting 20 samples in estimated 1.0001 s (416k iterations)
+Benchmarking standard_state_machine/task_lifecycle: Analyzing
+standard_state_machine/task_lifecycle
+                        time:   [1.7126 µs 1.7349 µs 1.7747 µs]
+Found 1 outliers among 20 measurements (5.00%)
+  1 (5.00%) high severe
+
