@@ -78,7 +78,7 @@ assert!(machine.is_terminal_state(state.load()));
 
 | 入口 | 适用场景与成本 |
 | --- | --- |
-| `StateMachine` | 泛型 `Copy + Eq + Hash + Debug` 状态；适合稀疏值、已有 `AtomicRef` 或需要完整 CAS 配置的场景。 |
+| `StateMachine` | 泛型 `Copy + Eq + Hash + Debug` 状态；适合稀疏值、已有 `AtomicRef` 或需要完整 CAS 配置的场景。使用 HashMap 查询，每次候选更新分配一个 Arc。 |
 | `FastStateMachine` | 原始整数协议；调用方提供连续 code 范围，稠密查表与整数 CAS。 |
 | `TypedFastStateMachine` | 枚举生命周期；复用同一 Fast 内核并检查类型和值表，不额外分配每次转换的堆对象。实际性能以 benchmark 为准。 |
 

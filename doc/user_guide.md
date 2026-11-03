@@ -173,6 +173,18 @@ including exhausted conflicts or soft budgets. Fast returns `UnknownState`,
 `UnknownTransition`, `CasConflict`, or `InvalidStateCode` directly; only Typed
 Fast build errors use the `Raw` wrapper.
 
+When a CAS conflict occurs, all three machines may retry according to their
+configured policy and recompute the same event's successor from the newly
+observed state. A call is not bound to the source state it first observed. For
+example, with `A --Advance--> B` and `B --Advance--> C`, a call that first
+observes A may commit B→C after a competing caller commits A→B. If the new
+state has no transition for the event, the retry may instead return a business
+rejection. Cycles do not guarantee ABA detection: observing the same state
+value does not prove that no intermediate transition occurred. If an operation
+must be tied to its original source state or lifecycle generation, coordinate
+it with additional synchronization or a version protocol; a separate state
+read before `trigger` does not make that condition atomic.
+
 `trigger_with` invokes its callback once after a successful commit, including a
 self-transition. A callback panic propagates and does not roll back the state.
 Concurrent callback order is unspecified, and a fresh read inside a callback

@@ -94,7 +94,7 @@ assert!(machine.is_terminal_state(state.load()));
 
 | Entry point | Intended use and cost |
 | --- | --- |
-| `StateMachine` | Generic `Copy + Eq + Hash + Debug` states; HashMap lookup and an Arc allocation per candidate update. |
+| `StateMachine` | Generic `Copy + Eq + Hash + Debug` states; suitable for sparse values, existing `AtomicRef` cells, or full CAS configuration. HashMap lookup and an Arc allocation per candidate update. |
 | `FastStateMachine` | Integer protocols with explicit contiguous code ranges, dense lookup, and integer CAS. Measure it against your workload. |
 | `TypedFastStateMachine` | Enum lifecycles using the same Fast engine with typed membership checks and no per-transition heap allocation. Measure actual overhead with the benchmarks. |
 
