@@ -13,12 +13,15 @@ immutable rules across tasks, and keep each task's current state in its own
 atomic cell. This makes rejected transitions explicit while leaving scheduling
 and result storage to the caller.
 
-Version 0.11 requires a valid initial state; if `initial_state(...)` is called
-more than once, the last value wins. Terminal states cannot have outgoing
-transitions. `create_state()` creates an independent current-state
-cell; externally created cells are not bound to a machine. Callbacks run once
-after a successful commit, with concurrent callback order unspecified, and a
-callback may observe a later committed state.
+Version 0.11 requires a valid initial state. Standard and Raw Fast builders
+use the final initial-state setting. For Typed Fast, the last valid initial
+state wins only if no earlier input failed membership validation. A later
+valid setting does not clear the first input error; create a new builder to
+recover. Terminal states cannot have outgoing transitions. `create_state()`
+creates an independent current-state cell; externally created cells are not
+bound to a machine. Callbacks run once after a successful commit, with
+concurrent callback order unspecified, and a callback may observe a later
+committed state.
 
 It provides immutable transition rules and build-time validation. The standard
 machine updates `qubit_atomic::AtomicRef` values through `qubit-cas`; the Fast

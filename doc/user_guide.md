@@ -193,10 +193,12 @@ audit record.
 
 ## Troubleshooting
 
-- If `build` fails, check that the initial state is registered. Repeated
-  `initial_state(...)` calls are allowed and the last value wins; terminal
-  states have no outgoing transitions, and every transition endpoint
-  is registered.
+- If `build` fails, check that the initial state is registered. Standard and
+  Raw Fast builders use the final initial-state setting. For Typed Fast, the
+  last valid initial state wins only if no earlier input failed membership
+  validation. A later valid setting does not clear the first input error;
+  create a new builder to recover. Terminal states have no outgoing
+  transitions, and every transition endpoint is registered.
 - If triggering fails, match the detailed error before deciding whether a CAS
   conflict or a business rejection is retryable.
 - If latency increases, inspect synchronous retry delays and contention; use

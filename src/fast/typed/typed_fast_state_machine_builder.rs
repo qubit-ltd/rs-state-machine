@@ -77,7 +77,9 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
         }
     }
 
-    /// Sets the unique initial `state`; the last valid setting wins.
+    /// Sets the unique initial `state`; the last valid setting wins only when
+    /// no earlier input failed membership validation. A later valid setting
+    /// does not clear the first input error; create a new builder to recover.
     ///
     /// # Parameters
     /// - `state`: Initial state value.

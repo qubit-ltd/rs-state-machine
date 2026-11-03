@@ -386,6 +386,37 @@ impl DenseCode for Partial {
 }
 
 #[test]
+fn test_typed_initial_state_replacement_preserves_first_input_error() {
+    for invalid in [Partial::Missing, Partial::OutOfRange] {
+        let expected = TypedFastStateMachineBuildError::ValueNotInCodebook {
+            domain: "state",
+            code: invalid.code(),
+        };
+        for valid_first in [false, true] {
+            let mut builder = TypedFastStateMachine::<Partial, Event>::builder();
+            if valid_first {
+                builder = builder.initial_state(Partial::Good);
+            }
+            assert_eq!(
+                builder
+                    .initial_state(invalid)
+                    .initial_state(Partial::Good)
+                    .build()
+                    .unwrap_err(),
+                expected
+            );
+        }
+    }
+
+    let machine = TypedFastStateMachine::<State, Event>::builder()
+        .initial_state(State::Pending)
+        .initial_state(State::Running)
+        .build()
+        .unwrap();
+    assert_eq!(machine.initial_state(), State::Running);
+}
+
+#[test]
 fn test_typed_omitted_values_cannot_impersonate_registered_values() {
     for value in [Partial::Missing, Partial::OutOfRange] {
         let expected = TypedFastStateMachineBuildError::ValueNotInCodebook {
