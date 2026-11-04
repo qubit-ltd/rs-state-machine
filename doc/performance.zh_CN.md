@@ -101,6 +101,8 @@ Ubuntu 24.04.4 LTS、Linux 7.0.0-30-generic、Intel Core i5-9600K
 不可直接比较。这条历史记录没有可恢复的源码快照和持久原始输出，因此无法独立核查。
 其中的 `target/` 路径只描述当时本机文件，不是持久归档。
 
+原始测量归档保存在仓库中，不随 crate 分发。
+
 ## 已归档的 task_lifecycle 测量（2026-11-01 UTC）
 
 这组新测量使用提交
@@ -117,17 +119,17 @@ estimates JSON 中 Criterion 的 `mean.point_estimate`，单位为纳秒／次�
 | Standard | 1359.656 | 1676.236 | 1129.600 |
 
 持久证据位于
-[`performance-evidence/lifecycle-rsm001-20261101T122148Z/`](performance-evidence/lifecycle-rsm001-20261101T122148Z/)，包括
-[元数据](performance-evidence/lifecycle-rsm001-20261101T122148Z/metadata.md)、
-[第 1 次完整输出](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-1.txt)、
-[第 2 次完整输出](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-2.txt)、
-[第 3 次完整输出](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-3.txt)、
-[第 1 次估计 JSON](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-1-estimates.json)、
-[第 2 次估计 JSON](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-2-estimates.json)、
-[第 3 次估计 JSON](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-3-estimates.json) 和
-[SHA-256 摘要](performance-evidence/lifecycle-rsm001-20261101T122148Z/checksums.sha256)。
+[`performance-evidence/lifecycle-rsm001-20261101T122148Z/`](https://github.com/qubit-ltd/rs-state-machine/tree/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/)，包括
+[元数据](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/metadata.md)、
+[第 1 次完整输出](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/run-1.txt)、
+[第 2 次完整输出](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/run-2.txt)、
+[第 3 次完整输出](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/run-3.txt)、
+[第 1 次估计 JSON](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/run-1-estimates.json)、
+[第 2 次估计 JSON](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/run-2-estimates.json)、
+[第 3 次估计 JSON](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/run-3-estimates.json) 和
+[SHA-256 摘要](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/checksums.sha256)。
 此前有一次包装器未能记录退出码，相关记录单独保存在
-[`performance-evidence/lifecycle-rsm001/`](performance-evidence/lifecycle-rsm001/)，不计入本表。
+[`performance-evidence/lifecycle-rsm001/`](https://github.com/qubit-ltd/rs-state-machine/tree/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001/)，不计入本表。
 
 复测时，先检出元数据中的提交并使用其中列出的 Rust、Cargo 工具链和环境，然后在
 crate 根目录将以下命令分别运行三次，保存每次完整输出：

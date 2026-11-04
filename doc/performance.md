@@ -124,6 +124,8 @@ comparable. This historical record has no recoverable source snapshot or
 persistent raw output, so it cannot be independently verified. The `target/`
 paths describe local files from that run; they are not a persistent archive.
 
+Raw measurement archives are retained in the repository and are not distributed with the crate.
+
 ## Archived task-lifecycle measurements (2026-11-01 UTC)
 
 This new set uses the source at commit
@@ -141,18 +143,18 @@ allocations and releases performed inside transitions remain included.
 | Standard | 1359.656 | 1676.236 | 1129.600 |
 
 The persistent evidence is in
-[`performance-evidence/lifecycle-rsm001-20261101T122148Z/`](performance-evidence/lifecycle-rsm001-20261101T122148Z/):
-[metadata](performance-evidence/lifecycle-rsm001-20261101T122148Z/metadata.md),
-[run 1 output](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-1.txt),
-[run 2 output](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-2.txt),
-[run 3 output](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-3.txt),
-[run 1 estimates](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-1-estimates.json),
-[run 2 estimates](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-2-estimates.json),
-[run 3 estimates](performance-evidence/lifecycle-rsm001-20261101T122148Z/run-3-estimates.json), and
-[SHA-256 manifest](performance-evidence/lifecycle-rsm001-20261101T122148Z/checksums.sha256).
+[`performance-evidence/lifecycle-rsm001-20261101T122148Z/`](https://github.com/qubit-ltd/rs-state-machine/tree/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/):
+[metadata](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/metadata.md),
+[run 1 output](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/run-1.txt),
+[run 2 output](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/run-2.txt),
+[run 3 output](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/run-3.txt),
+[run 1 estimates](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/run-1-estimates.json),
+[run 2 estimates](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/run-2-estimates.json),
+[run 3 estimates](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/run-3-estimates.json), and
+[SHA-256 manifest](https://github.com/qubit-ltd/rs-state-machine/blob/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001-20261101T122148Z/checksums.sha256).
 An earlier wrapper attempt whose exit code could not be recorded is retained
 separately in
-[`performance-evidence/lifecycle-rsm001/`](performance-evidence/lifecycle-rsm001/)
+[`performance-evidence/lifecycle-rsm001/`](https://github.com/qubit-ltd/rs-state-machine/tree/5f7a093b13506baea32ff8b5a3f80f1ba272cf26/doc/performance-evidence/lifecycle-rsm001/)
 and is not included in this table.
 
 To repeat the measurement, check out the commit in the metadata, use the listed
