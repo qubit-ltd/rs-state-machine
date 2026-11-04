@@ -470,8 +470,17 @@ fn benchmark_driver<D: Driver>(c: &mut Criterion, name: &str, alternating: D, se
         b.iter_batched_ref(
             || task.cell(),
             |state| {
-                let _ = black_box(task.apply(state, black_box(start_event)));
-                let _ = black_box(task.apply(state, black_box(success_event)));
+                assert_eq!(
+                    black_box(task.apply(state, black_box(start_event))).expect("sample start must commit"),
+                    1,
+                    "sample start must reach Running",
+                );
+                assert_eq!(
+                    black_box(task.apply(state, black_box(success_event))).expect("sample completion must commit"),
+                    2,
+                    "sample completion must reach Succeeded",
+                );
+                assert_eq!(black_box(D::load(state)), 2, "sample cell must contain Succeeded",);
             },
             BatchSize::SmallInput,
         )

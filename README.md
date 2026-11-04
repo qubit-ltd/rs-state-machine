@@ -7,109 +7,7 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![中文文档](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh_CN.md)
 
-`qubit-state-machine` is a small Rust finite state machine crate for lifecycle,
-workflow, and task-state tracking code. Define allowed events once, share the
-immutable rules across tasks, and keep each task's current state in its own
-atomic cell. This makes rejected transitions explicit while leaving scheduling
-and result storage to the caller.
-
-Version 0.11 requires a valid initial state. Standard and Raw Fast builders
-use the final initial-state setting. For Typed Fast, the last valid initial
-state wins only if no earlier input failed membership validation. A later
-valid setting does not clear the first input error; create a new builder to
-recover. Terminal states cannot have outgoing transitions. `create_state()`
-creates an independent current-state cell; externally created cells are not
-bound to a machine. Callbacks run once after a successful commit, with
-concurrent callback order unspecified, and a callback may observe a later
-committed state.
-
-It provides immutable transition rules and build-time validation. The standard
-machine updates `qubit_atomic::AtomicRef` values through `qubit-cas`; the Fast
-machine updates `qubit_fast_cas::FastCasState` values directly.
-
-There are three public entry points:
-
-- `StateMachine` for clear, generic APIs suitable for enum-like state/event types.
-- `FastStateMachine` for dense, integer-coded state/event processing.
-- `TypedFastStateMachine<S, E>` for compile-time state/event domains backed by
-  the Fast engine.
-
-The Standard machine defaults to 16 immediate CAS attempts with no wall-clock
-budget. `CasStrategy::LatencyFirst` uses a smaller immediate retry budget and
-soft elapsed-time limits; synchronous execution may still exceed a soft budget
-once an attempt has been admitted. A terminal CAS failure remains distinct from
-a rejected transition.
-
-Inject custom Standard limits, budgets, and backoff with `cas_executor`, or
-choose a preset with `cas_strategy`. Inspect the installed configuration through
-`machine.cas_executor()` using `max_attempts()`, `max_operation_elapsed()`,
-and `max_total_elapsed()`. Terminal CAS kinds are preserved in
-`StateMachineError::CasFailure`.
-
-All three entry points keep transition tables immutable after construction and
-execute event triggers through CAS-backed state updates. Each also exposes
-`diagnose_graph()` for offline reachability analysis; the standard implementation
-does not guarantee iteration order, while Fast implementations return code order.
-
-## Why Use It
-
-Use `qubit-state-machine` when you need:
-
-- explicit finite state machine rules built from enum-like state and event types
-- immutable transition tables that can be shared across threads
-- build-time validation for unknown states and conflicting transitions
-- event-driven state updates through `trigger` and `try_trigger`
-- success callbacks that observe the old and new state after an update
-- simple state tracking for services, jobs, devices, or UI logic
-- dense integer lookup for workloads where measured dispatch cost matters
-
-## Typed Fast State Machine
-
-`TypedFastStateMachine<S, E>` distinguishes state and event types at compile time. Counts come from `DenseCode::VALUES`; `code()` must consistently return the value's index in that complete, unique list. The builder validates the table and runtime entry points check input membership. Decoding uses safe indexing, without a user-defined `from_code` or `transmute`.
-
-```rust
-use qubit_state_machine::{DenseCode, TypedFastStateMachine};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum State { Pending, Running, Done }
-impl DenseCode for State {
-    const VALUES: &'static [Self] = &[Self::Pending, Self::Running, Self::Done];
-    fn code(self) -> u64 { self as u64 }
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Event { Start, Finish }
-impl DenseCode for Event {
-    const VALUES: &'static [Self] = &[Self::Start, Self::Finish];
-    fn code(self) -> u64 { self as u64 }
-}
-
-let machine = TypedFastStateMachine::<State, Event>::builder()
-    .initial_state(State::Pending)
-    .terminal_state(State::Done)
-    .transition(State::Pending, Event::Start, State::Running)
-    .transition(State::Running, Event::Finish, State::Done)
-    .build().expect("valid job definition");
-let state = machine.create_state();
-assert_eq!(machine.trigger(&state, Event::Start).expect("start"), State::Running);
-assert!(machine.try_trigger(&state, Event::Finish));
-assert!(machine.is_terminal_state(state.load()));
-```
-
-| Entry point | Intended use and cost |
-| --- | --- |
-| `StateMachine` | Generic `Copy + Eq + Hash + Debug` states; suitable for sparse values, existing `AtomicRef` cells, or full CAS configuration. HashMap lookup and an Arc allocation per candidate update. |
-| `FastStateMachine` | Integer protocols with explicit contiguous code ranges, dense lookup, and integer CAS. Measure it against your workload. |
-| `TypedFastStateMachine` | Enum lifecycles using the same Fast engine with typed membership checks and no per-transition heap allocation. Measure actual overhead with the benchmarks. |
-
-All three keep immutable rules separate from independent cells. Raw Fast remains a supported integer entry point, not a compatibility shim. Typed cells are created by a machine and expose reads, without setters or raw access; machines with the same state type can share a cell, without machine identity binding.
-
-## Concurrency and Error Boundaries
-
-`trigger` returns detailed errors. `try_trigger` and `try_trigger_with` collapse unknown states, undefined transitions, and exhausted CAS budgets into `false`. Use `trigger` and match errors when business rejection and execution failure require different handling. Typed runtime failures are reported directly as `InvalidEventCode`, `UnknownTransition`, `CasConflict`, or `InvalidStateCode`; only typed build errors use `TypedFastStateMachineBuildError::Raw` to carry a `FastStateMachineBuildError`.
-
-CAS atomically commits only the state. Conflict retries recompute the event's successor from the newly observed state, without promising the original source or detecting ABA in cycles. Success callbacks run once after commit and may reenter; concurrent callback order is unspecified. A callback may observe a later state, while its arguments and the returned target still describe this call's commit. Callback panics propagate without rollback.
-
-Callers coordinate result publication, hook ordering, and payload synchronization. For example, an executor's `is_done()` means a terminal state was installed, while its result may still be publishing; a nonblocking result read need not succeed yet. A monitor that jointly protects queues, counters, and lifecycle should not be replaced by an independent atomic state machine.
+`qubit-state-machine` provides immutable transition rules and independent atomic state cells for finite task, service, and device lifecycles. It makes rejected events explicit while leaving scheduling and result storage to the caller.
 
 ## Installation
 
@@ -216,6 +114,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+## Why Use It
+
+Use `qubit-state-machine` to define explicit lifecycle rules, share immutable tables across threads, validate rules at build time, and apply events with detailed or boolean results. Choose among generic Standard, dense integer Fast, and typed Fast entry points after the first working example above.
+
+| Entry point | Intended use and cost |
+| --- | --- |
+| `StateMachine` | Generic `Copy + Eq + Hash + Debug` states; suitable for sparse values, existing `AtomicRef` cells, or full CAS configuration. HashMap lookup and an Arc allocation per candidate update. |
+| `FastStateMachine` | Integer protocols with explicit contiguous code ranges, dense lookup, and integer CAS. Measure it against your workload. |
+| `TypedFastStateMachine` | Enum lifecycles using the same Fast engine with typed membership checks and no per-transition heap allocation. Measure actual overhead with the benchmarks. |
+
+All three entry points keep immutable rules separate from independent cells and offer `diagnose_graph()` for offline reachability analysis. The Standard result order is unspecified; Fast results use code order.
+
 ## Choosing Standard vs Fast
 
 Use `TypedFastStateMachine` for small, fully enumerated enum lifecycles. Use
@@ -227,6 +137,40 @@ states/events as dense integer ranges. It trades some ergonomics (explicit bound
 integer conventions) for constant-time, memory-local transition lookup and tighter
 hot-path control. See the [benchmark method and measured examples](doc/performance.md)
 before drawing performance conclusions for your workload.
+
+## Typed Fast State Machine
+
+`TypedFastStateMachine<S, E>` distinguishes state and event types at compile time. Counts come from `DenseCode::VALUES`; `code()` must consistently return the value's index in that complete, unique list. The builder validates the table and runtime entry points check input membership. Decoding uses safe indexing, without a user-defined `from_code` or `transmute`.
+
+```rust
+use qubit_state_machine::{DenseCode, TypedFastStateMachine};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum State { Pending, Running, Done }
+impl DenseCode for State {
+    const VALUES: &'static [Self] = &[Self::Pending, Self::Running, Self::Done];
+    fn code(self) -> u64 { self as u64 }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Event { Start, Finish }
+impl DenseCode for Event {
+    const VALUES: &'static [Self] = &[Self::Start, Self::Finish];
+    fn code(self) -> u64 { self as u64 }
+}
+
+let machine = TypedFastStateMachine::<State, Event>::builder()
+    .initial_state(State::Pending)
+    .terminal_state(State::Done)
+    .transition(State::Pending, Event::Start, State::Running)
+    .transition(State::Running, Event::Finish, State::Done)
+    .build().expect("valid job definition");
+let state = machine.create_state();
+assert_eq!(machine.trigger(&state, Event::Start).expect("start"), State::Running);
+assert!(machine.try_trigger(&state, Event::Finish));
+assert!(machine.is_terminal_state(state.load()));
+```
+
+Raw Fast remains a supported integer entry point, not a compatibility shim. Typed cells are created by a machine and expose reads, without setters or raw access; machines with the same state type can share a cell, without machine identity binding.
 
 ## Fast State Machine
 
@@ -293,77 +237,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 Callers can keep defaults during integration and switch to explicit policies later
 when contention characteristics require tuning.
 
-## Build-Time Validation
+## Concurrency and Error Boundaries
 
-Invalid rules are rejected before a state machine is created.
+`trigger` returns detailed errors; `try_trigger` and `try_trigger_with` collapse unknown states, undefined transitions, and exhausted CAS budgets to `false`. Use the detailed API when business rejection and execution failure need different handling.
 
-```rust
-use qubit_state_machine::{StateMachine, StateMachineBuildError};
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-enum JobState {
-    Queued,
-    Running,
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-enum JobEvent {
-    Start,
-}
-
-let error = StateMachine::builder()
-    .add_state(JobState::Queued)
-    .initial_state(JobState::Queued)
-    .transition(JobState::Queued, JobEvent::Start, JobState::Running)
-    .build()
-    .expect_err("transition target must be registered");
-
-assert_eq!(
-    error,
-    StateMachineBuildError::TransitionTargetNotRegistered {
-        source_state: JobState::Queued,
-        event: JobEvent::Start,
-        target: JobState::Running,
-    },
-);
-```
-
-## Applying Events Without Error Handling
-
-Use `try_trigger` or `try_trigger_with` when an invalid transition should be a
-simple `false` result.
-
-```rust
-use qubit_atomic::AtomicRef;
-use qubit_state_machine::StateMachine;
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-enum DoorState {
-    Open,
-    Closed,
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-enum DoorEvent {
-    Close,
-    Reopen,
-}
-
-let machine = StateMachine::builder()
-    .add_states(&[DoorState::Open, DoorState::Closed])
-    .initial_state(DoorState::Open)
-    .transition(DoorState::Open, DoorEvent::Close, DoorState::Closed)
-    .build()
-    .expect("rules should build");
-let state = AtomicRef::from_value(DoorState::Open);
-
-assert!(machine.try_trigger(&state, DoorEvent::Close));
-assert!(!machine.try_trigger_with(&state, DoorEvent::Reopen, |_, _| {
-    unreachable!("callback is skipped when transition fails");
-}));
-
-assert_eq!(*state.load(), DoorState::Closed);
-```
+CAS commits only the state. Callers coordinate result publication and related payloads; a terminal state does not guarantee that a result is already readable. Full retry, callback, and concurrency boundaries are in [Errors and Diagnostics](doc/user_guide.md#errors-and-diagnostics) and [Limitations and Best Practices](doc/user_guide.md#limitations-and-best-practices).
 
 ## Common Next Steps
 
@@ -384,20 +262,6 @@ For the complete job-lifecycle walkthrough, retry-policy guidance, error
 handling, and troubleshooting steps, read the [English user guide](doc/user_guide.md)
 or the [中文用户手册](doc/user_guide.zh_CN.md). The generated [API Reference](https://docs.rs/qubit-state-machine)
 contains the complete public API documentation.
-
-## Core API At A Glance
-
-| Type | Purpose |
-| --- | --- |
-| `Transition` | Immutable value describing `source --event--> target`. |
-| `FastStateMachine` | Dense integer-coded transition machine for measured dispatch-sensitive scenarios. |
-| `FastStateMachineBuilder` | Builder for state/event code counts, transition table, and CAS policy. |
-| `FastStateMachineError` | Runtime error from fast transition execution. |
-| `FastStateMachineBuildError` | Build-time validation error for fast transition table configuration. |
-| `StateMachineBuilder` | Builder for states, one initial state, terminal states, and transitions. |
-| `StateMachine` | Immutable, validated transition table used to query and trigger events. |
-| `StateMachineBuildError` | Validation error returned while building invalid rule sets. |
-| `StateMachineError` | Runtime error returned when an event cannot be applied. |
 
 ## Project Scope
 

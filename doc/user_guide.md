@@ -14,7 +14,9 @@ not turn this crate into a workflow scheduler or a cross-resource transaction.
 An immutable machine owns the registered states, the unique initial state,
 terminal-state markers, and transition rules. A separately owned state cell
 holds one object's current state. Multiple objects can share the same machine
-while keeping independent state cells.
+while keeping independent state cells. Typed cells are created by a machine and expose reads without
+setters or raw access; machines with the same state type may share a cell, since cells are not bound
+to a machine identity.
 
 The Standard machine stores enum-like values in `qubit_atomic::AtomicRef` and
 uses synchronous `qubit-cas` execution. The Fast machine stores dense `u64`
@@ -86,10 +88,12 @@ business transition from a CAS execution failure; use `try_trigger` or
 
 `cas_executor` injects a validated synchronous executor. `cas_strategy` selects
 `LatencyFirst`, `ContentionBackoff`, or `ReliabilityFirst`; the last call that
-sets the executor or strategy wins. The default is 16 immediate attempts with
+sets the executor or strategy wins. The default permits 16 immediate attempts with
 no operation or total wall-clock budget. Inspect the installed executor with
-`machine.cas_executor()`, including `max_attempts()`,
-`max_operation_elapsed()`, and `max_total_elapsed()`.
+`machine.cas_executor()`, including `max_attempts()`, `max_operation_elapsed()`,
+and `max_total_elapsed()`. `LatencyFirst` uses smaller retry limits and soft elapsed-time budgets;
+synchronous execution can exceed a soft budget after an attempt has been admitted. A terminal CAS
+failure remains distinct from a rejected business transition.
 
 Use `FastStateMachine` when states and events are dense `u64` codes and the
 flat transition table is appropriate. Use `TypedFastStateMachine<S, E>` when
@@ -165,7 +169,9 @@ does not prove the result is already available.
 ## Errors and Diagnostics
 
 Build errors cover missing definitions, conflicting duplicate transitions, an invalid initial state,
-and transitions that violate the registered state or terminal-state rules.
+and transitions that violate the registered state or terminal-state rules. For example, a transition
+target that was not registered is rejected during `build`; callers should inspect the returned
+`StateMachineBuildError::TransitionTargetNotRegistered` (or the relevant build error variant) rather than treating an invalid table as a runtime rejection.
 At runtime, Standard returns `UnknownState`, `UnknownTransition`, or
 `CasFailure`; the latter retains the CAS failure kind and attempt count,
 including exhausted conflicts or soft budgets. Fast returns `UnknownState`,
@@ -193,12 +199,16 @@ it with additional synchronization or a version protocol; a separate state
 read before `trigger` does not make that condition atomic.
 
 `trigger_with` invokes its callback once after a successful commit, including a
-self-transition. A callback panic propagates and does not roll back the state.
+self-transition, and callbacks may reenter the machine. A callback panic propagates and does not roll back the state.
 Concurrent callback order is unspecified, and a fresh read inside a callback
 may see a later commit; use the callback's `old` and `new` arguments for the
 audit record.
 
 ## Troubleshooting
+
+`try_trigger_with` does not call its callback when the transition fails; its `false` result
+combines business rejection and execution failure. When that distinction matters, use `trigger_with`
+and match the detailed error.
 
 - If `build` fails, check that the initial state is registered. Standard and
   Raw Fast builders use the final initial-state setting. For Typed Fast, the
@@ -219,7 +229,9 @@ audit record.
 
 Rules are immutable after `build`, but each job still needs its own state cell.
 CAS only atomically commits the state; result delivery, hook ordering, and
-business payload synchronization remain the caller's responsibility. The
+business payload synchronization remain the caller's responsibility. An executor terminal flag can
+become visible before its result is published. A monitor that jointly protects queues, counters, and
+lifecycle should remain coordinated as one domain rather than be split across an independent state cell. The
 synchronous trigger path does not provide async execution or external
 transaction coordination. This crate is a finite state machine, not a complete
 workflow engine.

@@ -12,6 +12,8 @@
 
 构建完成的 machine 保存已注册状态、唯一初态、终态标记和转换规则，之后规则不可变。
 每个任务单独持有一个当前状态单元；多个任务可以共享同一份 machine，而不会共享当前状态。
+强类型状态单元由 machine 创建，只公开读取，没有 setter 或 raw 访问；同一种状态类型的不同 machine
+可以共用状态单元，因为状态单元不绑定 machine 身份。
 
 标准版把枚举风格的值存放在 `qubit_atomic::AtomicRef` 中，通过同步的 `qubit-cas` 执行更新。
 Fast 版把连续的 `u64` 编码存放在 `qubit_fast_cas::FastCasState` 中；强类型 Fast 版还会根据
@@ -78,7 +80,8 @@ assert!(!machine.try_trigger(&state, JobEvent::Start));
 `cas_executor` 用于注入已校验的同步 executor；`cas_strategy` 可选择 `LatencyFirst`、
 `ContentionBackoff` 或 `ReliabilityFirst`。最后一次设置 executor 或 strategy 的调用生效。
 默认配置为 16 次立即尝试，不设置操作或总墙钟预算。构建后可通过 `machine.cas_executor()` 查看实际配置，
-包括 `max_attempts()`、`max_operation_elapsed()` 和 `max_total_elapsed()`。
+包括 `max_attempts()`、`max_operation_elapsed()` 和 `max_total_elapsed()`。`LatencyFirst` 使用较小的
+重试上限和软性耗时预算；某次尝试获准后，同步执行仍可能超过软性预算。CAS 终止失败仍与业务上的未定义转换区分。
 
 当状态和事件可以编码为连续的 `u64`，且适合使用平铺转换表时，选择 `FastStateMachine`。
 需要编译期区分状态和事件类型时，选择 `TypedFastStateMachine<S, E>`；其 `DenseCode::VALUES` 必须完整且不重复。
@@ -149,6 +152,8 @@ CAS 提交只发布状态编码。若任务完成时还要发布结果，调用�
 ## 错误与诊断
 
 构建错误涵盖缺少定义、目标不同的冲突重复转换、初态无效，以及违反状态注册或终态规则的转换。
+例如，转换目标未注册时会在 `build` 阶段被拒绝；调用方应检查返回的 `StateMachineBuildError::TransitionTargetNotRegistered`（或相应构建错误变体），
+而不是把无效规则表当作运行时拒绝。
 标准版运行时会返回 `UnknownState`、`UnknownTransition` 或 `CasFailure`；后者保留 CAS 失败类别和尝试次数，
 包括冲突或软性耗时预算耗尽的情况。Raw Fast 返回 `UnknownState`、`UnknownTransition` 或 `CasConflict`。
 强类型 Fast 运行时直接区分 `InvalidEventCode`、`UnknownTransition`、`CasConflict` 和 `InvalidStateCode`；
@@ -161,10 +166,14 @@ Standard 在进入 CAS 执行器前，先对初次读取的状态和转换进行
 若新状态没有该事件的转换，重试也可能返回业务拒绝。循环不保证检测 ABA：再次观察到相同状态值，并不证明中间未发生转换。
 若操作必须绑定原始源状态或生命周期轮次，调用方需要额外同步或版本协议；先单独读取状态再调用 `trigger`，不能使这一条件成为原子保护。
 
-`trigger_with` 仅在提交成功后调用一次回调，自转换也不例外。回调 panic 会向上传播，状态不会回滚。
+`trigger_with` 仅在提交成功后调用一次回调，自转换也不例外，回调可以重入 machine。
+回调 panic 会向上传播，状态不会回滚。
 并发回调没有全局顺序，回调中重新读取状态还可能看到后续提交；记录审计时应使用回调参数中的 `old` 和 `new`。
 
 ## 排障
+
+转换失败时，`try_trigger_with` 不会调用回调；其 `false` 结果会合并业务拒绝和执行失败。
+需要区分两者时，使用 `trigger_with` 并匹配详细错误。
 
 - `build` 失败：确认初态已注册。Standard 和 Raw Fast 构建器采用最后一次初态设置。对于 Typed Fast，只有此前输入均通过成员校验时，最后一个合法初态才生效；后续合法设置不会清除首次输入错误，需要重新创建构建器才能恢复。终态没有出边，所有转换端点都已注册。
 - 触发失败：先匹配详细错误，再判断是 CAS 冲突还是业务拒绝，以及是否适合重试。
@@ -175,7 +184,9 @@ Standard 在进入 CAS 执行器前，先对初次读取的状态和转换进行
 ## 限制与最佳实践
 
 `build` 后规则不可变，但每个任务仍需独立的状态单元。CAS 只负责原子提交状态；结果投递、hook 顺序和业务负载的同步
-由调用方负责。同步触发路径不提供异步执行或外部事务协调。本库适合有限状态转换，不是完整工作流引擎。
+由调用方负责。executor 的终态标记可能早于结果发布。若 monitor 要联合保护队列、计数和生命周期，
+应让这些状态保持在同一协调域内，不要拆成互不关联的独立状态单元。同步触发路径不提供异步执行
+或外部事务协调。本库适合有限状态转换，不是完整工作流引擎。
 
 ## 延伸阅读
 

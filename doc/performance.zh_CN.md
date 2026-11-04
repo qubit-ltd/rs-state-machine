@@ -19,6 +19,13 @@ Standard 使用 16 次立即尝试且无时间预算；Fast 和 Typed Fast 使�
 转换内部的分配与释放仍计入。
 两个命令均启用全部 feature，以包含四种实现。
 
+每个计时中的生命周期样本都会解包两次转换结果，检查 `Start` 返回目标 1、
+`CompleteSucceeded` 返回目标 2，然后加载状态单元并检查其值为 2。结果解包、
+目标断言、最终加载及其断言都在计时闭包内；状态单元的创建与最终销毁仍在计时区间外。
+现有生命周期表格和归档输出作为历史记录保留：其源码没有逐样本执行这些检查，
+因此反映的是早期测量边界，不是按本文所述检查采集的数据。这不表示任一组结果有误，
+也不表示带检查的方法更快。
+
 ```bash
 cargo bench --bench state_machine_benchmarks --all-features transition_target -- --noplot
 cargo bench --bench state_machine_benchmarks --all-features task_lifecycle -- --noplot

@@ -26,6 +26,17 @@ destruction are outside the measured interval. Allocations and releases
 performed inside transitions remain included. Both commands use all features
 so all four drivers are present.
 
+Each timed lifecycle sample unwraps both transition results, checks that
+`Start` returns target 1 and `CompleteSucceeded` returns target 2, then loads
+the cell and checks that it contains 2. Result unwrapping, target assertions,
+the final load, and its assertion are inside the timed closure. Cell
+construction and final destruction remain outside it. Existing lifecycle
+tables and archived outputs are preserved as historical records: their source
+did not include these per-sample checks, so they describe the earlier
+measurement boundary and are not data collected with the checks described
+here. This does not establish that either set of results is wrong or that the
+checked method is faster.
+
 ```bash
 cargo bench --bench state_machine_benchmarks --all-features transition_target -- --noplot
 cargo bench --bench state_machine_benchmarks --all-features task_lifecycle -- --noplot
