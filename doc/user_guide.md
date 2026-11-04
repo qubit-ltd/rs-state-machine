@@ -173,6 +173,13 @@ including exhausted conflicts or soft budgets. Fast returns `UnknownState`,
 `UnknownTransition`, `CasConflict`, or `InvalidStateCode` directly; only Typed
 Fast build errors use the `Raw` wrapper.
 
+Standard performs an initial state/transition check before entering the CAS
+executor. A rejection from this first snapshot is returned even when the
+executor has a zero elapsed-time budget. If the check passes, executor
+admission may still fail; each admitted attempt reloads the state and
+recomputes the transition. The initial check does not bind the operation to
+that snapshot.
+
 When a CAS conflict occurs, all three machines may retry according to their
 configured policy and recompute the same event's successor from the newly
 observed state. A call is not bound to the source state it first observed. For

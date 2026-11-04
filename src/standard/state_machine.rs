@@ -528,6 +528,13 @@ where
     /// `event`. Returns [`StateMachineError::CasFailure`] when
     /// execution reaches a terminal limit of the configured executor policy.
     ///
+    /// Standard performs an initial state/transition check before entering the
+    /// CAS executor. A rejection from this first snapshot is returned even
+    /// when the executor has a zero elapsed-time budget. If the check passes,
+    /// executor admission may still fail; each admitted attempt reloads the
+    /// state and recomputes the transition. The initial check does not bind
+    /// the operation to that snapshot.
+    ///
     /// # Examples
     ///
     /// ```
