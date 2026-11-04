@@ -217,6 +217,17 @@ fn test_builder_reference_acceptance_and_error_branches() {
 
 #[cfg(all(feature = "fast", feature = "standard"))]
 #[test]
+fn test_differential_queries_unreachable_rows_without_trace() {
+    // Two states/events; state 0 cannot reach state 1. No trailing trace.
+    // Row 0: self-loop, unset. Row 1: target 0, self-loop.
+    assert_eq!(
+        support::run_differential(&[1, 1, 0, 255, 0, 1]),
+        support::BuilderOutcome::Built { checked_pairs: 4 }
+    );
+}
+
+#[cfg(all(feature = "fast", feature = "standard"))]
+#[test]
 fn test_differential_invalid_events_preserve_trace() {
     assert_eq!(
         support::run_differential(&[1, 0, 1, 0, 0, 254, 255, 0]),

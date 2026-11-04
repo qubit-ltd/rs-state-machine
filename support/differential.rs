@@ -218,6 +218,30 @@ pub fn run_differential(data: &[u8]) -> super::BuilderOutcome {
         assert_eq!(standard.is_terminal_state(state), terminal);
         assert_eq!(typed.is_terminal_state(DiffState::VALUES[state as usize]), terminal);
     }
+    let mut checked_pairs = 0;
+    for source in 0..state_count {
+        for event in 0..event_count {
+            let expected = table[(source * event_count + event) as usize];
+            assert_eq!(
+                standard.transition_target(source, event),
+                expected,
+                "Standard query: source={source}, event={event}"
+            );
+            assert_eq!(
+                fast.transition_target(source, event),
+                expected,
+                "Raw Fast query: source={source}, event={event}"
+            );
+            assert_eq!(
+                typed
+                    .transition_target(DiffState::VALUES[source as usize], DiffEvent::VALUES[event as usize],)
+                    .map(DenseCode::code),
+                expected,
+                "Typed Fast query: source={source}, event={event}"
+            );
+            checked_pairs += 1;
+        }
+    }
     let typed_state = typed.create_state();
     let fast_state = fast.create_state();
     let standard_state = standard.create_state();
@@ -292,5 +316,5 @@ pub fn run_differential(data: &[u8]) -> super::BuilderOutcome {
         assert_eq!(fast_state.load(), current);
         assert_eq!(*standard_state.load(), current);
     }
-    BuilderOutcome::Built { checked_pairs: cells }
+    BuilderOutcome::Built { checked_pairs }
 }
