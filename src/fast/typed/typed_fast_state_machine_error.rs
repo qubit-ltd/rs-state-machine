@@ -68,7 +68,7 @@ impl<S: super::DenseCode, E: super::DenseCode> TypedFastStateMachineError<S, E> 
     /// Returns whether the supplied event has no configured transition.
     ///
     /// # Returns
-    /// `true` only for a wrapped unknown-transition error.
+    /// `true` only for [`Self::UnknownTransition`].
     #[must_use]
     #[inline]
     pub const fn is_unknown_transition(&self) -> bool {
@@ -78,7 +78,7 @@ impl<S: super::DenseCode, E: super::DenseCode> TypedFastStateMachineError<S, E> 
     /// Returns whether the CAS retry budget was exhausted.
     ///
     /// # Returns
-    /// `true` only for a wrapped CAS-conflict error.
+    /// `true` only for [`Self::CasConflict`].
     #[must_use]
     #[inline]
     pub const fn is_cas_conflict(&self) -> bool {

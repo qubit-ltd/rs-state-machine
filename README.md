@@ -238,55 +238,55 @@ It validates the full transition table at build time and keeps runtime transitio
 lookup O(1) with a row-major flat array (`index = state * event_count + event`).
 
 ```rust
-# fn main() -> Result<(), Box<dyn std::error::Error>> {
-use qubit_fast_cas::{FastCasPolicy, FastCasState};
-use qubit_state_machine::{
-    FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
-    FastStateMachine,
-};
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    use qubit_fast_cas::{FastCasPolicy, FastCasState};
+    use qubit_state_machine::{
+        FAST_STATE_MACHINE_DEFAULT_CAS_POLICY,
+        FastStateMachine,
+    };
 
-const QUEUED: u64 = 0;
-const RUNNING: u64 = 1;
-const SUCCEEDED: u64 = 2;
-const FAILED: u64 = 3;
-const START: u64 = 0;
-const COMPLETE: u64 = 1;
-const FAIL: u64 = 2;
+    const QUEUED: u64 = 0;
+    const RUNNING: u64 = 1;
+    const SUCCEEDED: u64 = 2;
+    const FAILED: u64 = 3;
+    const START: u64 = 0;
+    const COMPLETE: u64 = 1;
+    const FAIL: u64 = 2;
 
-let machine = FastStateMachine::builder()
-    .state_count(4)
-    .event_count(3)
-    .initial_state(QUEUED)
-    .terminal_states(&[SUCCEEDED, FAILED])
-    .transition(QUEUED, START, RUNNING)
-    .transition(RUNNING, COMPLETE, SUCCEEDED)
-    .transition(RUNNING, FAIL, FAILED)
-    .build()?;
+    let machine = FastStateMachine::builder()
+        .state_count(4)
+        .event_count(3)
+        .initial_state(QUEUED)
+        .terminal_states(&[SUCCEEDED, FAILED])
+        .transition(QUEUED, START, RUNNING)
+        .transition(RUNNING, COMPLETE, SUCCEEDED)
+        .transition(RUNNING, FAIL, FAILED)
+        .build()?;
 
-let tuned = FastStateMachine::builder()
-    .state_count(4)
-    .event_count(3)
-    .initial_state(QUEUED)
-    .terminal_states(&[SUCCEEDED, FAILED])
-    .transition(QUEUED, START, RUNNING)
-    .transition(RUNNING, COMPLETE, SUCCEEDED)
-    .transition(RUNNING, FAIL, FAILED)
-    .cas_policy(FastCasPolicy::spin(8))
-    .build()?;
+    let tuned = FastStateMachine::builder()
+        .state_count(4)
+        .event_count(3)
+        .initial_state(QUEUED)
+        .terminal_states(&[SUCCEEDED, FAILED])
+        .transition(QUEUED, START, RUNNING)
+        .transition(RUNNING, COMPLETE, SUCCEEDED)
+        .transition(RUNNING, FAIL, FAILED)
+        .cas_policy(FastCasPolicy::spin(8))
+        .build()?;
 
-let state = FastCasState::new(QUEUED);
-assert_eq!(machine.trigger(&state, START)?, RUNNING);
-let tuned_state = FastCasState::new(RUNNING);
-assert_eq!(tuned.trigger(&tuned_state, COMPLETE)?, SUCCEEDED);
-assert_eq!(machine.transition_target(QUEUED, START), Some(RUNNING));
-assert_eq!(machine.state_count(), 4);
-assert_eq!(machine.event_count(), 3);
-assert!(machine.is_initial_state(QUEUED));
-assert!(machine.is_terminal_state(SUCCEEDED));
-assert_eq!(machine.cas_policy(), FAST_STATE_MACHINE_DEFAULT_CAS_POLICY);
-assert_eq!(tuned.cas_policy(), FastCasPolicy::spin(8));
-# Ok(())
-# }
+    let state = FastCasState::new(QUEUED);
+    assert_eq!(machine.trigger(&state, START)?, RUNNING);
+    let tuned_state = FastCasState::new(RUNNING);
+    assert_eq!(tuned.trigger(&tuned_state, COMPLETE)?, SUCCEEDED);
+    assert_eq!(machine.transition_target(QUEUED, START), Some(RUNNING));
+    assert_eq!(machine.state_count(), 4);
+    assert_eq!(machine.event_count(), 3);
+    assert!(machine.is_initial_state(QUEUED));
+    assert!(machine.is_terminal_state(SUCCEEDED));
+    assert_eq!(machine.cas_policy(), FAST_STATE_MACHINE_DEFAULT_CAS_POLICY);
+    assert_eq!(tuned.cas_policy(), FastCasPolicy::spin(8));
+    Ok(())
+}
 ```
 
 `FAST_STATE_MACHINE_DEFAULT_CAS_POLICY` is used when `.cas_policy(...)` is omitted.
