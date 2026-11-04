@@ -170,6 +170,37 @@ Standard 在进入 CAS 执行器前，先对初次读取的状态和转换进行
 回调 panic 会向上传播，状态不会回滚。
 并发回调没有全局顺序，回调中重新读取状态还可能看到后续提交；记录审计时应使用回调参数中的 `old` 和 `new`。
 
+### 图诊断
+
+[API 文档中的 `GraphDiagnostics`](https://docs.rs/qubit-state-machine) 两个集合回答不同问题：`unreachable_states()` 列出从初态无法到达的已注册状态，`states_without_terminal_path()` 则列出无法到达显式终态的状态。下面用状态 `0` 表示运行中，`1` 表示已停止，`2` 表示尚未接入生命周期的维护状态；从 `0` 到 `1` 的转换使用事件 `0`。
+
+```rust
+use qubit_state_machine::StateMachine;
+
+let service = StateMachine::<u8, u8>::builder()
+    .add_states(&[0, 1, 2])
+    .initial_state(0)
+    .terminal_state(1)
+    .transition(0, 0, 1)
+    .build().expect("valid service rules");
+let report = service.diagnose_graph();
+assert_eq!(report.unreachable_states().len(), 1);
+assert!(report.unreachable_states().contains(&2));
+assert_eq!(report.states_without_terminal_path().len(), 1);
+assert!(report.states_without_terminal_path().contains(&2));
+
+let ongoing = StateMachine::<u8, u8>::builder()
+    .add_state(0)
+    .initial_state(0)
+    .transition(0, 0, 0)
+    .build().expect("a lifecycle without terminal states is valid");
+let report = ongoing.diagnose_graph();
+assert!(report.unreachable_states().is_empty());
+assert_eq!(report.states_without_terminal_path(), &[0]);
+```
+
+图诊断只读取规则，不会改变任何运行中的 cell；报告也不会自动拒绝成功构建的状态机。若批处理应用要求每个状态都可达且最终能够结束，可以在启动时将任一诊断结果视为错误。对于预期长期运行的持续服务，则可将无法到达终态的状态作为正常信息处理。
+
 ## 排障
 
 转换失败时，`try_trigger_with` 不会调用回调；其 `false` 结果会合并业务拒绝和执行失败。

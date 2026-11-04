@@ -204,6 +204,37 @@ Concurrent callback order is unspecified, and a fresh read inside a callback
 may see a later commit; use the callback's `old` and `new` arguments for the
 audit record.
 
+### Graph Diagnostics
+
+The two sets in [`GraphDiagnostics` in the API Reference](https://docs.rs/qubit-state-machine) answer different questions: `unreachable_states()` lists registered states that cannot be reached from the initial state, while `states_without_terminal_path()` lists states from which no explicit terminal state can be reached. Here, state `0` means running, `1` means stopped, and `2` means a maintenance state not yet connected to the lifecycle. The transition from `0` to `1` uses event `0`.
+
+```rust
+use qubit_state_machine::StateMachine;
+
+let service = StateMachine::<u8, u8>::builder()
+    .add_states(&[0, 1, 2])
+    .initial_state(0)
+    .terminal_state(1)
+    .transition(0, 0, 1)
+    .build().expect("valid service rules");
+let report = service.diagnose_graph();
+assert_eq!(report.unreachable_states().len(), 1);
+assert!(report.unreachable_states().contains(&2));
+assert_eq!(report.states_without_terminal_path().len(), 1);
+assert!(report.states_without_terminal_path().contains(&2));
+
+let ongoing = StateMachine::<u8, u8>::builder()
+    .add_state(0)
+    .initial_state(0)
+    .transition(0, 0, 0)
+    .build().expect("a lifecycle without terminal states is valid");
+let report = ongoing.diagnose_graph();
+assert!(report.unreachable_states().is_empty());
+assert_eq!(report.states_without_terminal_path(), &[0]);
+```
+
+Graph diagnosis reads the rules and does not change any running cell. Its report also does not automatically reject a successful build. A batch application that requires every state to be reachable and able to finish can treat either finding as a startup error. A continuously running service may instead treat states without a terminal path as expected information when its lifecycle is intended to continue indefinitely.
+
 ## Troubleshooting
 
 `try_trigger_with` does not call its callback when the transition fails; its `false` result
