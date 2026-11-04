@@ -263,10 +263,12 @@ CAS 只提交状态。结果发布及相关业务负载由调用方协调；状�
 ## 项目范围
 
 - `qubit-state-machine` 面向简单有限状态机，不是完整工作流引擎。
-- 状态和事件类型应是小型枚举风格值，并实现 `Copy + Eq + Hash + Debug`。
-- Fast 版本要求状态码/事件码是连续的 `u64`，且位于
-  `[0, state_count)`、`[0, event_count)`，转移表容量固定为
-  `state_count * event_count`。
+- Standard 的状态和事件通常使用小型枚举类型，需实现
+  `Copy + Eq + Hash + Debug + 'static`。
+- Typed Fast 的状态和事件需实现 `DenseCode`；该 trait 要求
+  `Copy + Eq + Debug + Send + Sync + 'static`，不要求 `Hash`。
+- Raw Fast 的状态码和事件码是 `u64`，分别位于 `[0, state_count)` 和
+  `[0, event_count)`；转移表容量为 `state_count * event_count`。
 - 规则定义在 `StateMachineBuilder::build` 之后变为不可变。
 - 标准版转换通过 `AtomicRef<S>` 与 `qubit-cas` CAS 机制执行更新。
 - 回调只会在 CAS 更新成功后执行。

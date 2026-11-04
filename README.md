@@ -267,10 +267,13 @@ contains the complete public API documentation.
 
 - `qubit-state-machine` is intended for simple finite state machines, not a full
   workflow engine.
-- State and event types should be small enum-like values implementing
-  `Copy + Eq + Hash + Debug`.
-- Fast state machines require dense `u64` state/event codes in `[0, state_count)` and
-  `[0, event_count)` and a complete table budget of `state_count * event_count`.
+- Standard state and event types should usually be small enum-like values
+  implementing `Copy + Eq + Hash + Debug + 'static`.
+- Typed Fast state and event types implement `DenseCode`, which requires
+  `Copy + Eq + Debug + Send + Sync + 'static` but does not require `Hash`.
+- Raw Fast state and event codes are `u64` values in `[0, state_count)` and
+  `[0, event_count)`, with a complete table budget of
+  `state_count * event_count`.
 - Rule definitions become immutable after `StateMachineBuilder::build`.
 - Standard event triggering uses `AtomicRef<S>` with CAS execution via `qubit-cas`.
 - Success callbacks are executed only after CAS transition succeeds.
