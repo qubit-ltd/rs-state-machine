@@ -9,11 +9,11 @@
 //! Standard state machine configuration and post-commit callback contracts.
 #![cfg(feature = "standard")]
 
-use std::time::Duration;
 use std::sync::Barrier;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::thread;
+use std::time::Duration;
 
 use qubit_atomic::AtomicRef;
 use qubit_cas::CasErrorKind;
@@ -45,7 +45,14 @@ fn test_initial_precheck_precedes_zero_elapsed_budgets() {
             .expect("valid transition rules");
         for (current, event, expected) in [
             (9, 0, StateMachineError::UnknownState { state: 9 }),
-            (0, 1, StateMachineError::UnknownTransition { source_state: 0, event: 1 }),
+            (
+                0,
+                1,
+                StateMachineError::UnknownTransition {
+                    source_state: 0,
+                    event: 1,
+                },
+            ),
             (0, 0, StateMachineError::CasFailure { kind, attempts: 0 }),
         ] {
             let state = AtomicRef::from_value(current);
