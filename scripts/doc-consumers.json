@@ -1,0 +1,15 @@
+{
+  "expected_scenarios": 10,
+  "scenarios": [
+    {"name":"readme-en-standard","document":"README.md","toml_section":"Installation","toml_block":2,"rust_section":"Quick Start: Job Processing","rust_block":1,"profile":"standard"},
+    {"name":"readme-en-fast-raw","document":"README.md","toml_section":"Installation","toml_block":3,"rust_section":"Fast State Machine","rust_block":1,"profile":"fast"},
+    {"name":"readme-en-fast-typed","document":"README.md","toml_section":"Installation","toml_block":3,"rust_section":"Typed Fast State Machine","rust_block":1,"profile":"fast"},
+    {"name":"readme-zh-standard","document":"README.zh_CN.md","toml_section":"安装","toml_block":2,"rust_section":"快速开始：任务处理","rust_block":1,"profile":"standard"},
+    {"name":"readme-zh-fast-raw","document":"README.zh_CN.md","toml_section":"安装","toml_block":3,"rust_section":"Fast State Machine（高性能模式）","rust_block":1,"profile":"fast"},
+    {"name":"readme-zh-fast-typed","document":"README.zh_CN.md","toml_section":"安装","toml_block":3,"rust_section":"强类型 Fast 状态机","rust_block":1,"profile":"fast"},
+    {"name":"guide-en-standard","document":"doc/user_guide.md","toml_section":"Installation and Minimal Configuration","toml_block":1,"rust_section":"Core Workflow","rust_block":1,"profile":"standard"},
+    {"name":"guide-en-fast-typed","document":"doc/user_guide.md","toml_section":"Typed Fast Task Lifecycle","toml_block":1,"rust_section":"Typed Fast Task Lifecycle","rust_block":1,"profile":"fast"},
+    {"name":"guide-zh-standard","document":"doc/user_guide.zh_CN.md","toml_section":"安装与最小配置","toml_block":1,"rust_section":"核心工作流","rust_block":1,"profile":"standard"},
+    {"name":"guide-zh-fast-typed","document":"doc/user_guide.zh_CN.md","toml_section":"强类型 Fast 任务生命周期","toml_block":1,"rust_section":"强类型 Fast 任务生命周期","rust_block":1,"profile":"fast"}
+  ]
+}

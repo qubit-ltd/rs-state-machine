@@ -7,4 +7,4 @@ fuzz_max_len = 4096
 coverage_cfg_clippy = false
 audit_cached_fallback = true
 matrix = ".infra/ci/cargo-matrix.json"
-hook = ".infra/bin/project-ci-check.sh"
+hook = "scripts/check-doc-consumers.py"
