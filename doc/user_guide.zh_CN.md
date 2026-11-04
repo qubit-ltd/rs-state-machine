@@ -17,10 +17,6 @@
 Fast 版把连续的 `u64` 编码存放在 `qubit_fast_cas::FastCasState` 中；强类型 Fast 版还会根据
 每种类型的 `DenseCode::VALUES` 校验编码。
 
-Fast 构建器按 `state_count * event_count` 分配转换表，默认上限为 `1_048_576` 个单元格。
-可用 `max_table_cells(limit)` 调整这个边界；主要的 `u64` 存储约占
-`8 * state_count * event_count` 字节，不含终态标记和容器开销。
-
 ## 贯穿场景：启动任务并记录审计
 
 假设 worker 需要把任务从 `Queued` 转为 `Running`，并且只有状态提交成功后才能写入审计记录。
@@ -87,6 +83,12 @@ assert!(!machine.try_trigger(&state, JobEvent::Start));
 当状态和事件可以编码为连续的 `u64`，且适合使用平铺转换表时，选择 `FastStateMachine`。
 需要编译期区分状态和事件类型时，选择 `TypedFastStateMachine<S, E>`；其 `DenseCode::VALUES` 必须完整且不重复。
 三种 machine 都提供 `diagnose_graph()` 做离线可达性分析，但该分析不会改变构建是否合法。
+
+Fast 构建器按 `state_count * event_count` 分配转换表，默认上限为 `1_048_576` 个单元格。
+可用 `max_table_cells(limit)` 调整这个边界；主要的 `u64` 表存储约占
+`8 * state_count * event_count` 字节，不含终态标记和容器开销。超过上限时，Raw Fast 的构建会返回
+`FastStateMachineBuildError::TransitionTableLimitExceeded`；Typed Fast 会将同一错误包装为
+`TypedFastStateMachineBuildError::Raw`。
 
 ### 强类型 Fast 任务生命周期
 
