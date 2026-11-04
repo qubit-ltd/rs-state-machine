@@ -42,9 +42,9 @@ fast = ["dep:qubit-fast-cas"]
 [dependencies]
 thiserror = "^2.0"
 
-qubit-atomic = { version = "0.17", optional = true }
-qubit-cas = { version = "0.12", optional = true }
-qubit-fast-cas = { version = "0.3", optional = true }
+qubit-atomic = { version = "^0.17", optional = true }
+qubit-cas = { version = "^0.12", optional = true }
+qubit-fast-cas = { version = "^0.3", optional = true }
 
 [dev-dependencies]
 criterion = "^0.8"
