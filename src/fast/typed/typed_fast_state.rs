@@ -26,7 +26,8 @@ use super::dense_code::decode;
 /// # Examples
 ///
 /// ```
-/// use qubit_state_machine::{DenseCode, TypedFastStateMachine};
+/// use qubit_state_machine::DenseCode;
+/// use qubit_state_machine::TypedFastStateMachine;
 ///
 /// #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 /// enum State { Ready }
@@ -53,6 +54,10 @@ pub struct TypedFastState<S: DenseCode> {
 }
 impl<S: DenseCode> TypedFastState<S> {
     /// Loads the current state with acquire ordering.
+    ///
+    /// Decodes a copied value from the validated codebook without allocating
+    /// or changing the cell. Concurrent transitions may supersede this value
+    /// immediately after the load.
     ///
     /// # Returns
     /// The typed state observed at the atomic load.

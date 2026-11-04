@@ -12,7 +12,7 @@
 
 use libfuzzer_sys::fuzz_target;
 
-#[allow(dead_code)]
+#[allow(dead_code, unused_imports)]
 #[path = "../../support/mod.rs"]
 mod support;
 

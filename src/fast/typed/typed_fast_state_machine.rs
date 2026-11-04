@@ -18,7 +18,8 @@ use super::TypedFastStateMachineError;
 use super::dense_code::checked_code;
 use super::dense_code::decode;
 use crate::FastStateMachine;
-use crate::FastStateMachineError as Raw;
+use crate::FastStateMachineError;
+use crate::GraphDiagnostics;
 use crate::Transition;
 
 /// Immutable dense rules for finite state `S` and event `E` types.
@@ -37,7 +38,8 @@ use crate::Transition;
 /// # Examples
 ///
 /// ```
-/// use qubit_state_machine::{DenseCode, TypedFastStateMachine};
+/// use qubit_state_machine::DenseCode;
+/// use qubit_state_machine::TypedFastStateMachine;
 /// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// enum State { Ready }
 /// impl DenseCode for State {
@@ -60,7 +62,8 @@ use crate::Transition;
 /// State and event types cannot be interchanged:
 ///
 /// ```compile_fail,E0308
-/// use qubit_state_machine::{DenseCode, TypedFastStateMachine};
+/// use qubit_state_machine::DenseCode;
+/// use qubit_state_machine::TypedFastStateMachine;
 /// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// enum State { Ready }
 /// impl DenseCode for State {
@@ -83,7 +86,8 @@ use crate::Transition;
 /// A cell with a different state type cannot be passed to this machine:
 ///
 /// ```compile_fail,E0308
-/// use qubit_state_machine::{DenseCode, TypedFastStateMachine};
+/// use qubit_state_machine::DenseCode;
+/// use qubit_state_machine::TypedFastStateMachine;
 /// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// enum State { Ready }
 /// impl DenseCode for State {
@@ -137,132 +141,15 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
         }
     }
 
-    /// Applies `event` to the shared typed `state` through the configured CAS
-    /// policy.
-    ///
-    /// # Returns
-    /// This call's committed target, which may already be superseded by another
-    /// caller.
-    ///
-    /// # Parameters
-    /// - `state`: Typed atomic cell to update.
-    /// - `event`: Event value to apply.
-    ///
-    /// # Errors
-    /// Returns invalid-event membership, unknown-transition, or CAS-budget
-    /// errors.
-    ///
-    /// # Panics
-    /// Panics if an internal committed code violates the validated codebook.
-    #[inline]
-    pub fn trigger(&self, state: &TypedFastState<S>, event: E) -> Result<S, TypedFastStateMachineError<S, E>> {
-        let code = checked_code(event).ok_or(TypedFastStateMachineError::InvalidEventCode {
-            event,
-            code: event.code(),
-        })?;
-        let next = self
-            .raw
-            .trigger(&state.raw, code)
-            .map_err(|error| Self::map_raw_error(error, event))?;
-        Ok(decode(next).expect("validated transition target must decode"))
-    }
-
-    /// Applies `event` to `state` and calls `on_success` once after committing.
-    ///
-    /// The callback receives this commit's old and new states. It can reenter
-    /// the machine; another callback may run first or observe a later state.
-    ///
-    /// # Type Parameters
-    /// - `F`: A one-shot callback, executed outside the retry loop.
-    ///
-    /// # Returns
-    /// This call's target, even if a reentrant callback commits another state.
-    ///
-    /// # Parameters
-    /// - `state`: Typed atomic cell to update.
-    /// - `event`: Event value to apply.
-    /// - `on_success`: Callback receiving the committed old and new states.
-    ///
-    /// # Errors
-    /// Returns the same errors as `trigger`; errors never invoke the callback.
-    ///
-    /// # Panics
-    /// Callback panics propagate after the commit, without rolling it back.
-    /// An internal codebook violation also panics safely.
-    #[inline]
-    pub fn trigger_with<F>(
-        &self,
-        state: &TypedFastState<S>,
-        event: E,
-        on_success: F,
-    ) -> Result<S, TypedFastStateMachineError<S, E>>
-    where
-        F: FnOnce(S, S),
-    {
-        let code = checked_code(event).ok_or(TypedFastStateMachineError::InvalidEventCode {
-            event,
-            code: event.code(),
-        })?;
-        let next = self
-            .raw
-            .trigger_with(&state.raw, code, |old, new| {
-                on_success(
-                    decode(old).expect("validated previous state must decode"),
-                    decode(new).expect("validated transition target must decode"),
-                );
-            })
-            .map_err(|error| Self::map_raw_error(error, event))?;
-        Ok(decode(next).expect("validated transition target must decode"))
-    }
-
-    /// Applies `event` to `state`, discarding every error classification.
-    ///
-    /// # Returns
-    /// `true` on commit (including self-transitions), or `false` for any error.
-    ///
-    /// # Parameters
-    /// - `state`: Typed atomic cell to update.
-    /// - `event`: Event value to apply.
-    #[must_use = "the result reports whether the transition committed"]
-    #[inline]
-    pub fn try_trigger(&self, state: &TypedFastState<S>, event: E) -> bool {
-        self.trigger(state, event).is_ok()
-    }
-
-    /// Applies `event` to `state`, calling `callback` only on a successful
-    /// commit.
-    ///
-    /// # Returns
-    /// `true` on commit, or `false` on any validation or CAS error.
-    ///
-    /// # Type Parameters
-    /// - `F`: One-shot callback type.
-    ///
-    /// # Parameters
-    /// - `state`: Typed atomic cell to update.
-    /// - `event`: Event value to apply.
-    /// - `callback`: Callback receiving the committed old and new states.
-    ///
-    /// # Panics
-    /// Propagates callback panics without rolling back the committed state.
-    #[must_use = "the result reports whether the transition committed"]
-    #[inline]
-    pub fn try_trigger_with<F>(&self, state: &TypedFastState<S>, event: E, callback: F) -> bool
-    where
-        F: FnOnce(S, S),
-    {
-        self.trigger_with(state, event, callback).is_ok()
-    }
-
     /// Queries the target for `source` and `event` without modifying a cell.
-    ///
-    /// # Returns
-    /// The target, or `None` for an invalid typed input or an undefined
-    /// transition.
     ///
     /// # Parameters
     /// - `source`: Candidate source state.
     /// - `event`: Candidate event.
+    ///
+    /// # Returns
+    /// The target, or `None` for an invalid typed input or an undefined
+    /// transition.
     #[must_use = "use the queried transition target"]
     #[inline]
     pub fn transition_target(&self, source: S, event: E) -> Option<S> {
@@ -358,7 +245,6 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     ///
     /// # Returns
     /// The configured Fast CAS retry policy.
-    #[must_use]
     #[inline]
     pub fn cas_policy(&self) -> FastCasPolicy {
         self.raw.cas_policy()
@@ -371,7 +257,6 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     ///
     /// # Panics
     /// Iteration panics if an internal terminal code cannot be decoded.
-    #[must_use = "iterate over the configured terminal states"]
     #[inline]
     pub fn terminal_states(&self) -> impl Iterator<Item = S> + '_ {
         self.raw
@@ -391,7 +276,6 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// The iterator is lazy and scans the dense state_count * event_count
     /// table when fully consumed, including unset cells. Full traversal is
     /// O(state_count * event_count); no result collection is allocated.
-    #[must_use = "iterate over the configured transitions"]
     #[inline]
     pub fn transitions(&self) -> impl Iterator<Item = Transition<S, E>> + '_ {
         self.raw.transitions().map(|value| {
@@ -408,6 +292,10 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// Reachability findings expressed as typed state values.
     ///
+    /// # Panics
+    /// Panics if an internal diagnostic state code violates the validated
+    /// codebook.
+    ///
     /// # Performance
     /// Each call recomputes the report without caching. It scans the dense
     /// transition table and builds forward and reverse adjacency lists. Time
@@ -416,9 +304,9 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// The typed report also collects typed findings. Use it for offline or
     /// infrequent diagnostics.
     #[must_use]
-    pub fn diagnose_graph(&self) -> crate::GraphDiagnostics<S> {
+    pub fn diagnose_graph(&self) -> GraphDiagnostics<S> {
         let report = self.raw.diagnose_graph();
-        crate::GraphDiagnostics {
+        GraphDiagnostics {
             unreachable_states: report
                 .unreachable_states
                 .into_iter()
@@ -432,6 +320,127 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
         }
     }
 
+    /// Applies `event` to the shared typed `state` through the configured CAS
+    /// policy.
+    ///
+    /// # Parameters
+    /// - `state`: Typed atomic cell to update.
+    /// - `event`: Event value to apply.
+    ///
+    /// # Returns
+    /// This call's committed target, which may already be superseded by another
+    /// caller.
+    ///
+    /// # Errors
+    /// Returns invalid-event membership, unknown-transition, or CAS-budget
+    /// errors.
+    ///
+    /// # Panics
+    /// Panics if an internal committed code violates the validated codebook.
+    #[inline]
+    pub fn trigger(&self, state: &TypedFastState<S>, event: E) -> Result<S, TypedFastStateMachineError<S, E>> {
+        let code = checked_code(event).ok_or(TypedFastStateMachineError::InvalidEventCode {
+            event,
+            code: event.code(),
+        })?;
+        let next = self
+            .raw
+            .trigger(&state.raw, code)
+            .map_err(|error| Self::map_raw_error(error, event))?;
+        Ok(decode(next).expect("validated transition target must decode"))
+    }
+
+    /// Applies `event` to `state` and calls `on_success` once after committing.
+    ///
+    /// The callback receives this commit's old and new states. It can reenter
+    /// the machine; another callback may run first or observe a later state.
+    ///
+    /// # Type Parameters
+    /// - `F`: A one-shot callback, executed outside the retry loop.
+    ///
+    /// # Parameters
+    /// - `state`: Typed atomic cell to update.
+    /// - `event`: Event value to apply.
+    /// - `on_success`: Callback receiving the committed old and new states.
+    ///
+    /// # Returns
+    /// This call's target, even if a reentrant callback commits another state.
+    ///
+    /// # Errors
+    /// Returns the same errors as `trigger`; errors never invoke the callback.
+    ///
+    /// # Panics
+    /// Callback panics propagate after the commit, without rolling it back.
+    /// An internal codebook violation also panics safely.
+    #[inline]
+    pub fn trigger_with<F>(
+        &self,
+        state: &TypedFastState<S>,
+        event: E,
+        on_success: F,
+    ) -> Result<S, TypedFastStateMachineError<S, E>>
+    where
+        F: FnOnce(S, S),
+    {
+        let code = checked_code(event).ok_or(TypedFastStateMachineError::InvalidEventCode {
+            event,
+            code: event.code(),
+        })?;
+        let next = self
+            .raw
+            .trigger_with(&state.raw, code, |old, new| {
+                on_success(
+                    decode(old).expect("validated previous state must decode"),
+                    decode(new).expect("validated transition target must decode"),
+                );
+            })
+            .map_err(|error| Self::map_raw_error(error, event))?;
+        Ok(decode(next).expect("validated transition target must decode"))
+    }
+
+    /// Applies `event` to `state`, discarding every error classification.
+    ///
+    /// # Parameters
+    /// - `state`: Typed atomic cell to update.
+    /// - `event`: Event value to apply.
+    ///
+    /// # Returns
+    /// `true` on commit (including self-transitions), or `false` for any error.
+    ///
+    /// # Panics
+    /// Panics if an internal committed code violates the validated codebook.
+    #[must_use = "the result reports whether the transition committed"]
+    #[inline]
+    pub fn try_trigger(&self, state: &TypedFastState<S>, event: E) -> bool {
+        self.trigger(state, event).is_ok()
+    }
+
+    /// Applies `event` to `state`, calling `callback` only on a successful
+    /// commit.
+    ///
+    /// # Type Parameters
+    /// - `F`: One-shot callback type.
+    ///
+    /// # Parameters
+    /// - `state`: Typed atomic cell to update.
+    /// - `event`: Event value to apply.
+    /// - `callback`: Callback receiving the committed old and new states.
+    ///
+    /// # Returns
+    /// `true` on commit, or `false` on any validation or CAS error.
+    ///
+    /// # Panics
+    /// Propagates callback panics without rolling back the committed state.
+    /// An internal codebook violation also panics safely.
+    #[must_use = "the result reports whether the transition committed"]
+    #[inline]
+    pub fn try_trigger_with<F>(&self, state: &TypedFastState<S>, event: E, callback: F) -> bool
+    where
+        F: FnOnce(S, S),
+    {
+        self.trigger_with(state, event, callback).is_ok()
+    }
+
     /// Projects a raw integer runtime error into typed state and event values.
     ///
     /// # Parameters
@@ -441,13 +450,16 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachine<S, E> {
     /// # Returns
     /// A typed runtime error preserving business rejection, invalid state
     /// codes, or exhausted CAS attempts.
-    fn map_raw_error(error: Raw, event: E) -> TypedFastStateMachineError<S, E> {
+    #[inline]
+    fn map_raw_error(error: FastStateMachineError, event: E) -> TypedFastStateMachineError<S, E> {
         match error {
-            Raw::UnknownState { state } => TypedFastStateMachineError::InvalidStateCode { code: state },
-            Raw::UnknownTransition { source_state, .. } => decode(source_state)
+            FastStateMachineError::UnknownState { state } => {
+                TypedFastStateMachineError::InvalidStateCode { code: state }
+            }
+            FastStateMachineError::UnknownTransition { source_state, .. } => decode(source_state)
                 .map(|source_state| TypedFastStateMachineError::UnknownTransition { source_state, event })
                 .unwrap_or(TypedFastStateMachineError::InvalidStateCode { code: source_state }),
-            Raw::CasConflict { attempts } => TypedFastStateMachineError::CasConflict { attempts },
+            FastStateMachineError::CasConflict { attempts } => TypedFastStateMachineError::CasConflict { attempts },
         }
     }
 }

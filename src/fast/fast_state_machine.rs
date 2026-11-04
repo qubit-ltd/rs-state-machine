@@ -13,9 +13,13 @@ use qubit_fast_cas::FastCasDecision;
 use qubit_fast_cas::FastCasPolicy;
 use qubit_fast_cas::FastCasState;
 
+use super::FastStateMachineBuilder;
 use super::FastStateMachineError;
 use super::FastStateMachineResult;
 use super::fast_state_machine_error::fast_state_machine_error_from_fast_cas_error;
+use crate::GraphDiagnostics;
+use crate::Transition;
+use crate::diagnostics::analyze_graph;
 
 /// Dense-table sentinel meaning no transition is configured for a cell.
 ///
@@ -77,8 +81,19 @@ impl FastStateMachine {
     /// # Returns
     /// A new, empty [`super::FastStateMachineBuilder`].
     #[inline]
-    pub fn builder() -> super::FastStateMachineBuilder {
-        super::FastStateMachineBuilder::new()
+    pub fn builder() -> FastStateMachineBuilder {
+        FastStateMachineBuilder::new()
+    }
+
+    /// Creates a new independent fast state cell initialized to the initial
+    /// state.
+    ///
+    /// # Returns
+    /// An atomic state cell initialized to [`Self::initial_state`].
+    #[must_use]
+    #[inline]
+    pub fn create_state(&self) -> FastCasState {
+        FastCasState::new(self.initial_state)
     }
 
     /// Returns the number of distinct state codes configured for this machine.
@@ -115,51 +130,14 @@ impl FastStateMachine {
     /// The iterator is lazy and scans the dense state_count * event_count
     /// table when fully consumed, including unset cells. Full traversal is
     /// O(state_count * event_count); no result collection is allocated.
-    #[must_use = "iterate over the configured transitions"]
     #[inline]
-    pub fn transitions(&self) -> impl Iterator<Item = crate::Transition<u64, u64>> + '_ {
+    pub fn transitions(&self) -> impl Iterator<Item = Transition<u64, u64>> + '_ {
         (0..self.state_count).flat_map(move |source| {
             (0..self.event_count).filter_map(move |event| {
                 self.transition_target(source, event)
-                    .map(|target| crate::Transition::new(source, event, target))
+                    .map(|target| Transition::new(source, event, target))
             })
         })
-    }
-
-    /// Analyzes reachability and paths to explicit terminal states.
-    ///
-    /// # Returns
-    /// A report listing codes unreachable from the initial state and codes
-    /// unable to reach an explicit terminal state.
-    ///
-    /// # Performance
-    /// Each call recomputes the report without caching. It scans the dense
-    /// transition table and builds forward and reverse adjacency lists. Time
-    /// is O(S * A + S + T), with O(S + T) additional space, where S is the
-    /// state count, A the event count, and T the configured transition count.
-    /// Use it for offline or infrequent diagnostics.
-    #[must_use]
-    pub fn diagnose_graph(&self) -> crate::GraphDiagnostics<u64> {
-        let index = |code: u64| usize::try_from(code).expect("validated state code fits usize");
-        let report = crate::diagnostics::analyze_graph(
-            index(self.state_count),
-            index(self.initial_state),
-            self.terminal_states().map(index),
-            self.transitions()
-                .map(|edge| (index(edge.source()), index(edge.target()))),
-        );
-        crate::GraphDiagnostics {
-            unreachable_states: report
-                .unreachable_states
-                .into_iter()
-                .map(|index| index as u64)
-                .collect(),
-            states_without_terminal_path: report
-                .states_without_terminal_path
-                .into_iter()
-                .map(|index| index as u64)
-                .collect(),
-        }
     }
 
     /// Returns the CAS retry policy used for all transitions.
@@ -171,7 +149,6 @@ impl FastStateMachine {
     ///
     /// # Returns
     /// The configured Fast CAS policy.
-    #[must_use]
     #[inline]
     pub fn cas_policy(&self) -> FastCasPolicy {
         self.cas.policy()
@@ -191,7 +168,6 @@ impl FastStateMachine {
     ///
     /// # Returns
     /// Codes whose validated rule set forbids outgoing transitions.
-    #[must_use = "iterate over the configured terminal states"]
     #[inline]
     pub fn terminal_states(&self) -> impl Iterator<Item = u64> + '_ {
         self.terminal_states
@@ -254,17 +230,6 @@ impl FastStateMachine {
         self.transition_count
     }
 
-    /// Creates a new independent fast state cell initialized to the initial
-    /// state.
-    ///
-    /// # Returns
-    /// An atomic state cell initialized to [`Self::initial_state`].
-    #[must_use]
-    #[inline]
-    pub fn create_state(&self) -> FastCasState {
-        FastCasState::new(self.initial_state)
-    }
-
     /// Looks up the next state for a specific `(source, event)` pair.
     ///
     /// # Parameters
@@ -274,6 +239,7 @@ impl FastStateMachine {
     /// # Returns
     /// `Some(target)` when a transition is configured; `None` if `source` or
     /// `event` is out of range, or if no transition exists for that pair.
+    #[must_use]
     #[inline]
     pub fn transition_target(&self, source: u64, event: u64) -> Option<u64> {
         if !self.contains_state(source) {
@@ -282,22 +248,40 @@ impl FastStateMachine {
         self.transition_target_for_valid_state(source, event)
     }
 
-    /// Resolves a transition after the caller has validated the source state.
-    ///
-    /// # Parameters
-    /// - `source`: Source state known to be less than [`Self::state_count`].
-    /// - `event`: Event code to resolve.
+    /// Analyzes reachability and paths to explicit terminal states.
     ///
     /// # Returns
-    /// The configured target, or `None` when `event` is out of range or the
-    /// transition cell is unset.
-    #[inline]
-    fn transition_target_for_valid_state(&self, source: u64, event: u64) -> Option<u64> {
-        let index = self.transition_index(source, event)?;
-        self.transitions
-            .get(index)
-            .copied()
-            .filter(|&target| target != UNSET_TRANSITION)
+    /// A report listing codes unreachable from the initial state and codes
+    /// unable to reach an explicit terminal state.
+    ///
+    /// # Performance
+    /// Each call recomputes the report without caching. It scans the dense
+    /// transition table and builds forward and reverse adjacency lists. Time
+    /// is O(S * A + S + T), with O(S + T) additional space, where S is the
+    /// state count, A the event count, and T the configured transition count.
+    /// Use it for offline or infrequent diagnostics.
+    #[must_use]
+    pub fn diagnose_graph(&self) -> GraphDiagnostics<u64> {
+        let index = |code: u64| usize::try_from(code).expect("validated state code fits usize");
+        let report = analyze_graph(
+            index(self.state_count),
+            index(self.initial_state),
+            self.terminal_states().map(index),
+            self.transitions()
+                .map(|edge| (index(edge.source()), index(edge.target()))),
+        );
+        GraphDiagnostics {
+            unreachable_states: report
+                .unreachable_states
+                .into_iter()
+                .map(|index| index as u64)
+                .collect(),
+            states_without_terminal_path: report
+                .states_without_terminal_path
+                .into_iter()
+                .map(|index| index as u64)
+                .collect(),
+        }
     }
 
     /// Applies one event atomically on `state` using the configured [`FastCas`]
@@ -321,6 +305,7 @@ impl FastStateMachine {
     /// * [`FastStateMachineError::UnknownTransition`] — no transition for
     ///   `(current, event)`.
     /// * [`FastStateMachineError::CasConflict`] — CAS retries exhausted.
+    #[inline]
     pub fn trigger(&self, state: &FastCasState, event: u64) -> FastStateMachineResult {
         let (_old_state, new_state) = self.change_state(state, event)?;
         Ok(new_state)
@@ -412,6 +397,25 @@ impl FastStateMachine {
         self.trigger_with(state, event, on_success).is_ok()
     }
 
+    /// Resolves a transition after the caller has validated the source state.
+    ///
+    /// # Parameters
+    /// - `source`: Source state known to be less than [`Self::state_count`].
+    /// - `event`: Event code to resolve.
+    ///
+    /// # Returns
+    /// The configured target, or `None` when `event` is out of range or the
+    /// transition cell is unset.
+    #[must_use]
+    #[inline]
+    fn transition_target_for_valid_state(&self, source: u64, event: u64) -> Option<u64> {
+        let index = self.transition_index(source, event)?;
+        self.transitions
+            .get(index)
+            .copied()
+            .filter(|&target| target != UNSET_TRANSITION)
+    }
+
     /// Runs one CAS-backed transition: validates `event` against the loaded
     /// current code and installs the next code or aborts with
     /// [`FastStateMachineError`].
@@ -474,6 +478,7 @@ impl FastStateMachine {
     ///
     /// # Returns
     /// The platform index for an in-range code, or `None` otherwise.
+    #[must_use]
     #[inline]
     fn state_index(&self, state: u64) -> Option<usize> {
         if !self.contains_state(state) {
@@ -491,6 +496,7 @@ impl FastStateMachine {
     /// # Returns
     /// The platform table index, or `None` when `event` or the computed index
     /// is not representable.
+    #[must_use]
     #[inline]
     fn transition_index(&self, source: u64, event: u64) -> Option<usize> {
         if event >= self.event_count {
@@ -506,6 +512,7 @@ mod retry_interleaving_tests {
     use std::cell::RefCell;
     use std::sync::Arc;
     use std::sync::mpsc;
+    use std::thread::spawn;
     use std::time::Duration;
 
     use qubit_fast_cas::FastCasPolicy;
@@ -562,6 +569,8 @@ mod retry_interleaving_tests {
         }
     }
 
+    /// Coordinates a worker pause after loading a code but before deciding a
+    /// CAS update.
     struct Gate {
         pause_decisions: usize,
         decisions: usize,
@@ -575,9 +584,11 @@ mod retry_interleaving_tests {
         static GATE: RefCell<Option<Gate>> = const { RefCell::new(None) };
     }
 
+    /// Clears the thread-local gate even when a worker unwinds.
     struct GateGuard;
 
     impl GateGuard {
+        /// Installs the worker-local gate, rejecting nested installations.
         fn install(gate: Gate) -> Self {
             GATE.with(|slot| {
                 let previous = slot.replace(Some(gate));
@@ -586,6 +597,7 @@ mod retry_interleaving_tests {
             Self
         }
 
+        /// Copies observed decision codes and the coordination failure flag.
         fn take_result(&self) -> (Vec<u64>, bool) {
             GATE.with(|slot| {
                 let slot = slot.borrow_mut();
@@ -603,6 +615,8 @@ mod retry_interleaving_tests {
         }
     }
 
+    /// Pauses selected decisions until the coordinator commits a competing
+    /// transition.
     pub(super) fn before_decision(current: u64) {
         GATE.with(|slot| {
             let mut slot = slot.borrow_mut();
@@ -619,6 +633,8 @@ mod retry_interleaving_tests {
         });
     }
 
+    /// Builds integer rules for invalidation, retargeting, or budget
+    /// exhaustion.
     fn raw_machine(policy: FastCasPolicy, retry_work: bool, exhaust_work: bool) -> FastStateMachine {
         let mut builder = FastStateMachine::builder()
             .state_count(4)
@@ -636,6 +652,7 @@ mod retry_interleaving_tests {
         builder.build().expect("test transition rules are valid")
     }
 
+    /// Builds typed equivalents of the controlled integer transition rules.
     fn typed_machine(
         policy: FastCasPolicy,
         retry_work: bool,
@@ -658,6 +675,8 @@ mod retry_interleaving_tests {
         builder.build().expect("test transition rules are valid")
     }
 
+    /// Captures the operation result, callback commits, decision observations,
+    /// and final cell.
     struct WorkerResult<R> {
         result: R,
         callback_args: Vec<(u64, u64)>,
@@ -665,6 +684,8 @@ mod retry_interleaving_tests {
         final_state: u64,
     }
 
+    /// Runs integer transitions with deterministic pauses before selected CAS
+    /// decisions.
     fn run_raw(
         machine: Arc<FastStateMachine>,
         pause_decisions: usize,
@@ -676,7 +697,7 @@ mod retry_interleaving_tests {
         let (result_tx, result_rx) = mpsc::channel();
         let worker_machine = Arc::clone(&machine);
         let worker_state = Arc::clone(&state);
-        let worker = std::thread::spawn(move || {
+        let worker = spawn(move || {
             let guard = GateGuard::install(Gate {
                 pause_decisions,
                 decisions: 0,
@@ -730,6 +751,7 @@ mod retry_interleaving_tests {
         }
     }
 
+    /// Runs typed transitions through the same private integer decision gate.
     fn run_typed(
         machine: Arc<TypedFastStateMachine<State, Event>>,
         pause_decisions: usize,
@@ -741,7 +763,7 @@ mod retry_interleaving_tests {
         let (result_tx, result_rx) = mpsc::channel();
         let worker_machine = Arc::clone(&machine);
         let worker_state = Arc::clone(&state);
-        let worker = std::thread::spawn(move || {
+        let worker = spawn(move || {
             let guard = GateGuard::install(Gate {
                 pause_decisions,
                 decisions: 0,
@@ -801,97 +823,205 @@ mod retry_interleaving_tests {
     fn test_raw_fast_retry_rejects_invalidated_event() {
         let machine = Arc::new(raw_machine(FastCasPolicy::spin(2), false, false));
         let result = run_raw(machine, 1, 1);
-        assert_eq!(result.observed, [A, B]);
+        assert_eq!(
+            result.observed,
+            [A, B],
+            "decisions must observe the expected retry state codes"
+        );
         assert_eq!(
             result.result,
             Err(FastStateMachineError::UnknownTransition {
                 source_state: B,
                 event: WORK
-            })
+            }),
+            "the controlled interleaving must produce the expected transition result"
         );
-        assert_eq!(result.callback_args, []);
-        assert_eq!(result.final_state, B);
+        assert_eq!(
+            result.callback_args,
+            [],
+            "callbacks must match only the successfully committed transition"
+        );
+        assert_eq!(
+            result.final_state, B,
+            "the shared cell must retain the expected final state"
+        );
     }
 
     #[test]
     fn test_typed_fast_retry_rejects_invalidated_event() {
         let machine = Arc::new(typed_machine(FastCasPolicy::spin(2), false, false));
         let result = run_typed(machine, 1, 1);
-        assert_eq!(result.observed, [A, B]);
+        assert_eq!(
+            result.observed,
+            [A, B],
+            "decisions must observe the expected retry state codes"
+        );
         assert_eq!(
             result.result,
             Err(TypedFastStateMachineError::UnknownTransition {
                 source_state: State::B,
                 event: Event::Work
-            })
+            }),
+            "the controlled interleaving must produce the expected transition result"
         );
-        assert_eq!(result.callback_args, []);
-        assert_eq!(result.final_state, B);
+        assert_eq!(
+            result.callback_args,
+            [],
+            "callbacks must match only the successfully committed transition"
+        );
+        assert_eq!(
+            result.final_state, B,
+            "the shared cell must retain the expected final state"
+        );
     }
 
     #[test]
     fn test_raw_fast_retry_recomputes_target() {
         let machine = Arc::new(raw_machine(FastCasPolicy::spin(2), true, false));
         let result = run_raw(machine, 1, 1);
-        assert_eq!(result.observed, [A, B]);
-        assert_eq!(result.result, Ok(D));
-        assert_eq!(result.callback_args, [(B, D)]);
-        assert_eq!(result.final_state, D);
+        assert_eq!(
+            result.observed,
+            [A, B],
+            "decisions must observe the expected retry state codes"
+        );
+        assert_eq!(
+            result.result,
+            Ok(D),
+            "the controlled interleaving must produce the expected transition result"
+        );
+        assert_eq!(
+            result.callback_args,
+            [(B, D)],
+            "callbacks must match only the successfully committed transition"
+        );
+        assert_eq!(
+            result.final_state, D,
+            "the shared cell must retain the expected final state"
+        );
     }
 
     #[test]
     fn test_typed_fast_retry_recomputes_target() {
         let machine = Arc::new(typed_machine(FastCasPolicy::spin(2), true, false));
         let result = run_typed(machine, 1, 1);
-        assert_eq!(result.observed, [A, B]);
-        assert_eq!(result.result, Ok(State::D));
-        assert_eq!(result.callback_args, [(B, D)]);
-        assert_eq!(result.final_state, D);
+        assert_eq!(
+            result.observed,
+            [A, B],
+            "decisions must observe the expected retry state codes"
+        );
+        assert_eq!(
+            result.result,
+            Ok(State::D),
+            "the controlled interleaving must produce the expected transition result"
+        );
+        assert_eq!(
+            result.callback_args,
+            [(B, D)],
+            "callbacks must match only the successfully committed transition"
+        );
+        assert_eq!(
+            result.final_state, D,
+            "the shared cell must retain the expected final state"
+        );
     }
 
     #[test]
     fn test_raw_fast_single_attempt_conflict() {
         let machine = Arc::new(raw_machine(FastCasPolicy::once(), true, false));
         let result = run_raw(machine, 1, 1);
-        assert_eq!(result.observed, [A]);
-        assert_eq!(result.result, Err(FastStateMachineError::CasConflict { attempts: 1 }));
-        assert_eq!(result.callback_args, []);
-        assert_eq!(result.final_state, B);
+        assert_eq!(
+            result.observed,
+            [A],
+            "decisions must observe the expected retry state codes"
+        );
+        assert_eq!(
+            result.result,
+            Err(FastStateMachineError::CasConflict { attempts: 1 }),
+            "the controlled interleaving must produce the expected transition result"
+        );
+        assert_eq!(
+            result.callback_args,
+            [],
+            "callbacks must match only the successfully committed transition"
+        );
+        assert_eq!(
+            result.final_state, B,
+            "the shared cell must retain the expected final state"
+        );
     }
 
     #[test]
     fn test_typed_fast_single_attempt_conflict() {
         let machine = Arc::new(typed_machine(FastCasPolicy::once(), true, false));
         let result = run_typed(machine, 1, 1);
-        assert_eq!(result.observed, [A]);
+        assert_eq!(
+            result.observed,
+            [A],
+            "decisions must observe the expected retry state codes"
+        );
         assert_eq!(
             result.result,
-            Err(TypedFastStateMachineError::CasConflict { attempts: 1 })
+            Err(TypedFastStateMachineError::CasConflict { attempts: 1 }),
+            "the controlled interleaving must produce the expected transition result"
         );
-        assert_eq!(result.callback_args, []);
-        assert_eq!(result.final_state, B);
+        assert_eq!(
+            result.callback_args,
+            [],
+            "callbacks must match only the successfully committed transition"
+        );
+        assert_eq!(
+            result.final_state, B,
+            "the shared cell must retain the expected final state"
+        );
     }
 
     #[test]
     fn test_raw_fast_retry_budget_exhausted() {
         let machine = Arc::new(raw_machine(FastCasPolicy::spin(2), false, true));
         let result = run_raw(machine, 2, 2);
-        assert_eq!(result.observed, [A, B]);
-        assert_eq!(result.result, Err(FastStateMachineError::CasConflict { attempts: 2 }));
-        assert_eq!(result.callback_args, []);
-        assert_eq!(result.final_state, C);
+        assert_eq!(
+            result.observed,
+            [A, B],
+            "decisions must observe the expected retry state codes"
+        );
+        assert_eq!(
+            result.result,
+            Err(FastStateMachineError::CasConflict { attempts: 2 }),
+            "the controlled interleaving must produce the expected transition result"
+        );
+        assert_eq!(
+            result.callback_args,
+            [],
+            "callbacks must match only the successfully committed transition"
+        );
+        assert_eq!(
+            result.final_state, C,
+            "the shared cell must retain the expected final state"
+        );
     }
 
     #[test]
     fn test_typed_fast_retry_budget_exhausted() {
         let machine = Arc::new(typed_machine(FastCasPolicy::spin(2), false, true));
         let result = run_typed(machine, 2, 2);
-        assert_eq!(result.observed, [A, B]);
+        assert_eq!(
+            result.observed,
+            [A, B],
+            "decisions must observe the expected retry state codes"
+        );
         assert_eq!(
             result.result,
-            Err(TypedFastStateMachineError::CasConflict { attempts: 2 })
+            Err(TypedFastStateMachineError::CasConflict { attempts: 2 }),
+            "the controlled interleaving must produce the expected transition result"
         );
-        assert_eq!(result.callback_args, []);
-        assert_eq!(result.final_state, C);
+        assert_eq!(
+            result.callback_args,
+            [],
+            "callbacks must match only the successfully committed transition"
+        );
+        assert_eq!(
+            result.final_state, C,
+            "the shared cell must retain the expected final state"
+        );
     }
 }

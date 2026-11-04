@@ -82,7 +82,8 @@ pub enum FastStateMachineBuildError {
         limit: u64,
     },
 
-    /// An initial state code exceeds the configured state count.
+    /// An initial state code is greater than or equal to the configured state
+    /// count.
     #[error("initial state is out of range: {state} >= {state_count}")]
     InitialStateOutOfRange {
         /// The invalid initial state.
@@ -91,7 +92,8 @@ pub enum FastStateMachineBuildError {
         state_count: u64,
     },
 
-    /// A terminal state code exceeds the configured state count.
+    /// A terminal state code is greater than or equal to the configured state
+    /// count.
     #[error("terminal state is out of range: {state} >= {state_count}")]
     TerminalStateOutOfRange {
         /// The invalid terminal state.
@@ -111,7 +113,8 @@ pub enum FastStateMachineBuildError {
         target: u64,
     },
 
-    /// A transition source code exceeds the configured state count.
+    /// A transition source code is greater than or equal to the configured
+    /// state count.
     #[error("transition source is out of range: {source_state} >= {state_count}")]
     TransitionSourceOutOfRange {
         /// The invalid source state.
@@ -120,7 +123,8 @@ pub enum FastStateMachineBuildError {
         state_count: u64,
     },
 
-    /// A transition event code exceeds the configured event count.
+    /// A transition event code is greater than or equal to the configured event
+    /// count.
     #[error("transition event is out of range: {event} >= {event_count}")]
     TransitionEventOutOfRange {
         /// The invalid event code.
@@ -129,7 +133,8 @@ pub enum FastStateMachineBuildError {
         event_count: u64,
     },
 
-    /// A transition target code exceeds the configured state count.
+    /// A transition target code is greater than or equal to the configured
+    /// state count.
     #[error("transition target is out of range: {target} >= {state_count}")]
     TransitionTargetOutOfRange {
         /// The invalid target state.

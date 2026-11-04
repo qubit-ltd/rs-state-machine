@@ -56,16 +56,25 @@ fn test_initial_precheck_precedes_zero_elapsed_budgets() {
             (0, 0, StateMachineError::CasFailure { kind, attempts: 0 }),
         ] {
             let state = AtomicRef::from_value(current);
-            assert_eq!(machine.trigger(&state, event), Err(expected));
-            assert_eq!(*state.load(), current);
+            assert_eq!(
+                machine.trigger(&state, event),
+                Err(expected),
+                "precheck errors must precede elapsed budget errors",
+            );
+            assert_eq!(*state.load(), current, "failed triggers must preserve state");
             let callback_state = AtomicRef::from_value(current);
             let mut callbacks = 0;
             assert_eq!(
                 machine.trigger_with(&callback_state, event, |_, _| callbacks += 1),
                 Err(expected),
+                "callback triggers must preserve precheck and budget error precedence",
             );
-            assert_eq!(*callback_state.load(), current);
-            assert_eq!(callbacks, 0);
+            assert_eq!(
+                *callback_state.load(),
+                current,
+                "failed callback triggers must preserve state",
+            );
+            assert_eq!(callbacks, 0, "failed triggers must not invoke callbacks");
         }
     }
 }
@@ -100,11 +109,18 @@ fn test_injected_executor_and_success_callback_work() {
     machine
         .trigger_with(&state, Event::Start, |old, new| observed.push((old, new)))
         .expect("start succeeds");
-    assert_eq!(observed, vec![(State::New, State::Running)]);
-    assert!(matches!(
-        machine.trigger_with(&state, Event::Start, |_, _| panic!("must not run")),
-        Err(StateMachineError::UnknownTransition { .. })
-    ));
+    assert_eq!(
+        observed,
+        vec![(State::New, State::Running)],
+        "a successful commit must report its old and new states once",
+    );
+    assert!(
+        matches!(
+            machine.trigger_with(&state, Event::Start, |_, _| panic!("must not run")),
+            Err(StateMachineError::UnknownTransition { .. })
+        ),
+        "repeating Start must fail because Running has no Start transition",
+    );
 }
 
 #[test]
@@ -132,8 +148,8 @@ fn test_concurrent_self_transitions_only_invoke_callbacks_for_commits() {
                 for _ in 0..100 {
                     if machine
                         .trigger_with(state, Event::Start, |old, next| {
-                            assert_eq!(old, State::New);
-                            assert_eq!(next, State::New);
+                            assert_eq!(old, State::New, "self transitions must report the original state",);
+                            assert_eq!(next, State::New, "self transitions must retain the same state",);
                             callbacks.fetch_add(1, Ordering::SeqCst);
                         })
                         .is_ok()
@@ -149,7 +165,15 @@ fn test_concurrent_self_transitions_only_invoke_callbacks_for_commits() {
             .map(|thread| thread.join().expect("writer"))
             .sum::<usize>()
     });
-    assert!(successes > 0);
-    assert_eq!(callbacks.load(Ordering::SeqCst), successes);
-    assert_eq!(*state.load(), State::New);
+    assert!(successes > 0, "at least one concurrent self transition must commit");
+    assert_eq!(
+        callbacks.load(Ordering::SeqCst),
+        successes,
+        "each successful commit must invoke exactly one callback",
+    );
+    assert_eq!(
+        *state.load(),
+        State::New,
+        "concurrent self transitions must preserve state"
+    );
 }

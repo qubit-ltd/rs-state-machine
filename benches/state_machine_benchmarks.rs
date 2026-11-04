@@ -10,9 +10,11 @@
 //! Race timing includes worker synchronization but excludes thread/cell
 //! construction.
 use std::hint::black_box;
+use std::hint::spin_loop;
 use std::sync::Barrier;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
+use std::thread::scope;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -64,11 +66,16 @@ trait Driver: Sync {
     type Cell: Send + Sync;
     type Event: Copy + Sync;
     type Source: Copy;
+    #[must_use]
     fn event(code: u64) -> Self::Event;
+    #[must_use]
     fn source(code: u64) -> Self::Source;
+    #[must_use]
     fn cell(&self) -> Self::Cell;
+    #[must_use]
     fn load(cell: &Self::Cell) -> u64;
     fn apply(&self, cell: &Self::Cell, event: Self::Event) -> Result<u64, Failure>;
+    #[must_use]
     fn lookup(&self, state: Self::Source, event: Self::Event) -> Option<u64>;
 }
 
@@ -80,18 +87,23 @@ impl Driver for AtomicDriver {
     type Cell = AtomicU64;
     type Event = u64;
     type Source = u64;
+    #[inline]
     fn event(code: u64) -> u64 {
         code
     }
+    #[inline]
     fn source(code: u64) -> u64 {
         code
     }
+    #[inline]
     fn cell(&self) -> AtomicU64 {
         AtomicU64::new(0)
     }
+    #[inline]
     fn load(cell: &AtomicU64) -> u64 {
         cell.load(Ordering::Acquire)
     }
+    #[inline]
     fn lookup(&self, state: u64, event: u64) -> Option<u64> {
         match (self.mode, state, event) {
             (Mode::Alternating, 0, 0) => Some(1),
@@ -115,7 +127,7 @@ impl Driver for AtomicDriver {
             {
                 return Ok(target);
             }
-            std::hint::spin_loop();
+            spin_loop();
         }
         Err(Failure::Conflict)
     }
@@ -123,6 +135,7 @@ impl Driver for AtomicDriver {
 
 /// Enumerates fixture rules outside measured sections.
 #[cfg(any(feature = "fast", feature = "standard"))]
+#[must_use]
 fn edges(mode: Mode) -> Vec<(u64, u64, u64)> {
     let baseline = AtomicDriver { mode };
     (0..7)
@@ -146,21 +159,27 @@ impl Driver for FastStateMachine {
     type Cell = FastCasState;
     type Event = u64;
     type Source = u64;
+    #[inline]
     fn event(code: u64) -> u64 {
         code
     }
+    #[inline]
     fn source(code: u64) -> u64 {
         code
     }
+    #[inline]
     fn cell(&self) -> Self::Cell {
         self.create_state()
     }
+    #[inline]
     fn load(cell: &Self::Cell) -> u64 {
         cell.load()
     }
+    #[inline]
     fn lookup(&self, state: u64, event: u64) -> Option<u64> {
         self.transition_target(state, event)
     }
+    #[inline]
     fn apply(&self, cell: &Self::Cell, event: u64) -> Result<u64, Failure> {
         self.trigger(cell, event).map_err(|error| match error {
             FastStateMachineError::UnknownTransition { .. } => Failure::Rejected,
@@ -186,6 +205,7 @@ fn raw_machine(mode: Mode) -> FastStateMachine {
     builder.build().expect("benchmark rules are valid")
 }
 
+/// Dense state codes shared by the typed and integer task fixtures.
 #[cfg(feature = "fast")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BenchState {
@@ -208,10 +228,12 @@ impl DenseCode for BenchState {
         Self::Cancelled,
         Self::Dropped,
     ];
+    #[inline]
     fn code(self) -> u64 {
         self as u64
     }
 }
+/// Dense event codes matching the integer fixture transition table.
 #[cfg(feature = "fast")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum BenchEvent {
@@ -232,6 +254,7 @@ impl DenseCode for BenchEvent {
         Self::CompletePanicked,
         Self::DropUnfinished,
     ];
+    #[inline]
     fn code(self) -> u64 {
         self as u64
     }
@@ -242,21 +265,27 @@ impl Driver for TypedFastStateMachine<BenchState, BenchEvent> {
     type Cell = TypedFastState<BenchState>;
     type Event = BenchEvent;
     type Source = BenchState;
+    #[inline]
     fn event(code: u64) -> BenchEvent {
         BenchEvent::VALUES[code as usize]
     }
+    #[inline]
     fn source(code: u64) -> BenchState {
         BenchState::VALUES[code as usize]
     }
+    #[inline]
     fn cell(&self) -> Self::Cell {
         self.create_state()
     }
+    #[inline]
     fn load(cell: &Self::Cell) -> u64 {
         cell.load().code()
     }
+    #[inline]
     fn lookup(&self, state: BenchState, event: BenchEvent) -> Option<u64> {
         self.transition_target(state, event).map(DenseCode::code)
     }
+    #[inline]
     fn apply(&self, cell: &Self::Cell, event: BenchEvent) -> Result<u64, Failure> {
         self.trigger(cell, event)
             .map(DenseCode::code)
@@ -290,21 +319,27 @@ impl Driver for StateMachine<u64, u64> {
     type Cell = AtomicRef<u64>;
     type Event = u64;
     type Source = u64;
+    #[inline]
     fn event(code: u64) -> u64 {
         code
     }
+    #[inline]
     fn source(code: u64) -> u64 {
         code
     }
+    #[inline]
     fn cell(&self) -> Self::Cell {
         self.create_state()
     }
+    #[inline]
     fn load(cell: &Self::Cell) -> u64 {
         *cell.load()
     }
+    #[inline]
     fn lookup(&self, state: u64, event: u64) -> Option<u64> {
         self.transition_target(state, event)
     }
+    #[inline]
     fn apply(&self, cell: &Self::Cell, event: u64) -> Result<u64, Failure> {
         self.trigger(cell, event).map_err(|error| match error {
             StateMachineError::UnknownTransition { .. } => Failure::Rejected,
@@ -359,7 +394,7 @@ fn measure_race<D: Driver>(driver: &D, cells: &[D::Cell], events: [D::Event; 2])
         finish.wait();
         counts
     };
-    std::thread::scope(|scope| {
+    scope(|scope| {
         let a = scope.spawn(|| run(0));
         let b = scope.spawn(|| run(1));
         ready.wait();
@@ -382,7 +417,7 @@ fn measure_shared_toggle<D: Driver>(driver: &D, cell: &D::Cell, event: D::Event,
     let ready = Barrier::new(workers + 1);
     let start = Barrier::new(workers + 1);
     let finish = Barrier::new(workers + 1);
-    std::thread::scope(|scope| {
+    scope(|scope| {
         let mut handles = Vec::with_capacity(workers);
         for _ in 0..workers {
             let handle = scope.spawn(|| {

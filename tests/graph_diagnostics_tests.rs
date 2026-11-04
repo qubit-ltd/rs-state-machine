@@ -6,17 +6,23 @@
 //    Licensed under the Apache License, Version 2.0.
 // =============================================================================
 
+//! Checks shared graph-diagnostic behavior through both public machine APIs.
+
 #[cfg(feature = "fast")]
 use qubit_state_machine::FastStateMachine;
 #[cfg(feature = "standard")]
 use qubit_state_machine::StateMachine;
 
+/// One three-state graph and its expected reachability findings for both APIs.
 #[cfg(any(feature = "standard", feature = "fast"))]
 struct GraphCase {
     name: &'static str,
+    /// Directed transitions encoded as (source state, event, target state).
     edges: &'static [(u64, u64, u64)],
     terminals: &'static [u64],
+    /// States unreachable from the initial state, which is always state zero.
     unreachable: &'static [u64],
+    /// States with no path to any explicitly configured terminal state.
     without_path: &'static [u64],
 }
 
@@ -67,8 +73,12 @@ fn test_fast_graph_diagnostics_report_unreachable_and_nonterminal_states() {
         .build()
         .expect("valid graph");
     let report = machine.diagnose_graph();
-    assert_eq!(report.unreachable_states(), &[4]);
-    assert_eq!(report.states_without_terminal_path(), &[3, 4]);
+    assert_eq!(report.unreachable_states(), &[4], "state 4 is isolated");
+    assert_eq!(
+        report.states_without_terminal_path(),
+        &[3, 4],
+        "the closed loop and isolated state cannot reach terminal state 2"
+    );
 }
 
 #[cfg(feature = "fast")]
@@ -113,8 +123,12 @@ fn test_standard_graph_diagnostics_report_unreachable_and_nonterminal_states() {
     unreachable.sort_unstable();
     let mut without_path = report.states_without_terminal_path().to_vec();
     without_path.sort_unstable();
-    assert_eq!(unreachable, vec![4]);
-    assert_eq!(without_path, vec![3, 4]);
+    assert_eq!(unreachable, vec![4], "state 4 is isolated");
+    assert_eq!(
+        without_path,
+        vec![3, 4],
+        "the closed loop and isolated state cannot reach terminal state 2"
+    );
 }
 
 #[cfg(feature = "standard")]

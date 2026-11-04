@@ -16,9 +16,12 @@ use qubit_state_machine::FastStateMachineError;
 use qubit_state_machine::StateMachine;
 use qubit_state_machine::StateMachineBuildError;
 use qubit_state_machine::StateMachineError;
+use qubit_state_machine::TypedFastState;
 use qubit_state_machine::TypedFastStateMachine;
 use qubit_state_machine::TypedFastStateMachineBuildError;
 use qubit_state_machine::TypedFastStateMachineError;
+
+use super::BuilderOutcome;
 
 /// Fixed typed state domain; generated traces only visit their declared subset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,6 +33,7 @@ enum DiffState {
 }
 impl DenseCode for DiffState {
     const VALUES: &'static [Self] = &[Self::S0, Self::S1, Self::S2, Self::S3];
+    #[inline]
     fn code(self) -> u64 {
         self as u64
     }
@@ -47,6 +51,7 @@ enum DiffEvent {
 }
 impl DenseCode for DiffEvent {
     const VALUES: &'static [Self] = &[Self::E0, Self::E1, Self::E2, Self::Invalid];
+    #[inline]
     fn code(self) -> u64 {
         match self {
             Self::E0 | Self::OmittedAlias => 0,
@@ -62,7 +67,7 @@ impl DenseCode for DiffEvent {
 /// invoking callbacks or changing the state through any typed trigger API.
 fn check_invalid_event(
     machine: &TypedFastStateMachine<DiffState, DiffEvent>,
-    state: &qubit_state_machine::TypedFastState<DiffState>,
+    state: &TypedFastState<DiffState>,
     event: DiffEvent,
 ) {
     let before = state.load();
@@ -80,9 +85,7 @@ fn check_invalid_event(
 }
 
 /// Checks a bounded table and every event in its trailing trace.
-pub fn run_differential(data: &[u8]) -> super::BuilderOutcome {
-    use super::BuilderOutcome;
-
+pub fn run_differential(data: &[u8]) -> BuilderOutcome {
     if !(2..=512).contains(&data.len()) {
         return BuilderOutcome::Skipped;
     }

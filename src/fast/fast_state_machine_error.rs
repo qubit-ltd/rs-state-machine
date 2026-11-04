@@ -50,10 +50,18 @@ pub enum FastStateMachineError {
 }
 
 /// Result returned by [`crate::FastStateMachine`] runtime transition APIs.
+///
+/// `Ok(state)` contains the state code installed by the transition.
+/// `Err(error)` describes an unconfigured state or transition, or exhausted CAS
+/// conflicts.
 pub type FastStateMachineResult = Result<u64, FastStateMachineError>;
 
 /// Converts a compact CAS error into the runtime error used by fast state
 /// machines.
+///
+/// Consumes the terminal failure and discards its observed state. Aborts retain
+/// the business error unchanged and discard the CAS attempt count; conflicts
+/// retain the exhausted attempt count.
 ///
 /// # Parameters
 /// - `error`: Terminal error returned by `qubit-fast-cas`.
@@ -85,7 +93,8 @@ mod tests {
                 current: 1,
                 attempts: 7,
             }),
-            FastStateMachineError::CasConflict { attempts: 7 }
+            FastStateMachineError::CasConflict { attempts: 7 },
+            "conflict mapping must retain the exhausted CAS attempt count"
         );
     }
 
@@ -101,7 +110,8 @@ mod tests {
                 error: expected,
                 attempts: 2,
             }),
-            expected
+            expected,
+            "abort mapping must preserve the business error and its fields"
         );
     }
 }

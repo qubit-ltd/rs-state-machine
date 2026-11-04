@@ -29,6 +29,7 @@ enum JobEvent {
     Fail,
 }
 
+/// Defines a four-state job workflow with success and failure terminal states.
 fn create_valid_builder() -> StateMachineBuilder<JobState, JobEvent> {
     StateMachine::builder()
         .add_states(&[JobState::New, JobState::Running, JobState::Done, JobState::Failed])
@@ -141,7 +142,7 @@ fn test_builder_initial_state_is_unique() {
         .add_states(&[JobState::New, JobState::Running])
         .initial_state(JobState::Running);
 
-    let machine = builder.build().expect("multiple initial states should build");
+    let machine = builder.build().expect("the configured initial state should build");
 
     assert!(machine.is_initial_state(JobState::Running));
 }
@@ -211,7 +212,7 @@ fn test_builder_build_rejects_unregistered_terminal_state() {
 
     let error = builder
         .build()
-        .expect_err("unregistered final state should be rejected");
+        .expect_err("unregistered terminal state should be rejected");
 
     assert_eq!(
         error,

@@ -8,9 +8,18 @@
 //
 //! Independent ordered-map models for bounded builder definitions.
 use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 
 #[cfg(feature = "fast")]
+use qubit_state_machine::FastStateMachine;
+#[cfg(feature = "fast")]
+use qubit_state_machine::FastStateMachineBuildError;
+#[cfg(feature = "fast")]
 use qubit_state_machine::FastStateMachineError;
+#[cfg(feature = "standard")]
+use qubit_state_machine::StateMachine;
+#[cfg(feature = "standard")]
+use qubit_state_machine::StateMachineBuildError;
 #[cfg(feature = "standard")]
 use qubit_state_machine::StateMachineError;
 
@@ -87,8 +96,6 @@ fn definition(data: &[u8]) -> Option<Definition> {
 /// backend.
 #[cfg(feature = "fast")]
 pub fn run_fast_builder(data: &[u8]) -> BuilderOutcome {
-    use qubit_state_machine::FastStateMachine;
-    use qubit_state_machine::FastStateMachineBuildError as Error;
     let Some(Definition {
         state_count,
         event_count,
@@ -113,10 +120,10 @@ pub fn run_fast_builder(data: &[u8]) -> BuilderOutcome {
     if !terminals_first {
         builder = builder.terminal_states(&terminal_states);
     }
-    let terminals: std::collections::BTreeSet<u64> = terminal_states.iter().copied().collect();
+    let terminals: BTreeSet<u64> = terminal_states.iter().copied().collect();
     let mut model = BTreeMap::new();
     let mut expected_error = if initial_state >= state_count {
-        Some(Error::InitialStateOutOfRange {
+        Some(FastStateMachineBuildError::InitialStateOutOfRange {
             state: initial_state,
             state_count,
         })
@@ -124,29 +131,29 @@ pub fn run_fast_builder(data: &[u8]) -> BuilderOutcome {
         terminal_states
             .iter()
             .find(|&&state| state >= state_count)
-            .map(|&state| Error::TerminalStateOutOfRange { state, state_count })
+            .map(|&state| FastStateMachineBuildError::TerminalStateOutOfRange { state, state_count })
     };
     for &(source, event, target) in &transitions {
         if expected_error.is_some() {
             break;
         }
         let error = if source >= state_count {
-            Some(Error::TransitionSourceOutOfRange {
+            Some(FastStateMachineBuildError::TransitionSourceOutOfRange {
                 source_state: source,
                 state_count,
             })
         } else if event >= event_count {
-            Some(Error::TransitionEventOutOfRange { event, event_count })
+            Some(FastStateMachineBuildError::TransitionEventOutOfRange { event, event_count })
         } else if target >= state_count {
-            Some(Error::TransitionTargetOutOfRange { target, state_count })
+            Some(FastStateMachineBuildError::TransitionTargetOutOfRange { target, state_count })
         } else if terminals.contains(&source) {
-            Some(Error::TerminalStateHasOutgoingTransition {
+            Some(FastStateMachineBuildError::TerminalStateHasOutgoingTransition {
                 state: source,
                 event,
                 target,
             })
         } else if let Some(&existing_target) = model.get(&(source, event)) {
-            (existing_target != target).then_some(Error::DuplicateTransition {
+            (existing_target != target).then_some(FastStateMachineBuildError::DuplicateTransition {
                 source_state: source,
                 event,
                 existing_target,
@@ -211,8 +218,6 @@ pub fn run_fast_builder(data: &[u8]) -> BuilderOutcome {
 /// backend.
 #[cfg(feature = "standard")]
 pub fn run_standard_builder(data: &[u8]) -> BuilderOutcome {
-    use qubit_state_machine::StateMachine;
-    use qubit_state_machine::StateMachineBuildError as Error;
     let Some(Definition {
         state_count,
         event_count,
@@ -235,40 +240,40 @@ pub fn run_standard_builder(data: &[u8]) -> BuilderOutcome {
     if !terminals_first {
         builder = builder.terminal_states(&terminal_states);
     }
-    let terminals: std::collections::BTreeSet<u64> = terminal_states.iter().copied().collect();
+    let terminals: BTreeSet<u64> = terminal_states.iter().copied().collect();
     let mut model = BTreeMap::new();
     let mut expected_error = if initial_state >= state_count {
-        Some(Error::InitialStateNotRegistered { state: initial_state })
+        Some(StateMachineBuildError::InitialStateNotRegistered { state: initial_state })
     } else {
         terminal_states
             .iter()
             .find(|&&state| state >= state_count)
-            .map(|&state| Error::TerminalStateNotRegistered { state })
+            .map(|&state| StateMachineBuildError::TerminalStateNotRegistered { state })
     };
     for &(source, event, target) in &transitions {
         if expected_error.is_some() {
             break;
         }
         let error = if source >= state_count {
-            Some(Error::TransitionSourceNotRegistered {
+            Some(StateMachineBuildError::TransitionSourceNotRegistered {
                 source_state: source,
                 event,
                 target,
             })
         } else if target >= state_count {
-            Some(Error::TransitionTargetNotRegistered {
+            Some(StateMachineBuildError::TransitionTargetNotRegistered {
                 source_state: source,
                 event,
                 target,
             })
         } else if terminals.contains(&source) {
-            Some(Error::TerminalStateHasOutgoingTransition {
+            Some(StateMachineBuildError::TerminalStateHasOutgoingTransition {
                 state: source,
                 event,
                 target,
             })
         } else if let Some(&existing_target) = model.get(&(source, event)) {
-            (existing_target != target).then_some(Error::DuplicateTransition {
+            (existing_target != target).then_some(StateMachineBuildError::DuplicateTransition {
                 source_state: source,
                 event,
                 existing_target,

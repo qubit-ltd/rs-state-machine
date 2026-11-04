@@ -18,7 +18,11 @@ use super::GraphDiagnostics;
 ///
 /// # Returns
 /// A boolean vector with one entry per vertex; entries are `true` exactly for
-/// vertices reachable from a seed. Every seed and edge target must be in range.
+/// vertices reachable from a seed.
+///
+/// # Panics
+/// Panics if a seed or a reachable edge target is outside `adjacency`.
+#[must_use]
 fn mark_reachable(adjacency: &[Vec<usize>], seeds: impl IntoIterator<Item = usize>) -> Vec<bool> {
     let mut seen = vec![false; adjacency.len()];
     let mut stack = Vec::new();
@@ -53,6 +57,10 @@ fn mark_reachable(adjacency: &[Vec<usize>], seeds: impl IntoIterator<Item = usiz
 ///
 /// The caller must provide a nonempty graph and valid vertex indices. The
 /// function performs no validation before indexing the adjacency lists.
+///
+/// # Panics
+/// Panics if `initial`, a terminal, or an edge endpoint is at least
+/// `state_count`, including when `state_count` is zero.
 #[must_use]
 pub(crate) fn analyze_graph(
     state_count: usize,

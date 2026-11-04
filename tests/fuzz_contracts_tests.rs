@@ -7,6 +7,7 @@
 // =============================================================================
 
 //! Ensures fuzz entry points cannot silently reject every input.
+// The shared harness also serves fuzz targets; this loads helpers, not tests.
 #[cfg(any(feature = "fast", feature = "standard"))]
 #[path = "../support/mod.rs"]
 mod support;
@@ -63,15 +64,18 @@ fn test_extended_builder_boundary_and_terminal_cases() {
         ];
         for input in built {
             #[cfg(feature = "fast")]
-            assert!(matches!(
-                support::run_fast_builder(input),
-                support::BuilderOutcome::Built { .. }
-            ));
+            assert!(
+                matches!(support::run_fast_builder(input), support::BuilderOutcome::Built { .. }),
+                "expected an accepted boundary definition: {input:?}"
+            );
             #[cfg(feature = "standard")]
-            assert!(matches!(
-                support::run_standard_builder(input),
-                support::BuilderOutcome::Built { .. }
-            ));
+            assert!(
+                matches!(
+                    support::run_standard_builder(input),
+                    support::BuilderOutcome::Built { .. }
+                ),
+                "expected an accepted boundary definition: {input:?}"
+            );
         }
         let rejected = [
             &[0xff, 1, 0, 2, 0, 0, order], // initial out of range
@@ -79,17 +83,33 @@ fn test_extended_builder_boundary_and_terminal_cases() {
         ];
         for input in rejected {
             #[cfg(feature = "fast")]
-            assert_eq!(support::run_fast_builder(input), support::BuilderOutcome::Rejected);
+            assert_eq!(
+                support::run_fast_builder(input),
+                support::BuilderOutcome::Rejected,
+                "unexpected fast outcome for input {input:?}"
+            );
             #[cfg(feature = "standard")]
-            assert_eq!(support::run_standard_builder(input), support::BuilderOutcome::Rejected);
+            assert_eq!(
+                support::run_standard_builder(input),
+                support::BuilderOutcome::Rejected,
+                "unexpected standard outcome for input {input:?}"
+            );
         }
     }
     for length in 1..7 {
         let input = vec![0xff; length];
         #[cfg(feature = "fast")]
-        assert_eq!(support::run_fast_builder(&input), support::BuilderOutcome::Skipped);
+        assert_eq!(
+            support::run_fast_builder(&input),
+            support::BuilderOutcome::Skipped,
+            "truncated extended input of length {length} must be skipped"
+        );
         #[cfg(feature = "standard")]
-        assert_eq!(support::run_standard_builder(&input), support::BuilderOutcome::Skipped);
+        assert_eq!(
+            support::run_standard_builder(&input),
+            support::BuilderOutcome::Skipped,
+            "truncated extended input of length {length} must be skipped"
+        );
     }
     let too_long = [0xff; 513];
     #[cfg(feature = "fast")]
@@ -148,7 +168,11 @@ fn test_extended_differential_bounded_tables_and_traces() {
                         }
                     }
                     if terminal_outgoing {
-                        assert_eq!(support::run_differential(&input), support::BuilderOutcome::Rejected);
+                        assert_eq!(
+                            support::run_differential(&input),
+                            support::BuilderOutcome::Rejected,
+                            "terminal outgoing edge must be rejected: {input:?}"
+                        );
                     } else {
                         for length in 0..=4 {
                             for sequence in 0..3_usize.pow(length) {
@@ -160,7 +184,8 @@ fn test_extended_differential_bounded_tables_and_traces() {
                                 }
                                 assert_eq!(
                                     support::run_differential(&trace),
-                                    support::BuilderOutcome::Built { checked_pairs: 4 }
+                                    support::BuilderOutcome::Built { checked_pairs: 4 },
+                                    "bounded table and trace must be accepted: {trace:?}"
                                 );
                             }
                         }
@@ -186,7 +211,8 @@ fn test_builder_reference_acceptance_and_error_branches() {
         #[cfg(feature = "fast")]
         assert_eq!(
             matches!(support::run_fast_builder(input), support::BuilderOutcome::Built { .. }),
-            accepted
+            accepted,
+            "reference acceptance differs for input {input:?}"
         );
         #[cfg(feature = "standard")]
         assert_eq!(
@@ -194,7 +220,8 @@ fn test_builder_reference_acceptance_and_error_branches() {
                 support::run_standard_builder(input),
                 support::BuilderOutcome::Built { .. }
             ),
-            accepted
+            accepted,
+            "reference acceptance differs for input {input:?}"
         );
     }
     #[cfg(feature = "fast")]
@@ -209,9 +236,17 @@ fn test_builder_reference_acceptance_and_error_branches() {
     ));
     for input in [&[][..], &[0][..], &[0; 513][..]] {
         #[cfg(feature = "fast")]
-        assert_eq!(support::run_fast_builder(input), support::BuilderOutcome::Skipped);
+        assert_eq!(
+            support::run_fast_builder(input),
+            support::BuilderOutcome::Skipped,
+            "unexpected fast outcome for input {input:?}"
+        );
         #[cfg(feature = "standard")]
-        assert_eq!(support::run_standard_builder(input), support::BuilderOutcome::Skipped);
+        assert_eq!(
+            support::run_standard_builder(input),
+            support::BuilderOutcome::Skipped,
+            "unexpected standard outcome for input {input:?}"
+        );
     }
 }
 

@@ -16,6 +16,7 @@ fn test_fast_state_machine_error_display() {
     assert_eq!(
         FastStateMachineError::UnknownState { state: 3 }.to_string(),
         "unknown state: 3",
+        "unknown-state diagnostics must preserve the state code",
     );
     assert_eq!(
         FastStateMachineError::UnknownTransition {
@@ -24,10 +25,12 @@ fn test_fast_state_machine_error_display() {
         }
         .to_string(),
         "unknown transition: 1 --2--> ?",
+        "unknown-transition diagnostics must preserve the source state and event",
     );
     assert_eq!(
         FastStateMachineError::CasConflict { attempts: 7 }.to_string(),
         "CAS transition failed after 7 attempt(s)",
+        "CAS conflict diagnostics must preserve the attempt count",
     );
 }
 
@@ -37,8 +40,8 @@ fn test_fast_state_machine_error_equality_uses_fields() {
     let second = FastStateMachineError::CasConflict { attempts: 1 };
     let different = FastStateMachineError::CasConflict { attempts: 2 };
 
-    assert_eq!(first, second);
-    assert_ne!(first, different);
+    assert_eq!(first, second, "equal attempt counts must produce equal errors");
+    assert_ne!(first, different, "different attempt counts must distinguish errors");
 }
 
 #[test]
@@ -48,5 +51,8 @@ fn test_fast_state_machine_error_has_no_nested_source() {
         event: 1,
     };
 
-    assert!(error.source().is_none());
+    assert!(
+        error.source().is_none(),
+        "unknown-transition errors must not expose a nested source",
+    );
 }

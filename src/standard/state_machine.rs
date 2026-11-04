@@ -22,6 +22,7 @@ use qubit_cas::CasSuccess;
 use super::StateMachineBuilder;
 use super::StateMachineError;
 use super::StateMachineResult;
+use crate::GraphDiagnostics;
 use crate::Transition;
 
 /// Immutable finite state machine rules.
@@ -29,7 +30,7 @@ use crate::Transition;
 /// `S` is the state type and `E` is the event type. Both should usually be
 /// small enum-like types. The state machine itself is immutable and can be
 /// shared across threads; mutable current state is kept in [`AtomicRef`] and
-/// updated through [`qubit_cas::CasExecutor`].
+/// updated through [`CasExecutor`].
 ///
 /// # Type Parameters
 /// - `S`: Copyable, hashable state type stored in [`AtomicRef`].
@@ -141,6 +142,17 @@ where
         StateMachineBuilder::new()
     }
 
+    /// Creates an independent current-state cell initialized to the machine's
+    /// initial state.
+    ///
+    /// # Returns
+    /// A new atomic reference initialized to the configured initial state.
+    #[must_use = "use the newly initialized state cell"]
+    #[inline]
+    pub fn create_state(&self) -> AtomicRef<S> {
+        AtomicRef::from_value(self.initial_state)
+    }
+
     /// Creates a state machine from validated builder parts.
     ///
     /// # Parameters
@@ -152,6 +164,10 @@ where
     ///
     /// This constructor does not validate input. Rule validation belongs to
     /// [`StateMachineBuilder::build`].
+    ///
+    /// # Panics
+    /// Panics if the builder has no initial state; callers must validate it
+    /// first.
     #[inline]
     pub(crate) fn new(builder: StateMachineBuilder<S, E>, transition_map: HashMap<(S, E), S>) -> Self {
         Self {
@@ -188,7 +204,7 @@ where
     /// state count and T is the configured transition count. Additional space
     /// is O(S + T). Use this method for offline or infrequent diagnostics.
     #[must_use]
-    pub fn diagnose_graph(&self) -> crate::GraphDiagnostics<S> {
+    pub fn diagnose_graph(&self) -> GraphDiagnostics<S> {
         let states: Vec<S> = self.states.iter().copied().collect();
         let indices: HashMap<S, usize> = states
             .iter()
@@ -204,7 +220,7 @@ where
                 .iter()
                 .map(|((source, _), target)| (indices[source], indices[target])),
         );
-        crate::GraphDiagnostics {
+        GraphDiagnostics {
             unreachable_states: report
                 .unreachable_states
                 .into_iter()
@@ -309,7 +325,8 @@ where
     /// # Examples
     ///
     /// ```
-    /// use qubit_state_machine::{StateMachine, Transition};
+    /// use qubit_state_machine::StateMachine;
+    /// use qubit_state_machine::Transition;
     ///
     /// #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
     /// enum State {
@@ -338,7 +355,6 @@ where
     /// The iterator is lazy and scans the transition `HashMap` when fully
     /// consumed. The scan cost depends on the map's capacity, and iteration
     /// order is not guaranteed. No result collection is allocated.
-    #[must_use = "iterate over the configured transitions"]
     #[inline]
     pub fn transitions(&self) -> impl Iterator<Item = Transition<S, E>> + '_ {
         self.transition_map
@@ -460,17 +476,6 @@ where
         self.transition_map.len()
     }
 
-    /// Creates an independent current-state cell initialized to the machine's
-    /// initial state.
-    ///
-    /// # Returns
-    /// A new atomic reference initialized to the configured initial state.
-    #[must_use = "use the newly initialized state cell"]
-    #[inline]
-    pub fn create_state(&self) -> AtomicRef<S> {
-        AtomicRef::from_value(self.initial_state)
-    }
-
     /// Looks up the target state for a source state and event.
     ///
     /// This method only queries rules; it does not modify any current-state
@@ -503,6 +508,7 @@ where
     /// );
     /// assert_eq!(machine.transition_target(State::New, Event::Finish), None);
     /// ```
+    #[must_use]
     #[inline]
     pub fn transition_target(&self, source: S, event: E) -> Option<S> {
         self.transition_map.get(&(source, event)).copied()
@@ -563,6 +569,7 @@ where
     /// assert_eq!(machine.trigger(&state, Event::Start).unwrap(), State::Running);
     /// assert_eq!(*state.load(), State::Running);
     /// ```
+    #[inline]
     pub fn trigger(&self, state: &AtomicRef<S>, event: E) -> StateMachineResult<S, E> {
         let (_, new_state) = self.change_state(state, event)?;
         Ok(new_state)
@@ -761,7 +768,8 @@ where
     /// The old and new state when the transition succeeds.
     ///
     /// # Errors
-    /// Returns a runtime state machine error when no valid next state exists.
+    /// Returns a lookup error for an unregistered state or missing transition,
+    /// or `CasFailure` when the executor reaches its configured terminal limit.
     fn change_state(&self, state: &AtomicRef<S>, event: E) -> Result<(S, S), StateMachineError<S, E>> {
         // Reject deterministic lookup failures before entering the retry
         // kernel.  Besides avoiding needless CAS work, this keeps invalid
@@ -812,6 +820,7 @@ where
     ///
     /// # Returns
     /// The old state and current state after CAS completion.
+    #[must_use = "observe the old and new states of the completed transition"]
     #[inline]
     fn state_change_from_success(success: CasSuccess<S, S>) -> (S, S) {
         match success {
@@ -826,9 +835,9 @@ where
     /// - `error`: Terminal CAS error returned by the executor.
     ///
     /// # Returns
-    /// The business state machine error when the operation aborted, or a CAS
-    /// conflict error when retry limits were exhausted by compare-and-swap
-    /// conflicts.
+    /// The original business error when present; otherwise a `CasFailure`
+    /// preserving the executor's terminal kind and attempt count. Consuming
+    /// the CAS error releases its retained diagnostics and state snapshot.
     #[inline]
     fn state_error_from_cas_error(error: CasError<S, StateMachineError<S, E>>) -> StateMachineError<S, E> {
         Self::state_error_from_parts(error.kind(), error.attempts(), error.error().copied())
@@ -846,6 +855,7 @@ where
     /// # Returns
     /// The supplied business error when present; otherwise a `CasFailure` with
     /// the terminal kind and attempt count.
+    #[inline]
     fn state_error_from_parts(
         kind: CasErrorKind,
         attempts: u32,
@@ -876,6 +886,7 @@ mod error_projection_tests {
             assert_eq!(
                 StateMachine::<u8, u8>::state_error_from_parts(kind, 7, None),
                 StateMachineError::CasFailure { kind, attempts: 7 },
+                "budget projection must preserve its terminal kind and attempts",
             );
         }
     }
@@ -886,6 +897,7 @@ mod error_projection_tests {
         assert_eq!(
             StateMachine::<u8, u8>::state_error_from_parts(CasErrorKind::Abort, 1, Some(business),),
             business,
+            "projection must preserve the original business rejection",
         );
     }
 
@@ -903,7 +915,11 @@ mod error_projection_tests {
                 CasDecision::<u8, (), StateMachineError<u8, u8>>::abort(business)
             })
             .unwrap_err();
-        assert_eq!(StateMachine::<u8, u8>::state_error_from_cas_error(aborted), business);
+        assert_eq!(
+            StateMachine::<u8, u8>::state_error_from_cas_error(aborted),
+            business,
+            "a real executor abort must retain its business rejection",
+        );
 
         let conflict = executor
             .execute_result(&state, |_: &u8| {
@@ -912,10 +928,11 @@ mod error_projection_tests {
             })
             .unwrap_err();
         let kind = conflict.kind();
-        assert_eq!(conflict.attempts(), 1);
+        assert_eq!(conflict.attempts(), 1, "the executor must exhaust its single attempt");
         assert_eq!(
             StateMachine::<u8, u8>::state_error_from_cas_error(conflict),
             StateMachineError::CasFailure { kind, attempts: 1 },
+            "a real conflict must preserve terminal metadata",
         );
     }
 }

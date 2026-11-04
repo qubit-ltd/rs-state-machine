@@ -11,7 +11,10 @@ use std::cell::RefCell;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::sync::Arc;
-use std::sync::mpsc;
+use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
+use std::sync::mpsc::channel;
+use std::thread::spawn;
 use std::time::Duration;
 
 use qubit_atomic::AtomicRef;
@@ -38,10 +41,12 @@ enum Event {
     Advance,
 }
 
+/// Pauses the worker at its first decision lookup until the competing commit
+/// finishes.
 struct HashGate {
     work_hashes: usize,
-    entered: mpsc::Sender<()>,
-    release: mpsc::Receiver<()>,
+    entered: Sender<()>,
+    release: Receiver<()>,
 }
 
 thread_local! {
@@ -74,6 +79,8 @@ impl Hash for Event {
     }
 }
 
+/// Builds a bounded retry scenario, optionally allowing Work after the
+/// competing commit.
 fn machine(include_retried_work: bool, max_attempts: u32) -> StateMachine<State, Event> {
     let executor = CasExecutor::<State, StateMachineError<State, Event>>::builder()
         .max_attempts(max_attempts)
@@ -98,13 +105,15 @@ fn machine(include_retried_work: bool, max_attempts: u32) -> StateMachine<State,
     builder.build().expect("test transition rules are valid")
 }
 
+/// Commits Advance while Work is paused, then collects its result and callback
+/// history.
 fn run_interleaving(machine: Arc<StateMachine<State, Event>>, state: Arc<AtomicRef<State>>) -> InterleavingResult {
-    let (entered_tx, entered_rx) = mpsc::channel();
-    let (release_tx, release_rx) = mpsc::channel();
-    let (result_tx, result_rx) = mpsc::channel();
+    let (entered_tx, entered_rx) = channel();
+    let (release_tx, release_rx) = channel();
+    let (result_tx, result_rx) = channel();
     let worker_machine = Arc::clone(&machine);
     let worker_state = Arc::clone(&state);
-    let worker = std::thread::spawn(move || {
+    let worker = spawn(move || {
         HASH_GATE.with(|slot| {
             *slot.borrow_mut() = Some(HashGate {
                 work_hashes: 0,
@@ -155,10 +164,18 @@ fn test_retry_rejects_event_invalidated_by_competing_commit() {
         Err(StateMachineError::UnknownTransition {
             source_state: State::B,
             event: Event::Work,
-        })
+        }),
+        "retry must validate Work against the competing commit"
     );
-    assert_eq!(*state.load(), State::B);
-    assert!(callback_args.is_empty());
+    assert_eq!(
+        *state.load(),
+        State::B,
+        "the rejected retry preserves the competing commit"
+    );
+    assert!(
+        callback_args.is_empty(),
+        "a rejected retry must not invoke the callback"
+    );
     assert!(work_hashes >= 3, "expected preflight, decision, and retry queries");
 }
 
@@ -169,9 +186,13 @@ fn test_retry_recomputes_target_after_competing_commit() {
 
     let (result, callback_args, work_hashes) = run_interleaving(machine, Arc::clone(&state));
 
-    assert_eq!(result, Ok(State::D));
-    assert_eq!(*state.load(), State::D);
-    assert_eq!(callback_args, [(State::B, State::D)]);
+    assert_eq!(result, Ok(State::D), "retry must recompute the target from B");
+    assert_eq!(*state.load(), State::D, "the recomputed target must be committed");
+    assert_eq!(
+        callback_args,
+        [(State::B, State::D)],
+        "only the successful retry invokes the callback"
+    );
     assert!(work_hashes >= 3, "expected preflight, decision, and retry queries");
 }
 

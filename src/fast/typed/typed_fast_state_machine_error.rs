@@ -18,7 +18,8 @@ use thiserror::Error;
 /// # Examples
 ///
 /// ```
-/// use qubit_state_machine::{DenseCode, TypedFastStateMachineError};
+/// use qubit_state_machine::DenseCode;
+/// use qubit_state_machine::TypedFastStateMachineError;
 /// #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// enum State { Ready }
 /// impl DenseCode for State { const VALUES: &'static [Self] = &[Self::Ready]; fn code(self) -> u64 { 0 } }

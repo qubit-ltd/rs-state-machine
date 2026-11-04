@@ -11,11 +11,14 @@
 #![cfg(feature = "fast")]
 
 use std::error::Error as StdError;
+use std::mem::size_of;
+use std::mem::size_of_val;
 use std::panic::AssertUnwindSafe;
 use std::panic::catch_unwind;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::mpsc;
+use std::thread::spawn;
 use std::time::Duration;
 
 use qubit_fast_cas::FastCasPolicy;
@@ -145,7 +148,7 @@ fn test_typed_state_independence_and_same_state_type_other_machine() {
         other.trigger(&first, State::Done).expect("same state type is accepted"),
         State::Done
     );
-    assert_eq!(std::mem::size_of_val(&first), std::mem::size_of::<FastCasState>());
+    assert_eq!(size_of_val(&first), size_of::<FastCasState>());
     fn assert_send_sync<T: Send + Sync>() {}
     assert_send_sync::<TypedFastState<State>>();
     assert_send_sync::<TypedFastStateMachine<State, Event>>();
@@ -306,6 +309,7 @@ fn test_typed_graph_diagnostics_boundary_cases() {
     }
 }
 
+/// Supplies an empty codebook to exercise domain validation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Empty;
 
@@ -316,6 +320,8 @@ impl DenseCode for Empty {
     }
 }
 
+/// Selects malformed ordering, duplicate, overflow, or inconsistent-code
+/// fixtures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Broken<const CASE: u8>(u64);
 impl<const CASE: u8> DenseCode for Broken<CASE> {
@@ -371,6 +377,7 @@ fn test_typed_invalid_codebooks_fail_before_rule_validation() {
     ));
 }
 
+/// Includes omitted values that alias a registered code or exceed its range.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Partial {
     Good,
@@ -563,7 +570,7 @@ fn test_typed_callbacks_can_observe_later_state_and_finish_out_of_order() {
     let thread_machine = Arc::clone(&machine);
     let thread_state = Arc::clone(&state);
     let thread_order = Arc::clone(&order);
-    let worker = std::thread::spawn(move || {
+    let worker = spawn(move || {
         thread_machine
             .trigger_with(&thread_state, Event::Start, |old, new| {
                 entered_tx.send(()).expect("receiver remains alive");

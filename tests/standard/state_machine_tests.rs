@@ -16,6 +16,9 @@ use std::thread;
 
 use qubit_atomic::AtomicRef;
 use qubit_cas::CasErrorKind;
+use qubit_cas::CasExecutor;
+use qubit_cas::CasStrategy;
+use qubit_state_machine::STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS;
 use qubit_state_machine::StateMachine;
 use qubit_state_machine::StateMachineError;
 use qubit_state_machine::StateMachineResult;
@@ -40,6 +43,8 @@ enum JobEvent {
     Tick,
 }
 
+/// Builds the job lifecycle, leaving `Detached` unregistered for rejection
+/// checks.
 fn create_job_machine() -> StateMachine<JobState, JobEvent> {
     StateMachine::builder()
         .add_states(&[
@@ -285,9 +290,6 @@ fn test_trigger_handles_competing_alternating_transitions() {
 #[cfg(feature = "standard")]
 #[test]
 fn test_standard_strategy_reports_actual_configuration() {
-    use qubit_cas::CasExecutor;
-    use qubit_cas::CasStrategy;
-    use qubit_state_machine::STATE_MACHINE_DEFAULT_CAS_MAX_ATTEMPTS;
     let default = StateMachine::<u8, u8>::builder()
         .add_state(0)
         .initial_state(0)
@@ -315,6 +317,7 @@ mod runtime_contracts {
     use std::sync::Arc;
     use std::sync::Mutex;
     use std::sync::mpsc;
+    use std::thread;
     use std::time::Duration;
 
     use qubit_state_machine::StateMachine;
@@ -446,7 +449,7 @@ mod runtime_contracts {
         let thread_machine = Arc::clone(&machine);
         let thread_state = Arc::clone(&state);
         let thread_order = Arc::clone(&order);
-        let worker = std::thread::spawn(move || {
+        let worker = thread::spawn(move || {
             thread_machine
                 .trigger_with(&thread_state, 0, |old, new| {
                     entered_tx.send(()).expect("receiver remains alive");

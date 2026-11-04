@@ -313,16 +313,19 @@ where
         Ok(())
     }
 
-    /// Validates that a transition only references registered states.
+    /// Validates transition endpoints and rejects outgoing terminal
+    /// transitions.
     ///
     /// # Parameters
     /// - `transition`: Transition to validate.
     ///
     /// # Returns
-    /// `Ok(())` when the transition source and target are registered.
+    /// `Ok(())` when both endpoints are registered and the source is not
+    /// terminal.
     ///
     /// # Errors
-    /// Returns the missing source or target as a build error.
+    /// Returns a build error for an unregistered source or target, or for a
+    /// terminal source, checked in that order.
     fn validate_transition(&self, transition: Transition<S, E>) -> Result<(), StateMachineBuildError<S, E>> {
         if !self.states.contains(&transition.source()) {
             return Err(StateMachineBuildError::TransitionSourceNotRegistered {
@@ -348,7 +351,7 @@ where
         Ok(())
     }
 
-    /// Inserts a transition into the set and lookup table.
+    /// Inserts a transition into the lookup table after checking for conflicts.
     ///
     /// # Parameters
     /// - `transition`: Transition to insert.
@@ -388,6 +391,9 @@ where
     E: Copy + Eq + Hash + Debug + 'static,
 {
     /// Creates the same empty builder as [`Self::new`].
+    ///
+    /// # Returns
+    /// A builder with no states or transitions.
     #[inline]
     fn default() -> Self {
         Self::new()

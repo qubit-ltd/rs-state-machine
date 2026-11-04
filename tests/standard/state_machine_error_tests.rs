@@ -25,6 +25,7 @@ enum TestEvent {
     Finish,
 }
 
+#[inline]
 fn create_unknown_state_result() -> StateMachineResult<TestState, TestEvent> {
     Err(StateMachineError::UnknownState { state: TestState::New })
 }
@@ -44,8 +45,8 @@ fn test_state_machine_error_equality_uses_variant_fields() {
         event: TestEvent::Finish,
     };
 
-    assert_eq!(error, same);
-    assert_ne!(error, different);
+    assert_eq!(error, same, "identical transition fields should compare equal");
+    assert_ne!(error, different, "different transition fields should compare unequal");
 }
 
 #[test]
@@ -55,7 +56,8 @@ fn test_state_machine_error_display_reports_runtime_context() {
             state: TestState::Running,
         }
         .to_string(),
-        "unknown state: Running"
+        "unknown state: Running",
+        "unknown-state display should identify the unregistered state"
     );
     assert_eq!(
         StateMachineError::UnknownTransition {
@@ -63,7 +65,8 @@ fn test_state_machine_error_display_reports_runtime_context() {
             event: TestEvent::Finish,
         }
         .to_string(),
-        "unknown transition: New --Finish--> ?"
+        "unknown transition: New --Finish--> ?",
+        "unknown-transition display should identify the source state and event"
     );
     assert_eq!(
         StateMachineError::<TestState, TestEvent>::CasFailure {
@@ -71,7 +74,8 @@ fn test_state_machine_error_display_reports_runtime_context() {
             attempts: 5,
         }
         .to_string(),
-        "CAS transition failed (RetryExhausted) after 5 attempt(s)"
+        "CAS transition failed (RetryExhausted) after 5 attempt(s)",
+        "CAS failure display should identify the failure kind and attempt count"
     );
 }
 
@@ -81,7 +85,8 @@ fn test_state_machine_result_alias_uses_runtime_error() {
 
     assert_eq!(
         result.expect_err("result should carry the runtime state machine error"),
-        StateMachineError::UnknownState { state: TestState::New }
+        StateMachineError::UnknownState { state: TestState::New },
+        "the result alias should preserve the runtime error variant and state"
     );
 }
 
@@ -92,5 +97,8 @@ fn test_state_machine_error_has_no_nested_source() {
         attempts: 2,
     };
 
-    assert!(error.source().is_none());
+    assert!(
+        error.source().is_none(),
+        "CAS failures should not expose a nested error source"
+    );
 }

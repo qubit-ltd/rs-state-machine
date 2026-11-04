@@ -52,7 +52,7 @@ pub struct FastStateMachineBuilder {
     state_count: Option<u64>,
     /// Configured number of event codes.
     event_count: Option<u64>,
-    /// State codes marked as initial.
+    /// The unique initial state code, or `None` until configured.
     initial_state: Option<u64>,
     /// State codes marked as final.
     terminal_states: Vec<u64>,
@@ -335,6 +335,7 @@ impl FastStateMachineBuilder {
     ///
     /// # Parameters
     /// - `state_count`: Exclusive upper bound for state codes.
+    /// - `initial_state`: Required initial state code to validate.
     ///
     /// # Returns
     /// `Ok(())` when every configured marker is in range.
@@ -371,8 +372,9 @@ impl FastStateMachineBuilder {
     /// when every rule is in range and deterministic.
     ///
     /// # Errors
-    /// Returns a range error, duplicate-transition error, or capacity error if
-    /// the temporary duplicate-detection map cannot reserve storage.
+    /// Returns a range error, a terminal-state outgoing-transition error, or a
+    /// duplicate-transition error for invalid rules. Returns a capacity error
+    /// if the temporary duplicate-detection map cannot reserve storage.
     fn validate_transitions(
         &self,
         state_count: u64,
@@ -493,6 +495,10 @@ impl FastStateMachineBuilder {
 
 impl Default for FastStateMachineBuilder {
     /// Creates the same empty builder as [`Self::new`].
+    ///
+    /// # Returns
+    /// A builder with the default policy and table budget and no configured
+    /// rules.
     #[inline]
     fn default() -> Self {
         Self::new()

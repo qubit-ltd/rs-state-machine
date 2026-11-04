@@ -30,6 +30,8 @@ const COMPLETE: u64 = 1;
 const FAIL: u64 = 2;
 const TICK: u64 = 3;
 
+/// Builds a lifecycle with success/failure terminals and a running
+/// self-transition.
 fn create_machine() -> FastStateMachine {
     FastStateMachine::builder()
         .state_count(4)
@@ -302,13 +304,14 @@ mod runtime_contracts {
     use std::sync::Arc;
     use std::sync::Mutex;
     use std::sync::mpsc;
+    use std::thread;
     use std::time::Duration;
 
     use qubit_state_machine::FastStateMachine;
     use qubit_state_machine::FastStateMachineBuildError;
     type Machine = FastStateMachine;
 
-    /// Builds the same three-state lifecycle for each backend.
+    /// Builds a three-state lifecycle for callback ordering and reentry checks.
     fn create_machine() -> Machine {
         Machine::builder()
             .state_count(3)
@@ -438,7 +441,7 @@ mod runtime_contracts {
         let thread_machine = Arc::clone(&machine);
         let thread_state = Arc::clone(&state);
         let thread_order = Arc::clone(&order);
-        let worker = std::thread::spawn(move || {
+        let worker = thread::spawn(move || {
             thread_machine
                 .trigger_with(&thread_state, 0, |old, new| {
                     entered_tx.send(()).expect("receiver remains alive");

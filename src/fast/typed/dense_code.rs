@@ -57,6 +57,7 @@ pub trait DenseCode: Copy + Eq + Debug + Send + Sync + 'static {
 /// # Returns
 /// `Some(code)` for a valid encoding, or `None` for an omitted or invalid
 /// value.
+#[must_use]
 #[inline]
 pub(super) fn checked_code<T: DenseCode>(value: T) -> Option<u64> {
     let code = value.code();
@@ -73,7 +74,9 @@ pub(super) fn checked_code<T: DenseCode>(value: T) -> Option<u64> {
 /// - `code`: Dense index to decode.
 ///
 /// # Returns
-/// The table value, or `None` if the code cannot index the table.
+/// `Some(value)` for the table entry at `code`, or `None` if the code cannot
+/// index the table.
+#[must_use]
 #[inline]
 pub(super) fn decode<T: DenseCode>(code: u64) -> Option<T> {
     T::VALUES.get(usize::try_from(code).ok()?).copied()
@@ -86,6 +89,9 @@ pub(super) fn decode<T: DenseCode>(code: u64) -> Option<T> {
 ///
 /// # Parameters
 /// - `domain`: Diagnostic label, either `state` or `event`.
+///
+/// # Returns
+/// `Ok(())` when the table is nonempty and every value encodes its own index.
 ///
 /// # Errors
 /// Returns an empty-table error or the first mismatched index and code.

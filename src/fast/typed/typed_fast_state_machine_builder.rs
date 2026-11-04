@@ -31,7 +31,8 @@ use crate::Transition;
 /// # Examples
 ///
 /// ```
-/// use qubit_state_machine::{DenseCode, TypedFastStateMachineBuilder};
+/// use qubit_state_machine::DenseCode;
+/// use qubit_state_machine::TypedFastStateMachineBuilder;
 ///
 /// #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 /// enum State { Ready }
@@ -234,6 +235,10 @@ impl<S: DenseCode, E: DenseCode> TypedFastStateMachineBuilder<S, E> {
 
 impl<S: DenseCode, E: DenseCode> Default for TypedFastStateMachineBuilder<S, E> {
     /// Creates an empty definition with the default CAS policy.
+    ///
+    /// # Returns
+    /// A builder with counts from the state and event tables and no initial
+    /// state.
     #[inline]
     fn default() -> Self {
         Self::new()
