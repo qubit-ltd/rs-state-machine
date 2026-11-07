@@ -447,7 +447,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-state-machine"
-version = "0.11.2"
+version = "0.11.3"
 dependencies = [
  "criterion",
  "qubit-atomic",
