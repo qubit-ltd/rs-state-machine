@@ -17,5 +17,5 @@ use libfuzzer_sys::fuzz_target;
 mod support;
 
 fuzz_target!(|data: &[u8]| {
-    support::run_differential(data);
+    support::differential::run_differential(data);
 });

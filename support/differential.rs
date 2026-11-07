@@ -21,7 +21,7 @@ use qubit_state_machine::TypedFastStateMachine;
 use qubit_state_machine::TypedFastStateMachineBuildError;
 use qubit_state_machine::TypedFastStateMachineError;
 
-use super::BuilderOutcome;
+use super::builder_cases::BuilderOutcome;
 
 /// Fixed typed state domain; generated traces only visit their declared subset.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

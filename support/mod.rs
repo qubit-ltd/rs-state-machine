@@ -7,14 +7,15 @@
 // =============================================================================
 //
 //! Shared bounded fuzz harnesses exercised by ordinary regression tests.
-mod builder_cases;
+pub(crate) mod builder_cases;
+#[cfg(test)]
 pub use builder_cases::BuilderOutcome;
-#[cfg(feature = "fast")]
+#[cfg(all(test, feature = "fast"))]
 pub use builder_cases::run_fast_builder;
-#[cfg(feature = "standard")]
+#[cfg(all(test, feature = "standard"))]
 pub use builder_cases::run_standard_builder;
 
 #[cfg(all(feature = "fast", feature = "standard"))]
-mod differential;
-#[cfg(all(feature = "fast", feature = "standard"))]
+pub(crate) mod differential;
+#[cfg(all(test, feature = "fast", feature = "standard"))]
 pub use differential::run_differential;

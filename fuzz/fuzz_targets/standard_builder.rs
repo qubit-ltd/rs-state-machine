@@ -13,5 +13,5 @@ use libfuzzer_sys::fuzz_target;
 #[path = "../../support/mod.rs"]
 mod support;
 fuzz_target!(|data: &[u8]| {
-    let _outcome = support::run_standard_builder(data);
+    let _outcome = support::builder_cases::run_standard_builder(data);
 });
