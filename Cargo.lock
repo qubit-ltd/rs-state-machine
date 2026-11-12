@@ -34,9 +34,9 @@ checksum = "940b3a0ca603d1eade50a4846a2afffd5ef57a9feac2c0e2ec2e14f9ead76000"
 
 [[package]]
 name = "arc-swap"
-version = "1.9.3"
+version = "1.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "380962b3d93b99642e50b9febf72c071e97e8b32d86eae9cf4ef582bb960ae6e"
+checksum = "84a22b5d51209f6de83d37a0b33d320acb8da88823e42a94c075140708f032a5"
 dependencies = [
  "rustversion",
 ]
@@ -263,9 +263,9 @@ dependencies = [
 
 [[package]]
 name = "itoa"
-version = "1.0.18"
+version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
+checksum = "3bd1574e617a9a6c1f8f8181bd7e841e1f20e4277607ef28945765188d6284d4"
 
 [[package]]
 name = "js-sys"
@@ -366,9 +366,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-atomic"
-version = "0.17.7"
+version = "0.17.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d5df025ab5e5ed8970f3863494315fb5218ab025701efdbe8866e825f318e3e"
+checksum = "847020085c1ae09a7861859d749637429d75a0b76bcd73e00b78d3593f54eba3"
 dependencies = [
  "arc-swap",
  "portable-atomic",
@@ -376,9 +376,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-budget"
-version = "0.10.2"
+version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbaf131a60bf8f47c8211e46392d3a27b16b413b131be68d4e33e3372dc86d42"
+checksum = "69c4626ee27ff1e9e818a0791e9b4ee2dff0026d7ef1b0424b7cd285e6de6d0f"
 dependencies = [
  "qubit-clock",
  "thiserror",
@@ -386,9 +386,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-cas"
-version = "0.12.4"
+version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02a71d4aa0f8a06f595bc17c100b65d95451f689b5795f7f64df3e596b0c2aff"
+checksum = "4888830bf1a1f5bd887ebe4624eefd036c7e24c3e49b7f1ecc152559c0e295ef"
 dependencies = [
  "qubit-atomic",
  "qubit-error",
@@ -398,9 +398,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-clock"
-version = "0.13.5"
+version = "0.13.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c840e581856bfaf2093ce10956a3bbc7d29347e4f226f814da71dc8508b91575"
+checksum = "bd0b8b77730b8c3ca744d8f4fd0e9b6d5d80755d1711f8df2a2ac950a722f3f4"
 dependencies = [
  "qubit-collections",
  "thiserror",
@@ -408,36 +408,36 @@ dependencies = [
 
 [[package]]
 name = "qubit-collections"
-version = "0.2.4"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8c9532c5454a601da6bd2ec81419a82421d190aa77b09e068f2898dc498519a"
+checksum = "2c9a09506a51e914b26b5bf9407ef5df62e67f709458fca64ad04dc0bd943622"
 dependencies = [
  "hashbrown",
 ]
 
 [[package]]
 name = "qubit-error"
-version = "0.2.8"
+version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be20c5befe25b6ded7fa31a8b944507aba741c57b380b1c17e2fc3f6ac11832f"
+checksum = "cbbd27d986e0818fd95ee991f5d3c457f8e83afda272a415bf855cab63064c1d"
 
 [[package]]
 name = "qubit-fast-cas"
-version = "0.3.3"
+version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7df8c8d112e6afed27d21e7ac1830536634ca3fefdea0e7cc91c18dfb5673724"
+checksum = "4b21a7f235bd77aa62de91190d043128e9f561ac48268c2ad36899f7ee4d7181"
 
 [[package]]
 name = "qubit-function"
-version = "0.18.4"
+version = "0.18.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "926535037c6ce39d1f1560d968198591045cf076a6c3dde23a47742967bf5464"
+checksum = "f16834da1c2ae73cb26538a3473ded054e3fef1bdd65803eba1655c506b29e22"
 
 [[package]]
 name = "qubit-retry"
-version = "0.26.2"
+version = "0.26.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "039fc46ab204522dd8c71ea5308d620ecf9b63c81390f4ba4a5bb0fc7e26666e"
+checksum = "dcb43b1fb82f7d10ad8ce1828a32de775835545c1983a79f1752b8addd19ab6b"
 dependencies = [
  "fastrand",
  "qubit-budget",
@@ -447,7 +447,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-state-machine"
-version = "0.11.3"
+version = "0.11.4"
 dependencies = [
  "criterion",
  "qubit-atomic",
@@ -556,7 +556,7 @@ checksum = "e7a5d71263a5a7d47b41f6b3f06ba276f10cc18b0931f1799f710578e2309348"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.9",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -597,9 +597,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "3.0.9"
+version = "3.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d78c8dee4c7bf0e14673097256fed6142ce9d3b85a408189d07482442145823b"
+checksum = "4ae9ccbea3a7b0b09443036490c8f34a8b1b760fd345e5c0dae0aac718faea79"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -623,7 +623,7 @@ checksum = "fe5197923287db20a58125f0bc85c062f7f2c892de97b18c356f9efb14b28524"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 3.0.9",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -683,7 +683,7 @@ dependencies = [
  "bumpalo",
  "proc-macro2",
  "quote",
- "syn 3.0.9",
+ "syn 3.0.10",
  "wasm-bindgen-shared",
 ]
 
