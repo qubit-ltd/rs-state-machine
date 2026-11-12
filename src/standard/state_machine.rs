@@ -196,6 +196,10 @@ where
     /// A report listing registered states unreachable from the initial state
     /// and states unable to reach an explicit terminal state.
     ///
+    /// The order of findings is not guaranteed to be stable because states
+    /// are collected from hash-based storage. Sort findings in the caller when
+    /// comparing reports independently of their discovery order.
+    ///
     /// # Performance
     /// Each call recomputes the report without caching. It scans the transition
     /// `HashMap` and builds state-index mappings and forward and reverse
