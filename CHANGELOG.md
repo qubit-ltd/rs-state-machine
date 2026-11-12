@@ -1,5 +1,37 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Clarified graph diagnostic ordering and equality semantics in Rustdoc, with a
+  sorted comparison example. (current revision)
+
+## 0.11.3
+
+### Changed
+
+- Exposed shared fuzz harness modules for reuse by fuzz targets. (8962794)
+- Refreshed dependency lockfiles. (da6cea1)
+
+## 0.11.2
+
+### Changed
+
+- Installed and ran the repository style analyzer in CI. (682e0ce)
+- Removed an unused import allowance from the differential fuzz target.
+  (8beed3d)
+- Refreshed dependency lockfiles. (770c433)
+
+## 0.11.1
+
+### Changed
+
+- Clarified state machine contracts and streamlined implementation paths,
+  including graph diagnostics, typed Fast behavior, and related tests.
+  (3e297f8)
+- Refreshed dependency lockfiles for the 0.11.1 package version. (f6c4b0c)
+
 ## 0.11.0
 
 ### Changed
