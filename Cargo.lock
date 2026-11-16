@@ -49,9 +49,9 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "bumpalo"
-version = "3.20.3"
+version = "3.20.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72f5acc6cb2ba439de613abc23857ec3d78374d8ed5ac84e9d11336e87da8649"
+checksum = "87a0cf66fd1eb2fb7b822cb78370d82303750809bc6ba855f3f58e517d3238db"
 
 [[package]]
 name = "cast"
@@ -61,9 +61,9 @@ checksum = "37b2a672a2cb129a2e41c10b1224bb368f9f37a2b16b612598138befd7b37eb5"
 
 [[package]]
 name = "cc"
-version = "1.11.1"
+version = "1.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ff2a8126fff0f8c839080d619675a585e61720bb12d2baceae45769fd66f155"
+checksum = "33ef9e3e8154a45c7a95cff4c1299702106ad94062d7bb85fdc5d3a5afd91d45"
 dependencies = [
  "find-msvc-tools",
  "shlex",
@@ -366,9 +366,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-atomic"
-version = "0.17.9"
+version = "0.17.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "847020085c1ae09a7861859d749637429d75a0b76bcd73e00b78d3593f54eba3"
+checksum = "b4b81fd24e2179ee885b78b672aacc27c9f62f41092ef1b258048d9743efe246"
 dependencies = [
  "arc-swap",
  "portable-atomic",
@@ -376,9 +376,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-budget"
-version = "0.10.3"
+version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69c4626ee27ff1e9e818a0791e9b4ee2dff0026d7ef1b0424b7cd285e6de6d0f"
+checksum = "560adfab9ea973d61949de25be0b547f9e518ac7f9ceafd2146c67cdb634dc4f"
 dependencies = [
  "qubit-clock",
  "thiserror",
@@ -386,9 +386,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-cas"
-version = "0.12.6"
+version = "0.12.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81b151c1458e963f6c373f6199cc77886d6f64325fad34ccb80559e87ccb2215"
+checksum = "9919b45674872bd8a4d2ba0f46d33492a275a17330abc1fe9a7668254bd577d1"
 dependencies = [
  "qubit-atomic",
  "qubit-error",
@@ -398,9 +398,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-clock"
-version = "0.13.6"
+version = "0.13.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd0b8b77730b8c3ca744d8f4fd0e9b6d5d80755d1711f8df2a2ac950a722f3f4"
+checksum = "0e0136a48bd424268e68d5cd2c77e68451a27119b6bca8f322dacf57e5160a7c"
 dependencies = [
  "qubit-collections",
  "thiserror",
@@ -408,9 +408,9 @@ dependencies = [
 
 [[package]]
 name = "qubit-collections"
-version = "0.2.6"
+version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c9a09506a51e914b26b5bf9407ef5df62e67f709458fca64ad04dc0bd943622"
+checksum = "c527754f2a853857f9bbb28c045b9e7bd025d9848ff8496b7cb675e9a3533e40"
 dependencies = [
  "hashbrown",
 ]
@@ -423,21 +423,21 @@ checksum = "cbbd27d986e0818fd95ee991f5d3c457f8e83afda272a415bf855cab63064c1d"
 
 [[package]]
 name = "qubit-fast-cas"
-version = "0.3.4"
+version = "0.3.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b21a7f235bd77aa62de91190d043128e9f561ac48268c2ad36899f7ee4d7181"
+checksum = "f9d0addbf59ca007f40e3adf0d9faef30b946f42bfb0a59b1b4276920a0bfa54"
 
 [[package]]
 name = "qubit-function"
-version = "0.18.6"
+version = "0.18.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f16834da1c2ae73cb26538a3473ded054e3fef1bdd65803eba1655c506b29e22"
+checksum = "7227ce653698731c28e1f13cb783286ef0320e3ae9ecf157061d7e007bea0be2"
 
 [[package]]
 name = "qubit-retry"
-version = "0.26.4"
+version = "0.26.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9de501a80579986a67356e2f7e48815e68d9b692a7f6c8600d5b11fe9ebcc65c"
+checksum = "3b0644c05ebb2ff1922e22955976cfcc8c7ddf51f402f1aaf8ea4fe4a5c7d433"
 dependencies = [
  "fastrand",
  "qubit-budget",
@@ -447,7 +447,7 @@ dependencies = [
 
 [[package]]
 name = "qubit-state-machine"
-version = "0.11.5"
+version = "0.11.6"
 dependencies = [
  "criterion",
  "qubit-atomic",
